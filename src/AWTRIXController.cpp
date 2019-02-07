@@ -18,8 +18,8 @@ String version = "0.33";
 ////////////////////////////////////////////////////////////////
 ///////////////////////// Config begin /////////////////////////
 // Wifi Config
-const char *ssid = "xxxxx";
-const char *password = "xxxxx";
+const char *ssid = "xxxxxx";
+const char *password = "xxxxxx";
 char *awtrix_server = "192.168.178.39";
 
 /// LDR Config
@@ -174,8 +174,8 @@ void callback(char *topic, byte *payload, unsigned int length)
 		}
 		matrix->setTextColor(matrix->Color(json["color"][0].as<int16_t>(), json["color"][1].as<int16_t>(), json["color"][2].as<int16_t>()));
 		String text = json["text"];
-		utf8ascii(text);
-		matrix->print(text);
+		
+		matrix->print(utf8ascii(text));
 	}
 	else if (channel.equals("drawBMP"))
 	{
