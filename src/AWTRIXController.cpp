@@ -13,6 +13,8 @@
 #include <Fonts/TomThumb.h>
 #include <LightDependentResistor.h>
 
+String version = "0.33";
+
 ////////////////////////////////////////////////////////////////
 ///////////////////////// Config begin /////////////////////////
 // Wifi Config
@@ -38,7 +40,7 @@ char *awtrix_server = "192.168.178.39";
 char *topics = "awtrixmatrix/";
 #define NUMMATRIX (32 * 8)
 CRGB leds[NUMMATRIX];
-String version = "0.32";
+
 #ifdef MATRIX_MODEV2
 FastLED_NeoMatrix *matrix = new FastLED_NeoMatrix(leds, 32, 8, NEO_MATRIX_TOP + NEO_MATRIX_LEFT + NEO_MATRIX_ROWS + NEO_MATRIX_ZIGZAG);
 #endif
@@ -55,6 +57,58 @@ LightDependentResistor photocell(LDR_PIN, LDR_RESISTOR, LDR_PHOTOCELL);
 unsigned long startTime = 0;
 unsigned long endTime = 0;
 unsigned long duration;
+
+// ****** UTF8-Decoder: convert UTF8-string to extended ASCII *******
+static byte c1;  // Last character buffer
+
+// Convert a single Character from UTF8 to Extended ASCII
+// Return "0" if a byte has to be ignored
+byte utf8ascii(byte ascii) {
+    if ( ascii<128 )   // Standard ASCII-set 0..0x7F handling  
+    {   c1=0; 
+        return( ascii ); 
+    }
+
+    // get previous input
+    byte last = c1;   // get last char
+    c1=ascii;         // remember actual character
+
+    switch (last)     // conversion depending on first UTF8-character
+    {   case 0xC2: return  (ascii);  break;
+        case 0xC3: return  (ascii | 0xC0);  break;
+        case 0x82: if(ascii==0xAC) return(0x80);       // special case Euro-symbol
+    }
+
+    return  (0);                                     // otherwise: return zero, if character has to be ignored
+}
+
+// convert String object from UTF8 String to Extended ASCII
+String utf8ascii(String s)
+{       
+        String r="";
+        char c;
+        for (int i=0; i<s.length(); i++)
+        {
+                c = utf8ascii(s.charAt(i));
+                if (c!=0) r+=c;
+        }
+        return r;
+}
+
+// In Place conversion UTF8-string to Extended ASCII (ASCII is shorter!)
+void utf8ascii(char* s)
+{       
+        int k=0;
+        char c;
+        for (int i=0; i<strlen(s); i++)
+        {
+                c = utf8ascii(s[i]);
+                if (c!=0) 
+                        s[k++]=c;
+        }
+        s[k]=0;
+}
+
 
 String GetChipID()
 {
@@ -90,6 +144,7 @@ void callback(char *topic, byte *payload, unsigned int length)
 {
 	String s_payload = String((char *)payload);
 
+
 	String s_topic = String(topic);
 	int last = s_topic.lastIndexOf("/") + 1;
 	String channel = s_topic.substring(last);
@@ -119,6 +174,7 @@ void callback(char *topic, byte *payload, unsigned int length)
 		}
 		matrix->setTextColor(matrix->Color(json["color"][0].as<int16_t>(), json["color"][1].as<int16_t>(), json["color"][2].as<int16_t>()));
 		String text = json["text"];
+		utf8ascii(text);
 		matrix->print(text);
 	}
 	else if (channel.equals("drawBMP"))
@@ -194,13 +250,12 @@ void reconnect()
 	{
 
 		// Attempt to connect
-		if (client.connect(("AWTRIXController_" + GetChipID()).c_str(),"matrixstate",0,false,"diconnected"))
+		if (client.connect(("AWTRIXController_" + GetChipID()).c_str()))
 		{
 			// ... and resubscribe
 			client.subscribe((String(topics) + "#").c_str());
 			// ... and publish
 			client.publish("chipid", GetChipID().c_str(), true);
-			client.publish("ip", WiFi.localIP().toString().c_str(), true);
 			client.publish("matrixstate", "connected");
 		}
 		else
@@ -213,15 +268,16 @@ void reconnect()
 
 void setup()
 {
-	matrix->begin();
-	matrix->setTextWrap(false);
-	matrix->setBrightness(127);
-	matrix->setFont(&TomThumb);
-	matrix->setCursor(0, 7);
-	matrix->print("WIFI...");
-	matrix->show();
+	FastLED.addLeds<NEOPIXEL, MATRIX_PIN>(leds, NUMMATRIX).setCorrection(TypicalLEDStrip);
 	WiFi.mode(WIFI_STA);
 	WiFi.begin(ssid, password);
+	matrix->begin();
+	matrix->setTextWrap(false);
+	matrix->setBrightness(80);
+	matrix->setFont(&TomThumb);
+	matrix->setCursor(0, 7);
+	matrix->print("WiFi...");
+	matrix->show();
 	while (WiFi.status() != WL_CONNECTED)
 	{
 		delay(500);
@@ -230,10 +286,10 @@ void setup()
 	MDNS.begin("AWTRIXController");
 
 	photocell.setPhotocellPositionOnGround(false);
-	FastLED.addLeds<NEOPIXEL, MATRIX_PIN>(leds, NUMMATRIX).setCorrection(TypicalLEDStrip);
+	
 	matrix->clear();
 	matrix->setCursor(0, 7);
-	matrix->print("READY!");
+	matrix->print("Ready!");
 	matrix->show();
 
 	httpUpdater.setup(&server);
