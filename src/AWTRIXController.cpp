@@ -19,7 +19,7 @@ String version = "0.33";
 ///////////////////////// Config begin /////////////////////////
 // Wifi Config
 const char *ssid = "xxxxx";
-const char *password = "xxxxx";
+const char *password = "xxxxxx";
 char *awtrix_server = "192.168.178.39";
 
 /// LDR Config
@@ -70,12 +70,12 @@ byte utf8ascii(byte ascii) {
     return ( ascii );
   }
   // get previous input
-  byte last = c1;   // get last char
+byte last = c1;   // get last char
   c1 = ascii;       // remember actual character
   switch (last)     // conversion depending on first UTF8-character
-  { case 0xC2: return  (ascii);  break;
+  { case 0xC2: return  (ascii) - 34;  break;
     case 0xC3: return  (ascii | 0xC0) - 34;  break;// TomThumb extended characters off by 34
-    case 0x82: if (ascii == 0xAC) return (0x80);   // special case Euro-symbol
+    case 0x82: if (ascii == 0xAC) return (0xEA);   // special case Euro-symbol
   }
   return  (0);                                     // otherwise: return zero, if character has to be ignored
 }
@@ -258,12 +258,15 @@ void reconnect()
 	{
 
 		// Attempt to connect
-		if (client.connect(("AWTRIXController_" + GetChipID()).c_str()))
+
+		String clientId = "AWTRIXController-";
+    clientId += String(random(0xffff), HEX);
+
+		if (client.connect(clientId.c_str()))
 		{
 			// ... and resubscribe
 			client.subscribe((String(topics) + "#").c_str());
 			// ... and publish
-			client.publish("chipid", GetChipID().c_str(), true);
 			client.publish("matrixstate", "connected");
 		}
 		else
@@ -310,6 +313,7 @@ void setup()
 
 void loop()
 {
+
 	if (!client.connected())
 	{
 		reconnect();
