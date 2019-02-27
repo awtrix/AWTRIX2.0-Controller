@@ -13,7 +13,7 @@
 #include <Fonts/TomThumb.h>
 #include <LightDependentResistor.h>
 
-String version = "0.36";
+String version = "0.36"; 
 
 #include "awtrix-conf.h"
 
