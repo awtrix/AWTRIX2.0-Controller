@@ -201,7 +201,7 @@ void callback(char *topic, byte *payload, unsigned int length)
 
 		endTime = millis();
 		duration = endTime - startTime;
-		if (duration > 55 || duration < 45)
+		if (duration > 85 || duration < 75)
 		{
 			matrix->setTextColor(matrix->Color(255, 0, 0));
 		}
