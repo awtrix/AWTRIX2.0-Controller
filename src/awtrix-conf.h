@@ -1,8 +1,8 @@
-////////////////////////////////////////////////////////////////
-///////////////////////// Config begin /////////////////////////
+///////////////////////// AWTRIX CONFIG /////////////////////////
+
 // Wifi Config
 const char *ssid = "xxxxx";
-const char *password = "xxxxxx";
+const char *password = "xxxxx";
 char *awtrix_server = "192.168.178.39";
 
 /// LDR Config
@@ -14,3 +14,9 @@ char *awtrix_server = "192.168.178.39";
 #define MATRIX_PIN D2
 //uncomment following line to use Matrixtype 2
 //#define MATRIX_MODEV2
+
+// Gesture Config
+#define GESTURE false
+#define APDS9960_INT    D6
+#define APDS9960_SDA    D3
+#define APDS9960_SCL    D1

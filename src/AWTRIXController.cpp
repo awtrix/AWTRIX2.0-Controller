@@ -1,9 +1,6 @@
-#include <ESP8266WebServer.h>
-#include <ESP8266HTTPUpdateServer.h>
+#include <ArduinoOTA.h>
 #include <ESP8266WiFi.h>
 #include <WiFiClient.h>
-#include <ESP8266mDNS.h>
-#include <DNSServer.h>
 #include <PubSubClient.h>
 #include <FS.h>
 #include <ArduinoJson.h>
@@ -12,8 +9,10 @@
 #include <FastLED_NeoMatrix.h>
 #include <Fonts/TomThumb.h>
 #include <LightDependentResistor.h>
+#include <Wire.h>
+#include <SparkFun_APDS9960.h>
 
-String version = "0.36"; 
+String version = "0.4"; 
 
 #include "awtrix-conf.h"
 
@@ -32,20 +31,18 @@ FastLED_NeoMatrix *matrix = new FastLED_NeoMatrix(leds, 32, 8, NEO_MATRIX_TOP + 
 
 WiFiClient espClient;
 PubSubClient client(espClient);
-ESP8266WebServer server(80);
-ESP8266HTTPUpdateServer httpUpdater;
 LightDependentResistor photocell(LDR_PIN, LDR_RESISTOR, LDR_PHOTOCELL);
+SparkFun_APDS9960 apds = SparkFun_APDS9960();
+
 
 unsigned long startTime = 0;
 unsigned long endTime = 0;
 unsigned long duration;
+volatile bool isr_flag = 0;
+bool updating = false;
 
-// from http://playground.arduino.cc/Main/Utf8ascii
-// ****** UTF8-Decoder: convert UTF8-string to extended ASCII *******
 static byte c1;  // Last character buffer
 
-// Convert a single Character from UTF8 to Extended ASCII
-// Return "0" if a byte has to be ignored
 byte utf8ascii(byte ascii) {
   if ( ascii < 128 ) // Standard ASCII-set 0..0x7F handling
   { c1 = 0;
@@ -56,10 +53,10 @@ byte last = c1;   // get last char
   c1 = ascii;       // remember actual character
   switch (last)     // conversion depending on first UTF8-character
   { case 0xC2: return  (ascii) - 34;  break;
-    case 0xC3: return  (ascii | 0xC0) - 34;  break;// TomThumb extended characters off by 34
-    case 0x82: if (ascii == 0xAC) return (0xEA);   // special case Euro-symbol
+    case 0xC3: return  (ascii | 0xC0) - 34;  break;
+    case 0x82: if (ascii == 0xAC) return (0xEA);   
   }
-  return  (0);                                     // otherwise: return zero, if character has to be ignored
+  return  (0);
 }
 
 // convert String object from UTF8 String to Extended ASCII
@@ -112,11 +109,6 @@ int GetRSSIasQuality(int rssi)
 	return quality;
 }
 
-void handleNotFound()
-{
-	server.sendHeader("Location", String("/update"), true);
-	server.send(302, "text/plain", "");
-}
 
 void callback(char *topic, byte *payload, unsigned int length)
 {
@@ -228,7 +220,6 @@ void callback(char *topic, byte *payload, unsigned int length)
 	else if (channel.equals("getLUX"))
 	{
 		StaticJsonBuffer<200> jsonBuffer;
-
 		client.publish("matrixLux", String(photocell.getCurrentLux()).c_str());
 	}
 }
@@ -238,7 +229,6 @@ void reconnect()
 	// Loop until we're reconnected
 	while (!client.connected())
 	{
-
 		// Attempt to connect
 
 		String clientId = "AWTRIXController-";
@@ -259,6 +249,67 @@ void reconnect()
 	}
 }
 
+
+void interruptRoutine() {
+  isr_flag = 1;
+}
+
+void handleGesture() {
+    if (apds.isGestureAvailable()) {
+    switch ( apds.readGesture() ) {
+      case DIR_UP:
+        client.publish("control", "UP");
+        break;
+      case DIR_DOWN:
+        client.publish("control", "DOWN");
+        break;
+      case DIR_LEFT:
+     client.publish("control", "LEFT");
+        break;
+      case DIR_RIGHT:
+       client.publish("control", "RIGHT");
+        break;
+      case DIR_NEAR:
+         client.publish("control", "NEAR");
+        break;
+      case DIR_FAR:
+        client.publish("control", "FAR");
+        break;
+      default:
+        client.publish("control", "NONE");
+    }
+  }
+}
+
+uint32_t Wheel(byte WheelPos, int pos) {
+  if(WheelPos < 85) {
+   return matrix->Color((WheelPos * 3)-pos, (255 - WheelPos * 3)-pos, 0);
+  } else if(WheelPos < 170) {
+   WheelPos -= 85;
+   return matrix->Color((255 - WheelPos * 3)-pos, 0, (WheelPos * 3)-pos);
+  } else {
+   WheelPos -= 170;
+   return matrix->Color(0, (WheelPos * 3)-pos, (255 - WheelPos * 3)-pos);
+  }
+}
+
+void flashProgress(unsigned int progress, unsigned int total) {
+    matrix->setBrightness(100);   
+    long num = 32 * 8 * progress / total;
+    for (unsigned char y = 0; y < 8; y++) {
+        for (unsigned char x = 0; x < 32; x++) {
+            if (num-- > 0) matrix->drawPixel(x, 8 - y - 1, Wheel((num*16) & 255,0));
+        }
+    }
+    matrix->setCursor(0, 6);
+
+		matrix->setTextColor(matrix->Color(255, 255, 255));
+    matrix->print("FLASHING");
+
+    matrix->show();
+}
+
+
 void setup()
 {
 	FastLED.addLeds<NEOPIXEL, MATRIX_PIN>(leds, NUMMATRIX).setCorrection(TypicalLEDStrip);
@@ -268,7 +319,7 @@ void setup()
 	matrix->setTextWrap(false);
 	matrix->setBrightness(80);
 	matrix->setFont(&TomThumb);
-	matrix->setCursor(0, 7);
+	matrix->setCursor(7, 6);
 	matrix->print("WiFi...");
 	matrix->show();
 	while (WiFi.status() != WL_CONNECTED)
@@ -276,32 +327,55 @@ void setup()
 		delay(500);
 	}
 
-	MDNS.begin("AWTRIXController");
 
 	photocell.setPhotocellPositionOnGround(false);
 	
 	matrix->clear();
-	matrix->setCursor(0, 7);
+	matrix->setCursor(6, 6);
 	matrix->print("Ready!");
 	matrix->show();
 
-	httpUpdater.setup(&server);
-	server.onNotFound(handleNotFound);
-	server.begin();
-
 	client.setServer(awtrix_server, 7001);
 	client.setCallback(callback);
+
+
+#if GESTURE
+	Wire.begin(APDS9960_SDA,APDS9960_SCL);
+  pinMode(APDS9960_INT, INPUT);
+	attachInterrupt(APDS9960_INT, interruptRoutine, FALLING);
+  apds.init();
+  apds.enableGestureSensor(true);
+#endif
+
+ ArduinoOTA.onStart([&]() {
+	  updating = true;
+				matrix->clear();
+    });
+
+    ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
+         flashProgress(progress, total);
+    });
+
+    ArduinoOTA.begin();
+
 }
 
 void loop()
 {
+ ArduinoOTA.handle();
 
+ if (!updating) {
 	if (!client.connected())
 	{
 		reconnect();
+	}else{
+		if(isr_flag == 1 && GESTURE) {
+    detachInterrupt(APDS9960_INT);
+    handleGesture();
+    isr_flag = 0;
+    attachInterrupt(APDS9960_INT, interruptRoutine, FALLING);
+  }
+		client.loop();
 	}
-	client.loop();
-
-	server.handleClient();
-	MDNS.update();
+ }
 }
