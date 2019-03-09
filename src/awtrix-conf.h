@@ -17,6 +17,8 @@ char *awtrix_server = "192.168.178.39";
 
 // Gesture Config
 #define GESTURE false
+//Power APDS9960 only with 3.3V!
 #define APDS9960_INT    D6
 #define APDS9960_SDA    D3
 #define APDS9960_SCL    D1
+
