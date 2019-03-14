@@ -16,7 +16,7 @@
 SoftwareSerial mySoftwareSerial(13, 15); // RX, TX
 DFRobotDFPlayerMini myDFPlayer;
 
-String version = "0.4"; 
+String version = "0.5"; 
 
 #include "awtrix-conf.h"
 
@@ -186,8 +186,9 @@ void callback(char *topic, byte *payload, unsigned int length)
 	{
 		matrix->drawPixel(json["x"].as<int16_t>(), json["y"].as<int16_t>(), matrix->Color(json["color"][0].as<int16_t>(), json["color"][1].as<int16_t>(), json["color"][2].as<int16_t>()));
 	}
-	else if (type.equals("playmp3"))
+	else if (channel.equals("playmp3"))
 	{
+	 myDFPlayer.volume(20);
  	 myDFPlayer.playMp3Folder(json["file"].as<int16_t>());
 	}
 	else if (channel.equals("setBrightness"))
@@ -322,7 +323,7 @@ void setup()
 {
 	mySoftwareSerial.begin(9600);
 	myDFPlayer.begin(mySoftwareSerial);
-	myDFPlayer.volume(15);
+	myDFPlayer.volume(10);
 	FastLED.addLeds<NEOPIXEL, MATRIX_PIN>(leds, NUMMATRIX).setCorrection(TypicalLEDStrip);
 	WiFi.mode(WIFI_STA);
 	WiFi.begin(ssid, password);
