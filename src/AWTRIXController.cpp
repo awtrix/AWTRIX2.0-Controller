@@ -11,6 +11,10 @@
 #include <LightDependentResistor.h>
 #include <Wire.h>
 #include <SparkFun_APDS9960.h>
+#include "SoftwareSerial.h"
+#include "DFRobotDFPlayerMini.h"
+SoftwareSerial mySoftwareSerial(13, 15); // RX, TX
+DFRobotDFPlayerMini myDFPlayer;
 
 String version = "0.4"; 
 
@@ -182,6 +186,10 @@ void callback(char *topic, byte *payload, unsigned int length)
 	{
 		matrix->drawPixel(json["x"].as<int16_t>(), json["y"].as<int16_t>(), matrix->Color(json["color"][0].as<int16_t>(), json["color"][1].as<int16_t>(), json["color"][2].as<int16_t>()));
 	}
+	else if (type.equals("playmp3"))
+	{
+ 	 myDFPlayer.playMp3Folder(json["file"].as<int16_t>());
+	}
 	else if (channel.equals("setBrightness"))
 	{
 		matrix->setBrightness(json["brightness"].as<int16_t>());
@@ -312,6 +320,9 @@ void flashProgress(unsigned int progress, unsigned int total) {
 
 void setup()
 {
+	mySoftwareSerial.begin(9600);
+	myDFPlayer.begin(mySoftwareSerial);
+	myDFPlayer.volume(15);
 	FastLED.addLeds<NEOPIXEL, MATRIX_PIN>(leds, NUMMATRIX).setCorrection(TypicalLEDStrip);
 	WiFi.mode(WIFI_STA);
 	WiFi.begin(ssid, password);
