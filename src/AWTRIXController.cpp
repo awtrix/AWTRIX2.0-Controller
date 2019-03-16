@@ -13,8 +13,6 @@
 #include <SparkFun_APDS9960.h>
 #include "SoftwareSerial.h"
 #include "DFRobotDFPlayerMini.h"
-SoftwareSerial mySoftwareSerial(13, 15); // RX, TX
-DFRobotDFPlayerMini myDFPlayer;
 
 String version = "0.5"; 
 
@@ -37,7 +35,8 @@ WiFiClient espClient;
 PubSubClient client(espClient);
 LightDependentResistor photocell(LDR_PIN, LDR_RESISTOR, LDR_PHOTOCELL);
 SparkFun_APDS9960 apds = SparkFun_APDS9960();
-
+SoftwareSerial mySoftwareSerial(13, 15); // RX, TX
+DFRobotDFPlayerMini myDFPlayer;
 
 unsigned long startTime = 0;
 unsigned long endTime = 0;
@@ -188,7 +187,7 @@ void callback(char *topic, byte *payload, unsigned int length)
 	}
 	else if (channel.equals("playmp3"))
 	{
-	 myDFPlayer.volume(20);
+
  	 myDFPlayer.playMp3Folder(json["file"].as<int16_t>());
 	}
 	else if (channel.equals("setBrightness"))
@@ -323,7 +322,7 @@ void setup()
 {
 	mySoftwareSerial.begin(9600);
 	myDFPlayer.begin(mySoftwareSerial);
-	myDFPlayer.volume(10);
+	myDFPlayer.volume(30);
 	FastLED.addLeds<NEOPIXEL, MATRIX_PIN>(leds, NUMMATRIX).setCorrection(TypicalLEDStrip);
 	WiFi.mode(WIFI_STA);
 	WiFi.begin(ssid, password);
