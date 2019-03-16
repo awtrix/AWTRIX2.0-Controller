@@ -185,10 +185,10 @@ void callback(char *topic, byte *payload, unsigned int length)
 	{
 		matrix->drawPixel(json["x"].as<int16_t>(), json["y"].as<int16_t>(), matrix->Color(json["color"][0].as<int16_t>(), json["color"][1].as<int16_t>(), json["color"][2].as<int16_t>()));
 	}
-	else if (channel.equals("playmp3"))
+	else if (channel.equals("play"))
 	{
-
- 	 myDFPlayer.playMp3Folder(json["file"].as<int16_t>());
+	myDFPlayer.volume(json["vol"].as<int8>());
+ 	myDFPlayer.playFolder(json["folder"].as<int8>(),json["file"].as<int8>());
 	}
 	else if (channel.equals("setBrightness"))
 	{
