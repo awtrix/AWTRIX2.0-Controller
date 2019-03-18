@@ -320,9 +320,6 @@ void flashProgress(unsigned int progress, unsigned int total) {
 
 void setup()
 {
-	mySoftwareSerial.begin(9600);
-	myDFPlayer.begin(mySoftwareSerial);
-	myDFPlayer.volume(30);
 	FastLED.addLeds<NEOPIXEL, MATRIX_PIN>(leds, NUMMATRIX).setCorrection(TypicalLEDStrip);
 	WiFi.mode(WIFI_STA);
 	WiFi.begin(ssid, password);
@@ -368,7 +365,9 @@ void setup()
     });
 
     ArduinoOTA.begin();
-
+	mySoftwareSerial.begin(9600);
+	myDFPlayer.begin(mySoftwareSerial);
+	myDFPlayer.volume(30);
 }
 
 void loop()
