@@ -13,39 +13,36 @@
 #include <SparkFun_APDS9960.h>
 #include "SoftwareSerial.h"
 #include "DFRobotDFPlayerMini.h"
-
-String version = "0.5"; 
-
 #include "awtrix-conf.h"
 
-//////////////////////////////////////////////////////////////
-//////////////////////// Don't touch /////////////////////////
-char *topics = "awtrixmatrix/";
-#define NUMMATRIX (32 * 8)
-CRGB leds[NUMMATRIX];
+String version = "0.7"; 
 
+#ifndef USB_CONNECTION
+	WiFiClient espClient;
+	PubSubClient client(espClient);
+#endif
+
+
+LightDependentResistor photocell(LDR_PIN, LDR_RESISTOR, LDR_PHOTOCELL);
+	#define APDS9960_INT    D6
+	#define APDS9960_SDA    D3
+	#define APDS9960_SCL    D1
+	SparkFun_APDS9960 apds = SparkFun_APDS9960();
+	volatile bool isr_flag = 0;
+	SoftwareSerial mySoftwareSerial(13, 15); // RX, TX
+	DFRobotDFPlayerMini myDFPlayer;
+
+
+CRGB leds[256];
 #ifdef MATRIX_MODEV2
 FastLED_NeoMatrix *matrix = new FastLED_NeoMatrix(leds, 32, 8, NEO_MATRIX_TOP + NEO_MATRIX_LEFT + NEO_MATRIX_ROWS + NEO_MATRIX_ZIGZAG);
-#endif
-#ifndef MATRIX_MODEV2
+#else
 FastLED_NeoMatrix *matrix = new FastLED_NeoMatrix(leds, 32, 8, NEO_MATRIX_TOP + NEO_MATRIX_LEFT + NEO_MATRIX_COLUMNS + NEO_MATRIX_ZIGZAG);
 #endif
 
-WiFiClient espClient;
-PubSubClient client(espClient);
-LightDependentResistor photocell(LDR_PIN, LDR_RESISTOR, LDR_PHOTOCELL);
-SparkFun_APDS9960 apds = SparkFun_APDS9960();
-SoftwareSerial mySoftwareSerial(13, 15); // RX, TX
-DFRobotDFPlayerMini myDFPlayer;
 
-unsigned long startTime = 0;
-unsigned long endTime = 0;
-unsigned long duration;
-volatile bool isr_flag = 0;
 bool updating = false;
-
 static byte c1;  // Last character buffer
-
 byte utf8ascii(byte ascii) {
   if ( ascii < 128 ) // Standard ASCII-set 0..0x7F handling
   { c1 = 0;
@@ -62,7 +59,6 @@ byte last = c1;   // get last char
   return  (0);
 }
 
-// convert String object from UTF8 String to Extended ASCII
 String utf8ascii(String s) {
   String r = "";
   char c;
@@ -74,7 +70,6 @@ String utf8ascii(String s) {
   return r;
 }
 
-// In Place conversion UTF8-string to Extended ASCII (ASCII is shorter!)
 void utf8ascii(char* s) {
   int k = 0;
   char c;
@@ -112,7 +107,11 @@ int GetRSSIasQuality(int rssi)
 	return quality;
 }
 
+unsigned long startTime = 0;
+unsigned long endTime = 0;
+unsigned long duration;
 
+#ifndef USB_CONNECTION
 void callback(char *topic, byte *payload, unsigned int length)
 {
 	String s_payload = String((char *)payload);
@@ -234,28 +233,142 @@ void callback(char *topic, byte *payload, unsigned int length)
 
 void reconnect()
 {
-	// Loop until we're reconnected
 	while (!client.connected())
 	{
-		// Attempt to connect
-
 		String clientId = "AWTRIXController-";
     clientId += String(random(0xffff), HEX);
-
 		if (client.connect(clientId.c_str()))
 		{
-			// ... and resubscribe
-			client.subscribe((String(topics) + "#").c_str());
-			// ... and publish
+			client.subscribe("awtrixmatrix/#");
 			client.publish("matrixstate", "connected");
 		}
 		else
 		{
-			// Wait 5 seconds before retrying
 			delay(5000);
 		}
 	}
 }
+#else
+void processing(String cmd)
+{
+	DynamicJsonBuffer jsonBuffer;
+	JsonObject &json = jsonBuffer.parseObject(cmd);
+
+		String type = json["type"];
+
+	if (type.equals("show"))
+	{
+		matrix->show();
+	}
+	else if (type.equals("clear"))
+	{
+		matrix->clear();
+	}
+	else if (type.equals("drawText"))
+	{
+		if (json["font"].as<String>().equals("big"))
+		{
+			matrix->setFont();
+			matrix->setCursor(json["x"].as<int16_t>(), json["y"].as<int16_t>() - 1);
+		}
+		else
+		{
+			matrix->setFont(&TomThumb);
+			matrix->setCursor(json["x"].as<int16_t>(), json["y"].as<int16_t>() + 5);
+		}
+		matrix->setTextColor(matrix->Color(json["color"][0].as<int16_t>(), json["color"][1].as<int16_t>(), json["color"][2].as<int16_t>()));
+		String text = json["text"];
+		
+		matrix->print(utf8ascii(text));
+	}
+	else if (type.equals("drawBMP"))
+	{
+		int16_t h = json["height"].as<int16_t>();
+		int16_t w = json["width"].as<int16_t>();
+		int16_t x = json["x"].as<int16_t>();
+		int16_t y = json["y"].as<int16_t>();
+
+		for (int16_t j = 0; j < h; j++, y++)
+		{
+			for (int16_t i = 0; i < w; i++)
+			{
+				matrix->drawPixel(x + i, y, json["bmp"][j * w + i].as<int16_t>());
+			}
+		}
+	}
+	else if (type.equals("drawLine"))
+	{
+		matrix->drawLine(json["x0"].as<int16_t>(), json["y0"].as<int16_t>(), json["x1"].as<int16_t>(), json["y1"].as<int16_t>(), matrix->Color(json["color"][0].as<int16_t>(), json["color"][1].as<int16_t>(), json["color"][2].as<int16_t>()));
+	}
+	else if (type.equals("drawCircle"))
+	{
+		matrix->drawCircle(json["x0"].as<int16_t>(), json["y0"].as<int16_t>(), json["r"].as<int16_t>(), matrix->Color(json["color"][0].as<int16_t>(), json["color"][1].as<int16_t>(), json["color"][2].as<int16_t>()));
+	}
+	else if (type.equals("drawRect"))
+	{
+		matrix->drawRect(json["x"].as<int16_t>(), json["y"].as<int16_t>(), json["w"].as<int16_t>(), json["h"].as<int16_t>(), matrix->Color(json["color"][0].as<int16_t>(), json["color"][1].as<int16_t>(), json["color"][2].as<int16_t>()));
+	}
+		else if (type.equals("fill"))
+	{
+		matrix->fillScreen(matrix->Color(json["color"][0].as<int16_t>(), json["color"][1].as<int16_t>(), json["color"][2].as<int16_t>()));
+	}
+	else if (type.equals("drawPixel"))
+	{
+		matrix->drawPixel(json["x"].as<int16_t>(), json["y"].as<int16_t>(), matrix->Color(json["color"][0].as<int16_t>(), json["color"][1].as<int16_t>(), json["color"][2].as<int16_t>()));
+	}
+	else if (type.equals("setBrightness"))
+	{
+		matrix->setBrightness(json["brightness"].as<int16_t>());
+	}
+		else if (type.equals("play"))
+	{
+	myDFPlayer.volume(json["vol"].as<int8>());
+ 	myDFPlayer.playFolder(json["folder"].as<int8>(),json["file"].as<int8>());
+	}
+	else if (type.equals("speedtest"))
+	{
+		matrix->setFont(&TomThumb);
+		matrix->setCursor(0, 7);
+
+		endTime = millis();
+		duration = endTime - startTime;
+		if (duration > 85 || duration < 75)
+		{
+			matrix->setTextColor(matrix->Color(255, 0, 0));
+		}
+		else
+		{
+			matrix->setTextColor(matrix->Color(0, 255, 0));
+		}
+		matrix->print(duration);
+		startTime = millis();
+	}
+	else if (type.equals("getMatrixInfo"))
+	{
+		StaticJsonBuffer<200> jsonBuffer;
+		JsonObject& root = jsonBuffer.createObject();
+		root["version"] = version;
+		root["wifirssi"] = String(WiFi.RSSI());
+		root["wifiquality"] =GetRSSIasQuality(WiFi.RSSI());
+		root["wifissid"] =WiFi.SSID();
+		root["getIP"] =WiFi.localIP().toString();
+		String JS;
+		root.printTo(JS);
+		Serial.println(String(JS));
+	}
+	else if (type.equals("getLUX"))
+	{
+		StaticJsonBuffer<200> jsonBuffer;
+		JsonObject& root = jsonBuffer.createObject();
+		root["LUX"] = photocell.getCurrentLux();
+		String JS;
+		root.printTo(JS);
+		Serial.println(String(JS));
+	}
+}
+
+
+#endif
 
 
 void interruptRoutine() {
@@ -263,31 +376,42 @@ void interruptRoutine() {
 }
 
 void handleGesture() {
+		String control;
     if (apds.isGestureAvailable()) {
     switch ( apds.readGesture() ) {
       case DIR_UP:
-        client.publish("control", "UP");
+			control = "UP";
         break;
       case DIR_DOWN:
-        client.publish("control", "DOWN");
+			control = "DOWN";
         break;
       case DIR_LEFT:
-     client.publish("control", "LEFT");
+			control = "LEFT";
         break;
       case DIR_RIGHT:
-       client.publish("control", "RIGHT");
+				control = "RIGHT";
         break;
       case DIR_NEAR:
-         client.publish("control", "NEAR");
+				control = "NEAR";
         break;
       case DIR_FAR:
-        client.publish("control", "FAR");
+				control = "FAR";
         break;
       default:
-        client.publish("control", "NONE");
+				control = "NONE";
     }
+		#ifdef USB_CONNECTION
+			StaticJsonBuffer<200> jsonBuffer;
+			JsonObject& root = jsonBuffer.createObject();
+			String JS;
+			root.printTo(JS);
+			Serial.println(String(JS));
+		#else
+			client.publish("control", control.c_str());
+		#endif
   }
 }
+
 
 uint32_t Wheel(byte WheelPos, int pos) {
   if(WheelPos < 85) {
@@ -320,7 +444,7 @@ void flashProgress(unsigned int progress, unsigned int total) {
 
 void setup()
 {
-	FastLED.addLeds<NEOPIXEL, MATRIX_PIN>(leds, NUMMATRIX).setCorrection(TypicalLEDStrip);
+	FastLED.addLeds<NEOPIXEL, D2>(leds, 265).setCorrection(TypicalLEDStrip);
 	WiFi.mode(WIFI_STA);
 	WiFi.begin(ssid, password);
 	matrix->begin();
@@ -335,25 +459,26 @@ void setup()
 		delay(500);
 	}
 
-
-	photocell.setPhotocellPositionOnGround(false);
-	
 	matrix->clear();
 	matrix->setCursor(6, 6);
+	matrix->setTextColor(matrix->Color(0,255,0));
 	matrix->print("Ready!");
 	matrix->show();
 
+	photocell.setPhotocellPositionOnGround(false);
+
+ #ifdef USB_CONNECTION
+	Serial.begin(115200);
+#else
 	client.setServer(awtrix_server, 7001);
 	client.setCallback(callback);
+	#endif
 
-
-#if GESTURE
 	Wire.begin(APDS9960_SDA,APDS9960_SCL);
   pinMode(APDS9960_INT, INPUT);
 	attachInterrupt(APDS9960_INT, interruptRoutine, FALLING);
   apds.init();
   apds.enableGestureSensor(true);
-#endif
 
  ArduinoOTA.onStart([&]() {
 	  updating = true;
@@ -364,10 +489,11 @@ void setup()
          flashProgress(progress, total);
     });
 
-    ArduinoOTA.begin();
-	mySoftwareSerial.begin(9600);
-	myDFPlayer.begin(mySoftwareSerial);
-	myDFPlayer.volume(30);
+  ArduinoOTA.begin();
+		mySoftwareSerial.begin(9600);
+		myDFPlayer.begin(mySoftwareSerial);
+		myDFPlayer.volume(15);
+
 }
 
 void loop()
@@ -375,17 +501,26 @@ void loop()
  ArduinoOTA.handle();
 
  if (!updating) {
-	if (!client.connected())
-	{
-		reconnect();
-	}else{
-		if(isr_flag == 1 && GESTURE) {
+	 #ifdef USB_CONNECTION
+		while (Serial.available () > 0) {
+			String message= Serial.readStringUntil('}')+"}";
+			processing(message);
+			};
+	#else
+		if (!client.connected())
+		{
+			reconnect();
+		}else{
+			client.loop();
+		}
+		#endif
+
+	if(isr_flag == 1) {
     detachInterrupt(APDS9960_INT);
     handleGesture();
     isr_flag = 0;
     attachInterrupt(APDS9960_INT, interruptRoutine, FALLING);
   }
-		client.loop();
-	}
- }
+
+}
 }
