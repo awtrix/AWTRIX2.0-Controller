@@ -115,8 +115,6 @@ unsigned long duration;
 void callback(char *topic, byte *payload, unsigned int length)
 {
 	String s_payload = String((char *)payload);
-
-
 	String s_topic = String(topic);
 	int last = s_topic.lastIndexOf("/") + 1;
 	String channel = s_topic.substring(last);
@@ -186,8 +184,8 @@ void callback(char *topic, byte *payload, unsigned int length)
 	}
 	else if (channel.equals("play"))
 	{
-	myDFPlayer.volume(json["vol"].as<int8>());
- 	myDFPlayer.playFolder(json["folder"].as<int8>(),json["file"].as<int8>());
+		myDFPlayer.volume(json["vol"].as<int8>());
+		myDFPlayer.playFolder(json["folder"].as<int8>(),json["file"].as<int8>());
 	}
 	else if (channel.equals("setBrightness"))
 	{
@@ -253,9 +251,7 @@ void processing(String cmd)
 {
 	DynamicJsonBuffer jsonBuffer;
 	JsonObject &json = jsonBuffer.parseObject(cmd);
-
-		String type = json["type"];
-
+	String type = json["type"];
 	if (type.equals("show"))
 	{
 		matrix->show();
@@ -322,8 +318,8 @@ void processing(String cmd)
 	}
 		else if (type.equals("play"))
 	{
-	myDFPlayer.volume(json["vol"].as<int8>());
- 	myDFPlayer.playFolder(json["folder"].as<int8>(),json["file"].as<int8>());
+		myDFPlayer.volume(json["vol"].as<int8>());
+		myDFPlayer.playFolder(json["folder"].as<int8>(),json["file"].as<int8>());
 	}
 	else if (type.equals("speedtest"))
 	{
@@ -366,10 +362,7 @@ void processing(String cmd)
 		Serial.println(String(JS));
 	}
 }
-
-
 #endif
-
 
 void interruptRoutine() {
   isr_flag = 1;
@@ -412,7 +405,6 @@ void handleGesture() {
   }
 }
 
-
 uint32_t Wheel(byte WheelPos, int pos) {
   if(WheelPos < 85) {
    return matrix->Color((WheelPos * 3)-pos, (255 - WheelPos * 3)-pos, 0);
@@ -434,10 +426,8 @@ void flashProgress(unsigned int progress, unsigned int total) {
         }
     }
     matrix->setCursor(0, 6);
-
 		matrix->setTextColor(matrix->Color(255, 255, 255));
     matrix->print("FLASHING");
-
     matrix->show();
 }
 
@@ -464,15 +454,14 @@ void setup()
 	matrix->setTextColor(matrix->Color(0,255,0));
 	matrix->print("Ready!");
 	matrix->show();
-
 	photocell.setPhotocellPositionOnGround(false);
 
  #ifdef USB_CONNECTION
 	Serial.begin(115200);
-#else
+ #else
 	client.setServer(awtrix_server, 7001);
 	client.setCallback(callback);
-	#endif
+ #endif
 
 	Wire.begin(APDS9960_SDA,APDS9960_SCL);
   pinMode(APDS9960_INT, INPUT);
@@ -480,26 +469,24 @@ void setup()
   apds.init();
   apds.enableGestureSensor(true);
 
- ArduinoOTA.onStart([&]() {
-	  updating = true;
-				matrix->clear();
-    });
+  ArduinoOTA.onStart([&]() {
+		updating = true;
+		matrix->clear();
+  });
 
-    ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
-         flashProgress(progress, total);
-    });
+  ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
+    flashProgress(progress, total);
+  });
 
   ArduinoOTA.begin();
 		mySoftwareSerial.begin(9600);
 		myDFPlayer.begin(mySoftwareSerial);
 		myDFPlayer.volume(15);
-
 }
 
 void loop()
 {
  ArduinoOTA.handle();
-
  if (!updating) {
 	 #ifdef USB_CONNECTION
 		while (Serial.available () > 0) {
@@ -513,14 +500,12 @@ void loop()
 		}else{
 			client.loop();
 		}
-		#endif
-
+	#endif
 	if(isr_flag == 1) {
     detachInterrupt(APDS9960_INT);
     handleGesture();
     isr_flag = 0;
     attachInterrupt(APDS9960_INT, interruptRoutine, FALLING);
   }
-
 }
 }
