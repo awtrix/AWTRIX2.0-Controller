@@ -22,26 +22,23 @@ String version = "0.7";
 	PubSubClient client(espClient);
 #endif
 
-
 LightDependentResistor photocell(LDR_PIN, LDR_RESISTOR, LDR_PHOTOCELL);
-	#define APDS9960_INT    D6
-	#define APDS9960_SDA    D3
-	#define APDS9960_SCL    D1
-	SparkFun_APDS9960 apds = SparkFun_APDS9960();
-	volatile bool isr_flag = 0;
-	SoftwareSerial mySoftwareSerial(13, 15); // RX, TX
-	DFRobotDFPlayerMini myDFPlayer;
-
+#define APDS9960_INT    D6
+#define APDS9960_SDA    D3
+#define APDS9960_SCL    D1
+SparkFun_APDS9960 apds = SparkFun_APDS9960();
+volatile bool isr_flag = 0;
+SoftwareSerial mySoftwareSerial(13, 15); // RX, TX
+DFRobotDFPlayerMini myDFPlayer;
+bool updating = false;
 
 CRGB leds[256];
 #ifdef MATRIX_MODEV2
-FastLED_NeoMatrix *matrix = new FastLED_NeoMatrix(leds, 32, 8, NEO_MATRIX_TOP + NEO_MATRIX_LEFT + NEO_MATRIX_ROWS + NEO_MATRIX_ZIGZAG);
+  FastLED_NeoMatrix *matrix = new FastLED_NeoMatrix(leds, 32, 8, NEO_MATRIX_TOP + NEO_MATRIX_LEFT + NEO_MATRIX_ROWS + NEO_MATRIX_ZIGZAG);
 #else
-FastLED_NeoMatrix *matrix = new FastLED_NeoMatrix(leds, 32, 8, NEO_MATRIX_TOP + NEO_MATRIX_LEFT + NEO_MATRIX_COLUMNS + NEO_MATRIX_ZIGZAG);
+  FastLED_NeoMatrix *matrix = new FastLED_NeoMatrix(leds, 32, 8, NEO_MATRIX_TOP + NEO_MATRIX_LEFT + NEO_MATRIX_COLUMNS + NEO_MATRIX_ZIGZAG);
 #endif
 
-
-bool updating = false;
 static byte c1;  // Last character buffer
 byte utf8ascii(byte ascii) {
   if ( ascii < 128 ) // Standard ASCII-set 0..0x7F handling
