@@ -454,8 +454,12 @@ void setup()
 	matrix->show();
 	photocell.setPhotocellPositionOnGround(false);
 
+ #ifdef USB_CONNECTION
+	Serial.begin(115200);
+ #else
 	client.setServer(awtrix_server, 7001);
 	client.setCallback(callback);
+ #endif
 
  	mySoftwareSerial.begin(9600);
 	myMP3.begin(mySoftwareSerial);
