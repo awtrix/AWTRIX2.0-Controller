@@ -1,8 +1,8 @@
 ///////////////////////// AWTRIX CONFIG /////////////////////////
 
 // Wifi Config
-const char *ssid = "Kindergarten";
-const char *password = "53825382";
+const char *ssid = "xxxx";
+const char *password = "xxxx";
 char *awtrix_server = "192.168.178.39";
 
 //#define USB_CONNECTION
