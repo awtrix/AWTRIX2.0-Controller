@@ -12,10 +12,10 @@
 #include <Wire.h>
 #include <SparkFun_APDS9960.h>
 #include "SoftwareSerial.h"
-#include "DFRobotDFPlayerMini.h"
+#include <DFPlayerMini_Fast.h>
 #include "awtrix-conf.h"
 
-String version = "0.7"; 
+String version = "0.8"; 
 
 #ifndef USB_CONNECTION
 	WiFiClient espClient;
@@ -28,9 +28,12 @@ LightDependentResistor photocell(LDR_PIN, LDR_RESISTOR, LDR_PHOTOCELL);
 #define APDS9960_SCL    D1
 SparkFun_APDS9960 apds = SparkFun_APDS9960();
 volatile bool isr_flag = 0;
-SoftwareSerial mySoftwareSerial(13, 15); // RX, TX
-DFRobotDFPlayerMini myDFPlayer;
+
 bool updating = false;
+DFPlayerMini_Fast myMP3;
+
+SoftwareSerial mySoftwareSerial(13, 15); // RX, TX
+
 
 CRGB leds[256];
 #ifdef MATRIX_MODEV2
@@ -181,8 +184,7 @@ void callback(char *topic, byte *payload, unsigned int length)
 	}
 	else if (channel.equals("play"))
 	{
-		myDFPlayer.volume(json["vol"].as<int8>());
-		myDFPlayer.playFolder(json["folder"].as<int8>(),json["file"].as<int8>());
+		myMP3.playFolder(json["folder"].as<int8>(),json["file"].as<int8>());
 	}
 	else if (channel.equals("setBrightness"))
 	{
@@ -315,8 +317,7 @@ void processing(String cmd)
 	}
 		else if (type.equals("play"))
 	{
-		myDFPlayer.volume(json["vol"].as<int8>());
-		myDFPlayer.playFolder(json["folder"].as<int8>(),json["file"].as<int8>());
+		myMP3.playFolder(json["folder"].as<int8>(),json["file"].as<int8>());
 	}
 	else if (type.equals("speedtest"))
 	{
@@ -431,7 +432,7 @@ void flashProgress(unsigned int progress, unsigned int total) {
 
 void setup()
 {
-	FastLED.addLeds<NEOPIXEL, D2>(leds, 265).setCorrection(TypicalLEDStrip);
+	FastLED.addLeds<NEOPIXEL, D2>(leds, 256).setCorrection(TypicalLEDStrip);
 	WiFi.mode(WIFI_STA);
 	WiFi.begin(ssid, password);
 	matrix->begin();
@@ -453,12 +454,11 @@ void setup()
 	matrix->show();
 	photocell.setPhotocellPositionOnGround(false);
 
- #ifdef USB_CONNECTION
-	Serial.begin(115200);
- #else
 	client.setServer(awtrix_server, 7001);
 	client.setCallback(callback);
- #endif
+
+ 	mySoftwareSerial.begin(9600);
+	myMP3.begin(mySoftwareSerial);
 
 	Wire.begin(APDS9960_SDA,APDS9960_SCL);
   pinMode(APDS9960_INT, INPUT);
@@ -466,19 +466,6 @@ void setup()
   apds.init();
   apds.enableGestureSensor(true);
 
-  ArduinoOTA.onStart([&]() {
-		updating = true;
-		matrix->clear();
-  });
-
-  ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
-    flashProgress(progress, total);
-  });
-
-  ArduinoOTA.begin();
-		mySoftwareSerial.begin(9600);
-		myDFPlayer.begin(mySoftwareSerial);
-		myDFPlayer.volume(15);
 }
 
 void loop()

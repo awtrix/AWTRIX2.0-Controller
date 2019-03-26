@@ -1,0 +1,13 @@
+LightDependentResistor	KEYWORD1
+getCurrentLux	KEYWORD2
+getCurrentFootCandles	KEYWORD2
+luxToFootCandles	KEYWORD2
+footCandlesToLux	KEYWORD2
+setPhotocellPositionOnGround	KEYWORD2
+updatePhotocellParameters	KEYWORD2
+GL5516	KEYWORD2
+GL5528	KEYWORD2
+GL5537_1	KEYWORD2
+GL5537_2	KEYWORD2
+GL5539	KEYWORD2
+GL5549	KEYWORD2
