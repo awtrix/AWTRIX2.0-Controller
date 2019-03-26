@@ -465,7 +465,16 @@ void setup()
 	attachInterrupt(APDS9960_INT, interruptRoutine, FALLING);
   apds.init();
   apds.enableGestureSensor(true);
+  ArduinoOTA.onStart([&]() {
+		updating = true;
+		matrix->clear();
+  });
 
+  ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
+    flashProgress(progress, total);
+  });
+
+  ArduinoOTA.begin();
 }
 
 void loop()
