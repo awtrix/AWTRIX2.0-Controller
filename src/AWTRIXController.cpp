@@ -184,6 +184,8 @@ void callback(char *topic, byte *payload, unsigned int length)
 	}
 	else if (channel.equals("play"))
 	{
+		myMP3.volume(json["vol"].as<int8>());
+		delay(20);
 		myMP3.playFolder(json["folder"].as<int8>(),json["file"].as<int8>());
 	}
 	else if (channel.equals("setBrightness"))
@@ -317,6 +319,8 @@ void processing(String cmd)
 	}
 		else if (type.equals("play"))
 	{
+		myMP3.volume(json["vol"].as<int8>());
+		delay(20);
 		myMP3.playFolder(json["folder"].as<int8>(),json["file"].as<int8>());
 	}
 	else if (type.equals("speedtest"))
