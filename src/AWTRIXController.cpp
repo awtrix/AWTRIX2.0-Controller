@@ -15,7 +15,7 @@
 #include <DFPlayerMini_Fast.h>
 #include "awtrix-conf.h"
 
-String version = "0.9"; 
+String version = "0.8"; 
 
 #ifndef USB_CONNECTION
 	WiFiClient espClient;
@@ -436,7 +436,7 @@ void flashProgress(unsigned int progress, unsigned int total) {
 
 void setup()
 {
-	FastLED.addLeds<NEOPIXEL, D2>(leds, 256);
+	FastLED.addLeds<NEOPIXEL, D2>(leds, 256).setCorrection(TypicalLEDStrip);
 	WiFi.mode(WIFI_STA);
 	WiFi.begin(ssid, password);
 	matrix->begin();
