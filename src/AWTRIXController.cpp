@@ -436,7 +436,7 @@ void flashProgress(unsigned int progress, unsigned int total) {
 
 void setup()
 {
-	FastLED.addLeds<NEOPIXEL, D2>(leds, 256).setCorrection(TypicalLEDStrip);
+	FastLED.addLeds<NEOPIXEL, D2>(leds, 256);
 	WiFi.mode(WIFI_STA);
 	WiFi.begin(ssid, password);
 	matrix->begin();
