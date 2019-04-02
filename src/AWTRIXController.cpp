@@ -15,7 +15,7 @@
 #include <DFPlayerMini_Fast.h>
 #include "awtrix-conf.h"
 
-String version = "0.8"; 
+String version = "0.9"; 
 
 #ifndef USB_CONNECTION
 	WiFiClient espClient;
