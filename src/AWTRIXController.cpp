@@ -15,7 +15,7 @@
 #include <DFPlayerMini_Fast.h>
 #include "awtrix-conf.h"
 
-String version = "0.8"; 
+String version = "0.8.1"; 
 
 #ifndef USB_CONNECTION
 	WiFiClient espClient;
@@ -29,6 +29,9 @@ LightDependentResistor photocell(LDR_PIN, LDR_RESISTOR, LDR_PHOTOCELL);
 SparkFun_APDS9960 apds = SparkFun_APDS9960();
 volatile bool isr_flag = 0;
 
+#ifndef ICACHE_RAM_ATTR
+#define ICACHE_RAM_ATTR IRAM_ATTR
+#endif
 bool updating = false;
 DFPlayerMini_Fast myMP3;
 
@@ -366,7 +369,7 @@ void processing(String cmd)
 }
 #endif
 
-void interruptRoutine() {
+void ICACHE_RAM_ATTR interruptRoutine() {
   isr_flag = 1;
 }
 
