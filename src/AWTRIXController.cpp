@@ -160,9 +160,9 @@ void callback(char *topic, byte *payload, unsigned int length)
 			int16_t width = payload[5];
 			int16_t height = payload[6];
 
-			int16_t colorData[length];
-			for(int i = 7; i<length; i++){
-				colorData[i-7] = int(payload[i]<<8 && 0xFF00)+int(payload[i+1]);
+			int16_t colorData[width*height];
+			for(int i = 0; i<width*height*2; i++){
+				colorData[i/2] = payload[i+9]<<8+payload[i+1+9];
 				i++;
 			}
 
@@ -173,7 +173,6 @@ void callback(char *topic, byte *payload, unsigned int length)
 				for (int16_t i = 0; i < width; i++){
 					delay(100);
 					matrix->drawPixel(x_coordinate + i, y_coordinate, matrix->Color(0xFFFF, 0, 0));
-					matrix->show();
 				}
 			}
 			break;
