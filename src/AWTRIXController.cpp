@@ -17,7 +17,7 @@
 #include <WiFiManager.h>
 #include <EEPROM.h>
 
-String version = "0.8.1"; 
+String version = "0.9b"; 
 
 #ifndef USB_CONNECTION
 	WiFiClient espClient;
