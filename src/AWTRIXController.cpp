@@ -15,7 +15,6 @@
 #include <DFPlayerMini_Fast.h>
 #include "awtrix-conf.h"
 #include <WiFiManager.h>
-#include <EEPROM.h>
 
 String version = "0.9b"; 
 
@@ -46,6 +45,17 @@ CRGB leds[256];
   FastLED_NeoMatrix *matrix = new FastLED_NeoMatrix(leds, 32, 8, NEO_MATRIX_TOP + NEO_MATRIX_LEFT + NEO_MATRIX_COLUMNS + NEO_MATRIX_ZIGZAG);
 #endif
 
+//WiFiManager
+bool shouldSaveConfig = false;
+char ssid[40];
+char pwd[40];
+
+//callback notifying us of the need to save config
+void saveConfigCallback () {
+  	Serial.println("Should save config");
+  	shouldSaveConfig = true;
+}
+
 static byte c1;  // Last character buffer
 byte utf8ascii(byte ascii) {
   if ( ascii < 128 ) // Standard ASCII-set 0..0x7F handling
@@ -73,6 +83,8 @@ String utf8ascii(String s) {
   }
   return r;
 }
+
+
 
 void utf8ascii(char* s) {
   int k = 0;
@@ -160,20 +172,27 @@ void callback(char *topic, byte *payload, unsigned int length)
 			int16_t width = payload[5];
 			int16_t height = payload[6];
 
-			int16_t colorData[length];
-			for(int i = 7; i<length; i++){
-				colorData[i-7] = int(payload[i]<<8 && 0xFF00)+int(payload[i+1]);
+
+			Serial.printf("Anzahl an Farbwerten: %d\nFarbwerte:\n",length-7);
+
+
+
+			unsigned short colorData[width*height];
+			for(int i = 0; i<width*height*4; i++){
+				if((i/2)%2==0){
+					colorData[i/4] = 0;
+					colorData[i/4] = (payload[i+9]<<8)+payload[i+1+9];
+				}
 				i++;
 			}
 
-			//colorData[0] = int(payload[7]<<8)+int(payload[8+1]);
-			//matrix->drawPixel(x_coordinate, y_coordinate,colorData[0] );
+			//for(int i = 0; i<width*height; i++){
+			//	printf("%d. 0x%X - %d\n",i,colorData[i],colorData[i]);
+			//}
 			
 			for (int16_t j = 0; j < height; j++, y_coordinate++){
 				for (int16_t i = 0; i < width; i++){
-					delay(100);
-					matrix->drawPixel(x_coordinate + i, y_coordinate, matrix->Color(0xFFFF, 0, 0));
-					matrix->show();
+					matrix->drawPixel(x_coordinate + i, y_coordinate, (uint16_t)colorData[j*width+i]);
 				}
 			}
 			break;
@@ -200,7 +219,7 @@ void callback(char *topic, byte *payload, unsigned int length)
 			break;
 		}
 		case 4:{
-			//Command 3: DrawPixel
+			//Command 4: DrawPixel
 
 			//Prepare the coordinates
 			uint16_t x0_coordinate = int(payload[1]<<8)+int(payload[2]);
@@ -209,7 +228,7 @@ void callback(char *topic, byte *payload, unsigned int length)
 			break;
 		}
 		case 5:{
-			//Command 3: DrawRect
+			//Command 5: DrawRect
 
 			//Prepare the coordinates
 			uint16_t x0_coordinate = int(payload[1]<<8)+int(payload[2]);
@@ -599,16 +618,12 @@ void flashProgress(unsigned int progress, unsigned int total) {
     matrix->show();
 }
 
-
 void setup()
 {
+	Serial.begin(9600);
 	FastLED.addLeds<NEOPIXEL, D2>(leds, 256).setCorrection(TypicalLEDStrip);
+	Serial.println("Hey, I´m your Awtrix!");
 	WiFiManager wifiManager;
-	char awtrix_server[40];
-	WiFiManagerParameter custom_Awtrix_server("server", "mqtt server", awtrix_server, 40);
-	wifiManager.addParameter(&custom_Awtrix_server);
-	custom_Awtrix_server.getValue();
-	
 	WiFi.mode(WIFI_STA);
 	WiFi.begin(wifiConfig.ssid, wifiConfig.password);
 	matrix->begin();
@@ -622,6 +637,7 @@ void setup()
 	{
 		delay(3000);
 		wifiManager.autoConnect("AwtrixWiFiSetup");
+		matrix->print("Bla");
 	}
 
 	matrix->clear();
@@ -642,23 +658,20 @@ void setup()
 	myMP3.begin(mySoftwareSerial);
 
 	Wire.begin(APDS9960_SDA,APDS9960_SCL);
-  pinMode(APDS9960_INT, INPUT);
+  	pinMode(APDS9960_INT, INPUT);
 	attachInterrupt(APDS9960_INT, interruptRoutine, FALLING);
-  apds.init();
-  apds.enableGestureSensor(true);
-  ArduinoOTA.onStart([&]() {
+  	apds.init();
+  	apds.enableGestureSensor(true);
+  	ArduinoOTA.onStart([&]() {
 		updating = true;
 		matrix->clear();
-  });
+  	});
 
   ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
-    flashProgress(progress, total);
+    	flashProgress(progress, total);
   });
 
-  ArduinoOTA.begin();
-	Serial.begin(9600);
-
-
+  	ArduinoOTA.begin();
 	client.publish("control", "Hallo Welt");
 }
 
