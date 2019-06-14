@@ -1,14 +1,9 @@
 ///////////////////////// AWTRIX CONFIG /////////////////////////
 
 // Wifi Config
-
-typedef struct {
-    const char *ssid = "WB Home";
-    const char *password = "G00dnight@Sleep";
-    char *awtrix_server = "192.168.3.40";
-} configData_t;
-
-configData_t wifiConfig;
+const char *ssid = "YourSSID";
+const char *password = "YourPassword";
+char *awtrix_server = "192.168.178.39";
 
 //#define USB_CONNECTION
 //#define MATRIX_MODEV2
