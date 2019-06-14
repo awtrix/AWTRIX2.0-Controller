@@ -14,8 +14,9 @@
 #include "SoftwareSerial.h"
 #include <DFPlayerMini_Fast.h>
 #include "awtrix-conf.h"
+#include <WiFiManager.h>
 
-String version = "0.8.1"; 
+String version = "0.9b"; 
 
 #ifndef USB_CONNECTION
 	WiFiClient espClient;
@@ -35,8 +36,7 @@ volatile bool isr_flag = 0;
 bool updating = false;
 DFPlayerMini_Fast myMP3;
 
-SoftwareSerial mySoftwareSerial(13, 15); // RX, TX
-
+SoftwareSerial mySoftwareSerial(D7, D5); // RX, TX
 
 CRGB leds[256];
 #ifdef MATRIX_MODEV2
@@ -44,6 +44,17 @@ CRGB leds[256];
 #else
   FastLED_NeoMatrix *matrix = new FastLED_NeoMatrix(leds, 32, 8, NEO_MATRIX_TOP + NEO_MATRIX_LEFT + NEO_MATRIX_COLUMNS + NEO_MATRIX_ZIGZAG);
 #endif
+
+//WiFiManager
+bool shouldSaveConfig = false;
+char ssid[40];
+char pwd[40];
+
+//callback notifying us of the need to save config
+void saveConfigCallback () {
+  	Serial.println("Should save config");
+  	shouldSaveConfig = true;
+}
 
 static byte c1;  // Last character buffer
 byte utf8ascii(byte ascii) {
@@ -72,6 +83,8 @@ String utf8ascii(String s) {
   }
   return r;
 }
+
+
 
 void utf8ascii(char* s) {
   int k = 0;
@@ -117,11 +130,165 @@ unsigned long duration;
 #ifndef USB_CONNECTION
 void callback(char *topic, byte *payload, unsigned int length)
 {
-	String s_payload = String((char *)payload);
-	String s_topic = String(topic);
-	int last = s_topic.lastIndexOf("/") + 1;
-	String channel = s_topic.substring(last);
+	int y_offset = 5;
 
+	switch(payload[0]){
+		case 0:{
+			//Command 0: DrawText
+
+			//Prepare the coordinates
+			uint16_t x_coordinate = int(payload[1]<<8)+int(payload[2]);
+			uint16_t y_coordinate = int(payload[3]<<8)+int(payload[4]);
+
+			Serial.printf("X: %d - Y: %d\n",x_coordinate,y_coordinate);
+
+			matrix->setCursor(x_coordinate+1, y_coordinate+y_offset);
+			matrix->setTextColor(matrix->Color(payload[5],payload[6],payload[7]));
+		
+			String myText = "";
+			char myChar;
+			for(int i = 8;i<length;i++){
+				char c = payload[i];
+				myText += c;
+			}
+			Serial.printf("Text: %s\n",myText.c_str());
+			matrix->print(utf8ascii(myText));
+			break;
+		}
+		 
+		case 1:{
+			//Command 1: DrawBMP
+
+			//Prepare the coordinates
+			uint16_t x_coordinate = int(payload[1]<<8)+int(payload[2]);
+			uint16_t y_coordinate = int(payload[3]<<8)+int(payload[4]);
+
+			int16_t width = payload[5];
+			int16_t height = payload[6];
+			Serial.printf("Anzahl an Farbwerten: %d\nFarbwerte:\n",length-7);
+
+			unsigned short colorData[width*height];
+			for(int i = 0; i<width*height*2; i++){
+				if((i/2)%2==0){
+					colorData[i/2] = 0;
+					colorData[i/2] = (payload[i+9]<<8)+payload[i+1+9];
+				}
+			}
+			for(int i = 0; i<width*height*2; i++){
+				colorData[i/2] = payload[i+9]<<8+payload[i+1+9];
+				i++;
+			}
+
+			//for(int i = 0; i<width*height; i++){
+			//	printf("%d. 0x%X - %d\n",i,colorData[i],colorData[i]);
+			//}
+			
+			for (int16_t j = 0; j < height; j++, y_coordinate++){
+				for (int16_t i = 0; i < width; i++){
+					matrix->drawPixel(x_coordinate + i, y_coordinate, (uint16_t)colorData[j*width+i]);
+				}
+			}
+			break;
+		}
+		
+		case 2:{
+			//Command 2: DrawCircle
+
+			//Prepare the coordinates
+			uint16_t x0_coordinate = int(payload[1]<<8)+int(payload[2]);
+			uint16_t y0_coordinate = int(payload[3]<<8)+int(payload[4]);
+			uint16_t radius = payload[5];
+			matrix->drawCircle(x0_coordinate, y0_coordinate, radius, matrix->Color(payload[6], payload[7], payload[8]));
+			break;
+		}
+		case 3:{
+			//Command 3: FillCircle
+
+			//Prepare the coordinates
+			uint16_t x0_coordinate = int(payload[1]<<8)+int(payload[2]);
+			uint16_t y0_coordinate = int(payload[3]<<8)+int(payload[4]);
+			uint16_t radius = payload[5];
+			matrix->fillCircle(x0_coordinate, y0_coordinate, radius, matrix->Color(payload[6], payload[7], payload[8]));
+			break;
+		}
+		case 4:{
+			//Command 4: DrawPixel
+
+			//Prepare the coordinates
+			uint16_t x0_coordinate = int(payload[1]<<8)+int(payload[2]);
+			uint16_t y0_coordinate = int(payload[3]<<8)+int(payload[4]);
+			matrix->drawPixel(x0_coordinate, y0_coordinate, matrix->Color(payload[5], payload[6], payload[7]));
+			break;
+		}
+		case 5:{
+			//Command 5: DrawRect
+
+			//Prepare the coordinates
+			uint16_t x0_coordinate = int(payload[1]<<8)+int(payload[2]);
+			uint16_t y0_coordinate = int(payload[3]<<8)+int(payload[4]);
+			int16_t width = payload[5];
+			int16_t height = payload[6];
+
+			matrix->drawRect(x0_coordinate, y0_coordinate, width, height, matrix->Color(payload[7], payload[8], payload[9]));
+			break;
+		}
+		case 6:{
+			//Command 6: DrawLine
+
+			//Prepare the coordinates
+			uint16_t x0_coordinate = int(payload[1]<<8)+int(payload[2]);
+			uint16_t y0_coordinate = int(payload[3]<<8)+int(payload[4]);
+			uint16_t x1_coordinate = int(payload[5]<<8)+int(payload[6]);
+			uint16_t y1_coordinate = int(payload[7]<<8)+int(payload[8]);
+			matrix->drawLine(x0_coordinate, y0_coordinate, x1_coordinate, y1_coordinate, matrix->Color(payload[9],payload[10],payload[11]));
+			break;
+		}
+
+		case 7:{
+			//Command 7: FillMatrix
+
+			matrix->fillScreen(matrix->Color(payload[1],payload[2],payload[3]));
+			break;
+		}
+
+		case 8:{
+			//Command 8: Show
+			matrix->show();
+			break;
+		}
+		case 9:{
+			//Command 9: Clear
+			matrix->clear();
+			break;
+		}
+		case 10:{
+			//Command 10: Play
+			myMP3.volume(payload[3]);
+			delay(10);
+			myMP3.playFolder(payload[1],payload[2]);
+			break;
+		}
+		case 11:{
+			//Command 11: GetLux
+			client.publish("matrixLux", String(photocell.getCurrentLux()).c_str());
+			break;
+		}
+		case 12:{
+			//Command 12: GetMatrixInfo
+			StaticJsonBuffer<200> jsonBuffer;
+			JsonObject& root = jsonBuffer.createObject();
+			root["version"] = version;
+			root["wifirssi"] = String(WiFi.RSSI());
+			root["wifiquality"] =GetRSSIasQuality(WiFi.RSSI());
+			root["wifissid"] =WiFi.SSID();
+			root["getIP"] =WiFi.localIP().toString();
+			String JS;
+			root.printTo(JS);
+			client.publish("matrixInfo", JS.c_str());
+			break;
+		}
+	}
+	/* 
 	DynamicJsonBuffer jsonBuffer;
 	JsonObject &json = jsonBuffer.parseObject(s_payload);
 
@@ -187,9 +354,16 @@ void callback(char *topic, byte *payload, unsigned int length)
 	}
 	else if (channel.equals("play"))
 	{
-		myMP3.volume(json["vol"].as<int8>());
+		int folder = json["folder"].as<int16_t>();
+		int file = json["file"].as<int16_t>();
+		int vol = json["vol"].as<int16_t>();
+
+		myMP3.volume(5);
 		delay(20);
-		myMP3.playFolder(json["folder"].as<int8>(),json["file"].as<int8>());
+		myMP3.play(1);
+		//myMP3.playFolder(folder,file);
+
+		Serial.printf("Folder: %d - File: %d",folder,file);
 	}
 	else if (channel.equals("setBrightness"))
 	{
@@ -231,6 +405,7 @@ void callback(char *topic, byte *payload, unsigned int length)
 		StaticJsonBuffer<200> jsonBuffer;
 		client.publish("matrixLux", String(photocell.getCurrentLux()).c_str());
 	}
+	*/
 }
 
 void reconnect()
@@ -436,12 +611,14 @@ void flashProgress(unsigned int progress, unsigned int total) {
     matrix->show();
 }
 
-
 void setup()
 {
+	Serial.begin(9600);
 	FastLED.addLeds<NEOPIXEL, D2>(leds, 256).setCorrection(TypicalLEDStrip);
+	Serial.println("Hey, I´m your Awtrix!");
+	WiFiManager wifiManager;
 	WiFi.mode(WIFI_STA);
-	WiFi.begin(ssid, password);
+	WiFi.begin(wifiConfig.ssid, wifiConfig.password);
 	matrix->begin();
 	matrix->setTextWrap(false);
 	matrix->setBrightness(80);
@@ -451,7 +628,9 @@ void setup()
 	matrix->show();
 	while (WiFi.status() != WL_CONNECTED)
 	{
-		delay(500);
+		delay(3000);
+		wifiManager.autoConnect("AwtrixWiFiSetup");
+		matrix->print("Bla");
 	}
 
 	matrix->clear();
@@ -464,7 +643,7 @@ void setup()
  #ifdef USB_CONNECTION
 	Serial.begin(115200);
  #else
-	client.setServer(awtrix_server, 7001);
+	client.setServer(wifiConfig.awtrix_server, 7001);
 	client.setCallback(callback);
  #endif
 
@@ -472,20 +651,21 @@ void setup()
 	myMP3.begin(mySoftwareSerial);
 
 	Wire.begin(APDS9960_SDA,APDS9960_SCL);
-  pinMode(APDS9960_INT, INPUT);
+  	pinMode(APDS9960_INT, INPUT);
 	attachInterrupt(APDS9960_INT, interruptRoutine, FALLING);
-  apds.init();
-  apds.enableGestureSensor(true);
-  ArduinoOTA.onStart([&]() {
+  	apds.init();
+  	apds.enableGestureSensor(true);
+  	ArduinoOTA.onStart([&]() {
 		updating = true;
 		matrix->clear();
-  });
+  	});
 
   ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
-    flashProgress(progress, total);
+    	flashProgress(progress, total);
   });
 
-  ArduinoOTA.begin();
+  	ArduinoOTA.begin();
+	client.publish("control", "Hallo Welt");
 }
 
 void loop()
