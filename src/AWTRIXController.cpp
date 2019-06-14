@@ -130,15 +130,9 @@ unsigned long duration;
 #ifndef USB_CONNECTION
 void callback(char *topic, byte *payload, unsigned int length)
 {
-	uint8_t myBytes[length];
 	int y_offset = 5;
 
-	for(int i = 0;i<length;i++){
-		myBytes[i] = payload[i];
-	}
-	
-
-	switch(myBytes[0]){
+	switch(payload[0]){
 		case 0:{
 			//Command 0: DrawText
 
@@ -171,24 +165,17 @@ void callback(char *topic, byte *payload, unsigned int length)
 
 			int16_t width = payload[5];
 			int16_t height = payload[6];
-
-<<<<<<< HEAD
-
 			Serial.printf("Anzahl an Farbwerten: %d\nFarbwerte:\n",length-7);
 
-
-
 			unsigned short colorData[width*height];
-			for(int i = 0; i<width*height*4; i++){
+			for(int i = 0; i<width*height*2; i++){
 				if((i/2)%2==0){
-					colorData[i/4] = 0;
-					colorData[i/4] = (payload[i+9]<<8)+payload[i+1+9];
+					colorData[i/2] = 0;
+					colorData[i/2] = (payload[i+9]<<8)+payload[i+1+9];
 				}
-=======
-			int16_t colorData[width*height];
+			}
 			for(int i = 0; i<width*height*2; i++){
 				colorData[i/2] = payload[i+9]<<8+payload[i+1+9];
->>>>>>> c061b6c3dece7e83618f95768d5dd703f014c510
 				i++;
 			}
 
@@ -198,12 +185,7 @@ void callback(char *topic, byte *payload, unsigned int length)
 			
 			for (int16_t j = 0; j < height; j++, y_coordinate++){
 				for (int16_t i = 0; i < width; i++){
-<<<<<<< HEAD
 					matrix->drawPixel(x_coordinate + i, y_coordinate, (uint16_t)colorData[j*width+i]);
-=======
-					delay(100);
-					matrix->drawPixel(x_coordinate + i, y_coordinate, matrix->Color(0xFFFF, 0, 0));
->>>>>>> c061b6c3dece7e83618f95768d5dd703f014c510
 				}
 			}
 			break;

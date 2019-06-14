@@ -3,8 +3,8 @@
 // Wifi Config
 
 typedef struct {
-    const char *ssid = "";
-    const char *password = "";
+    const char *ssid = "WB Home";
+    const char *password = "G00dnight@Sleep";
     char *awtrix_server = "192.168.3.40";
 } configData_t;
 
