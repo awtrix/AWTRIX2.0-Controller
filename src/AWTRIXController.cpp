@@ -82,6 +82,13 @@ byte last = c1;   // get last char
   return  (0);
 }
 
+void debuggingWithMatrix(String text){
+	matrix->setCursor(7, 6);
+		matrix->clear();
+		matrix->print(text);
+		matrix->show();
+}
+
 String utf8ascii(String s) {
   String r = "";
   char c;
@@ -311,6 +318,8 @@ void processing(int length)
 {
 int y_offset = 5;
 
+debuggingWithMatrix("gefunden...");
+
 byte payload[length];
 for(int i=0; i<length;i++){
 	payload[i] = message[i];
@@ -321,17 +330,17 @@ for(int i=0; i<length;i++){
 			//Command 0: DrawText
 
 			//Prepare the coordinates
-			uint16_t x_coordinate = int(payload[1]<<8)+int(payload[2]);
-			uint16_t y_coordinate = int(payload[3]<<8)+int(payload[4]);
+			uint16_t x_coordinate = int(payload[3]<<8)+int(payload[4]);
+			uint16_t y_coordinate = int(payload[5]<<8)+int(payload[6]);
 
 			//Serial.printf("X: %d - Y: %d\n",x_coordinate,y_coordinate);
 
 			matrix->setCursor(x_coordinate+1, y_coordinate+y_offset);
-			matrix->setTextColor(matrix->Color(payload[5],payload[6],payload[7]));
+			matrix->setTextColor(matrix->Color(payload[7],payload[8],payload[9]));
 		
 			String myText = "";
 			char myChar;
-			for(int i = 8;i<length;i++){
+			for(int i = 10;i<length;i++){
 				char c = payload[i];
 				myText += c;
 			}
@@ -367,59 +376,59 @@ for(int i=0; i<length;i++){
 			//Command 2: DrawCircle
 
 			//Prepare the coordinates
-			uint16_t x0_coordinate = int(payload[1]<<8)+int(payload[2]);
-			uint16_t y0_coordinate = int(payload[3]<<8)+int(payload[4]);
-			uint16_t radius = payload[5];
-			matrix->drawCircle(x0_coordinate, y0_coordinate, radius, matrix->Color(payload[6], payload[7], payload[8]));
+			uint16_t x0_coordinate = int(payload[3]<<8)+int(payload[4]);
+			uint16_t y0_coordinate = int(payload[5]<<8)+int(payload[6]);
+			uint16_t radius = payload[7];
+			matrix->drawCircle(x0_coordinate, y0_coordinate, radius, matrix->Color(payload[8], payload[9], payload[10]));
 			break;
 		}
 		case 3:{
 			//Command 3: FillCircle
 
 			//Prepare the coordinates
-			uint16_t x0_coordinate = int(payload[1]<<8)+int(payload[2]);
-			uint16_t y0_coordinate = int(payload[3]<<8)+int(payload[4]);
-			uint16_t radius = payload[5];
-			matrix->fillCircle(x0_coordinate, y0_coordinate, radius, matrix->Color(payload[6], payload[7], payload[8]));
+			uint16_t x0_coordinate = int(payload[3]<<8)+int(payload[4]);
+			uint16_t y0_coordinate = int(payload[5]<<8)+int(payload[6]);
+			uint16_t radius = payload[7];
+			matrix->fillCircle(x0_coordinate, y0_coordinate, radius, matrix->Color(payload[8], payload[9], payload[10]));
 			break;
 		}
 		case 4:{
 			//Command 4: DrawPixel
 
 			//Prepare the coordinates
-			uint16_t x0_coordinate = int(payload[1]<<8)+int(payload[2]);
-			uint16_t y0_coordinate = int(payload[3]<<8)+int(payload[4]);
-			matrix->drawPixel(x0_coordinate, y0_coordinate, matrix->Color(payload[5], payload[6], payload[7]));
+			uint16_t x0_coordinate = int(payload[3]<<8)+int(payload[4]);
+			uint16_t y0_coordinate = int(payload[5]<<8)+int(payload[6]);
+			matrix->drawPixel(x0_coordinate, y0_coordinate, matrix->Color(payload[7], payload[8], payload[9]));
 			break;
 		}
 		case 5:{
 			//Command 5: DrawRect
 
 			//Prepare the coordinates
-			uint16_t x0_coordinate = int(payload[1]<<8)+int(payload[2]);
-			uint16_t y0_coordinate = int(payload[3]<<8)+int(payload[4]);
-			int16_t width = payload[5];
-			int16_t height = payload[6];
+			uint16_t x0_coordinate = int(payload[3]<<8)+int(payload[4]);
+			uint16_t y0_coordinate = int(payload[5]<<8)+int(payload[6]);
+			int16_t width = payload[7];
+			int16_t height = payload[8];
 
-			matrix->drawRect(x0_coordinate, y0_coordinate, width, height, matrix->Color(payload[7], payload[8], payload[9]));
+			matrix->drawRect(x0_coordinate, y0_coordinate, width, height, matrix->Color(payload[9], payload[10], payload[11]));
 			break;
 		}
 		case 6:{
 			//Command 6: DrawLine
 
 			//Prepare the coordinates
-			uint16_t x0_coordinate = int(payload[1]<<8)+int(payload[2]);
-			uint16_t y0_coordinate = int(payload[3]<<8)+int(payload[4]);
-			uint16_t x1_coordinate = int(payload[5]<<8)+int(payload[6]);
-			uint16_t y1_coordinate = int(payload[7]<<8)+int(payload[8]);
-			matrix->drawLine(x0_coordinate, y0_coordinate, x1_coordinate, y1_coordinate, matrix->Color(payload[9],payload[10],payload[11]));
+			uint16_t x0_coordinate = int(payload[3]<<8)+int(payload[4]);
+			uint16_t y0_coordinate = int(payload[5]<<8)+int(payload[6]);
+			uint16_t x1_coordinate = int(payload[7]<<8)+int(payload[8]);
+			uint16_t y1_coordinate = int(payload[9]<<8)+int(payload[10]);
+			matrix->drawLine(x0_coordinate, y0_coordinate, x1_coordinate, y1_coordinate, matrix->Color(payload[11],payload[12],payload[13]));
 			break;
 		}
 
 		case 7:{
 			//Command 7: FillMatrix
 
-			matrix->fillScreen(matrix->Color(payload[1],payload[2],payload[3]));
+			matrix->fillScreen(matrix->Color(payload[3],payload[4],payload[5]));
 			break;
 		}
 
@@ -435,9 +444,9 @@ for(int i=0; i<length;i++){
 		}
 		case 10:{
 			//Command 10: Play
-			myMP3.volume(payload[3]);
+			myMP3.volume(payload[5]);
 			delay(10);
-			myMP3.playFolder(payload[1],payload[2]);
+			myMP3.playFolder(payload[3],payload[4]);
 			break;
 		}
 		case 11:{
@@ -594,6 +603,8 @@ void setup()
 	bufferpointer=0;
 }
 
+
+
 void loop() {
  ArduinoOTA.handle();
  if (!updating) {
@@ -604,15 +615,31 @@ void loop() {
 			//processing(sizeof(message));
 			
 			if(Serial.available () > 0){
+				//debuggingWithMatrix("Hallo");
+
 				myBytes[bufferpointer] = Serial.read();
 				//digitalWrite(D5,!digitalRead(D5));
 				if ((myBytes[bufferpointer]==255)&&(myBytes[bufferpointer-1]==255)&&(myBytes[bufferpointer-2]==255)){
-					digitalWrite(D5,!digitalRead(D5));
-					processing(bufferpointer);
+					//debuggingWithMatrix("gefunden...");
+					uint16_t x_coordinate = int(myBytes[3]<<8)+int(myBytes[4]);
+					uint16_t y_coordinate = int(myBytes[5]<<8)+int(myBytes[6]);
+
+					matrix->setCursor(x_coordinate+1, y_coordinate+5);
+					matrix->setTextColor(matrix->Color(myBytes[7],myBytes[8],myBytes[9]));
+		
+					String myText = "";
+					char myChar;
+					for(int i = 10;i<bufferpointer;i++){
+						char c = myBytes[i];
+						myText += c;
+					}
+					//Serial.printf("Text: %s\n",myText.c_str());
+					matrix->print(utf8ascii(myText));
+					matrix->show();
 					bufferpointer=0;
 				}
 				bufferpointer++;
-				if(bufferpointer==999){
+				if(bufferpointer==1000){
 					bufferpointer=0;
 				}
 			}
