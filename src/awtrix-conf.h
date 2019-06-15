@@ -3,14 +3,14 @@
 // Wifi Config
 
 typedef struct {
-    const char *ssid = "WB Home";
-    const char *password = "G00dnight@Sleep";
-    char *awtrix_server = "192.168.3.40";
+    const char *ssid = "MPZ-Labor";
+    const char *password = "MPZMPZMPZ";
+    char *awtrix_server = "192.168.99.101";
 } configData_t;
 
 configData_t wifiConfig;
 
-//#define USB_CONNECTION
+#define USB_CONNECTION
 //#define MATRIX_MODEV2
 
 /// LDR Config

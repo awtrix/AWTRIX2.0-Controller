@@ -16,6 +16,8 @@
 #include "awtrix-conf.h"
 #include <WiFiManager.h>
 
+#define LEDPIN 2
+
 String version = "0.9b"; 
 
 #ifndef USB_CONNECTION
@@ -36,7 +38,9 @@ volatile bool isr_flag = 0;
 bool updating = false;
 DFPlayerMini_Fast myMP3;
 
-SoftwareSerial mySoftwareSerial(D7, D5); // RX, TX
+//SoftwareSerial mySoftwareSerial(D7, D5); // RX, TX
+
+SoftwareSerial mySoftwareSerial(D5, D4); // RX, TX
 
 CRGB leds[256];
 #ifdef MATRIX_MODEV2
@@ -49,6 +53,11 @@ CRGB leds[256];
 bool shouldSaveConfig = false;
 char ssid[40];
 char pwd[40];
+
+
+byte myBytes[1000];
+int bufferpointer;
+String message;
 
 //callback notifying us of the need to save config
 void saveConfigCallback () {
@@ -165,23 +174,12 @@ void callback(char *topic, byte *payload, unsigned int length)
 
 			int16_t width = payload[5];
 			int16_t height = payload[6];
-			Serial.printf("Anzahl an Farbwerten: %d\nFarbwerte:\n",length-7);
-
+	
 			unsigned short colorData[width*height];
 			for(int i = 0; i<width*height*2; i++){
-				if((i/2)%2==0){
-					colorData[i/2] = 0;
-					colorData[i/2] = (payload[i+9]<<8)+payload[i+1+9];
-				}
-			}
-			for(int i = 0; i<width*height*2; i++){
-				colorData[i/2] = payload[i+9]<<8+payload[i+1+9];
+				colorData[i/2] = payload[i+7]<<8+payload[i+1+8];
 				i++;
 			}
-
-			//for(int i = 0; i<width*height; i++){
-			//	printf("%d. 0x%X - %d\n",i,colorData[i],colorData[i]);
-			//}
 			
 			for (int16_t j = 0; j < height; j++, y_coordinate++){
 				for (int16_t i = 0; i < width; i++){
@@ -288,124 +286,6 @@ void callback(char *topic, byte *payload, unsigned int length)
 			break;
 		}
 	}
-	/* 
-	DynamicJsonBuffer jsonBuffer;
-	JsonObject &json = jsonBuffer.parseObject(s_payload);
-
-	if (channel.equals("show"))
-	{
-		matrix->show();
-	}
-	else if (channel.equals("clear"))
-	{
-		matrix->clear();
-	}
-	else if (channel.equals("drawText"))
-	{
-		if (json["font"].as<String>().equals("big"))
-		{
-			matrix->setFont();
-			matrix->setCursor(json["x"].as<int16_t>(), json["y"].as<int16_t>() - 1);
-		}
-		else
-		{
-			matrix->setFont(&TomThumb);
-			matrix->setCursor(json["x"].as<int16_t>(), json["y"].as<int16_t>() + 5);
-		}
-		matrix->setTextColor(matrix->Color(json["color"][0].as<int16_t>(), json["color"][1].as<int16_t>(), json["color"][2].as<int16_t>()));
-		String text = json["text"];
-		
-		matrix->print(utf8ascii(text));
-	}
-	else if (channel.equals("drawBMP"))
-	{
-		int16_t h = json["height"].as<int16_t>();
-		int16_t w = json["width"].as<int16_t>();
-		int16_t x = json["x"].as<int16_t>();
-		int16_t y = json["y"].as<int16_t>();
-
-		for (int16_t j = 0; j < h; j++, y++)
-		{
-			for (int16_t i = 0; i < w; i++)
-			{
-				matrix->drawPixel(x + i, y, json["bmp"][j * w + i].as<int16_t>());
-			}
-		}
-	}
-	else if (channel.equals("drawLine"))
-	{
-		matrix->drawLine(json["x0"].as<int16_t>(), json["y0"].as<int16_t>(), json["x1"].as<int16_t>(), json["y1"].as<int16_t>(), matrix->Color(json["color"][0].as<int16_t>(), json["color"][1].as<int16_t>(), json["color"][2].as<int16_t>()));
-	}
-	else if (channel.equals("drawCircle"))
-	{
-		matrix->drawCircle(json["x0"].as<int16_t>(), json["y0"].as<int16_t>(), json["r"].as<int16_t>(), matrix->Color(json["color"][0].as<int16_t>(), json["color"][1].as<int16_t>(), json["color"][2].as<int16_t>()));
-	}
-	else if (channel.equals("drawRect"))
-	{
-		matrix->drawRect(json["x"].as<int16_t>(), json["y"].as<int16_t>(), json["w"].as<int16_t>(), json["h"].as<int16_t>(), matrix->Color(json["color"][0].as<int16_t>(), json["color"][1].as<int16_t>(), json["color"][2].as<int16_t>()));
-	}
-		else if (channel.equals("fill"))
-	{
-		matrix->fillScreen(matrix->Color(json["color"][0].as<int16_t>(), json["color"][1].as<int16_t>(), json["color"][2].as<int16_t>()));
-	}
-	else if (channel.equals("drawPixel"))
-	{
-		matrix->drawPixel(json["x"].as<int16_t>(), json["y"].as<int16_t>(), matrix->Color(json["color"][0].as<int16_t>(), json["color"][1].as<int16_t>(), json["color"][2].as<int16_t>()));
-	}
-	else if (channel.equals("play"))
-	{
-		int folder = json["folder"].as<int16_t>();
-		int file = json["file"].as<int16_t>();
-		int vol = json["vol"].as<int16_t>();
-
-		myMP3.volume(5);
-		delay(20);
-		myMP3.play(1);
-		//myMP3.playFolder(folder,file);
-
-		Serial.printf("Folder: %d - File: %d",folder,file);
-	}
-	else if (channel.equals("setBrightness"))
-	{
-		matrix->setBrightness(json["brightness"].as<int16_t>());
-	}
-	else if (channel.equals("speedtest"))
-	{
-		matrix->setFont(&TomThumb);
-		matrix->setCursor(0, 7);
-
-		endTime = millis();
-		duration = endTime - startTime;
-		if (duration > 85 || duration < 75)
-		{
-			matrix->setTextColor(matrix->Color(255, 0, 0));
-		}
-		else
-		{
-			matrix->setTextColor(matrix->Color(0, 255, 0));
-		}
-		matrix->print(duration);
-		startTime = millis();
-	}
-	else if (channel.equals("getMatrixInfo"))
-	{
-		StaticJsonBuffer<200> jsonBuffer;
-		JsonObject& root = jsonBuffer.createObject();
-		root["version"] = version;
-		root["wifirssi"] = String(WiFi.RSSI());
-		root["wifiquality"] =GetRSSIasQuality(WiFi.RSSI());
-		root["wifissid"] =WiFi.SSID();
-		root["getIP"] =WiFi.localIP().toString();
-		String JS;
-		root.printTo(JS);
-		client.publish("matrixInfo", JS.c_str());
-	}
-	else if (channel.equals("getLUX"))
-	{
-		StaticJsonBuffer<200> jsonBuffer;
-		client.publish("matrixLux", String(photocell.getCurrentLux()).c_str());
-	}
-	*/
 }
 
 void reconnect()
@@ -426,120 +306,158 @@ void reconnect()
 	}
 }
 #else
-void processing(String cmd)
+void processing(int length)
 {
-	DynamicJsonBuffer jsonBuffer;
-	JsonObject &json = jsonBuffer.parseObject(cmd);
-	String type = json["type"];
-	if (type.equals("show"))
-	{
-		matrix->show();
-	}
-	else if (type.equals("clear"))
-	{
-		matrix->clear();
-	}
-	else if (type.equals("drawText"))
-	{
-		if (json["font"].as<String>().equals("big"))
-		{
-			matrix->setFont();
-			matrix->setCursor(json["x"].as<int16_t>(), json["y"].as<int16_t>() - 1);
-		}
-		else
-		{
-			matrix->setFont(&TomThumb);
-			matrix->setCursor(json["x"].as<int16_t>(), json["y"].as<int16_t>() + 5);
-		}
-		matrix->setTextColor(matrix->Color(json["color"][0].as<int16_t>(), json["color"][1].as<int16_t>(), json["color"][2].as<int16_t>()));
-		String text = json["text"];
+int y_offset = 5;
+
+byte payload[length];
+for(int i=0; i<length;i++){
+	payload[i] = message[i];
+}
+
+	switch(payload[0]){
+		case 0:{
+			//Command 0: DrawText
+
+			//Prepare the coordinates
+			uint16_t x_coordinate = int(payload[1]<<8)+int(payload[2]);
+			uint16_t y_coordinate = int(payload[3]<<8)+int(payload[4]);
+
+			//Serial.printf("X: %d - Y: %d\n",x_coordinate,y_coordinate);
+
+			matrix->setCursor(x_coordinate+1, y_coordinate+y_offset);
+			matrix->setTextColor(matrix->Color(payload[5],payload[6],payload[7]));
 		
-		matrix->print(utf8ascii(text));
-	}
-	else if (type.equals("drawBMP"))
-	{
-		int16_t h = json["height"].as<int16_t>();
-		int16_t w = json["width"].as<int16_t>();
-		int16_t x = json["x"].as<int16_t>();
-		int16_t y = json["y"].as<int16_t>();
-
-		for (int16_t j = 0; j < h; j++, y++)
-		{
-			for (int16_t i = 0; i < w; i++)
-			{
-				matrix->drawPixel(x + i, y, json["bmp"][j * w + i].as<int16_t>());
+			String myText = "";
+			char myChar;
+			for(int i = 8;i<length;i++){
+				char c = payload[i];
+				myText += c;
 			}
+			//Serial.printf("Text: %s\n",myText.c_str());
+			matrix->print(utf8ascii(myText));
+			break;
 		}
-	}
-	else if (type.equals("drawLine"))
-	{
-		matrix->drawLine(json["x0"].as<int16_t>(), json["y0"].as<int16_t>(), json["x1"].as<int16_t>(), json["y1"].as<int16_t>(), matrix->Color(json["color"][0].as<int16_t>(), json["color"][1].as<int16_t>(), json["color"][2].as<int16_t>()));
-	}
-	else if (type.equals("drawCircle"))
-	{
-		matrix->drawCircle(json["x0"].as<int16_t>(), json["y0"].as<int16_t>(), json["r"].as<int16_t>(), matrix->Color(json["color"][0].as<int16_t>(), json["color"][1].as<int16_t>(), json["color"][2].as<int16_t>()));
-	}
-	else if (type.equals("drawRect"))
-	{
-		matrix->drawRect(json["x"].as<int16_t>(), json["y"].as<int16_t>(), json["w"].as<int16_t>(), json["h"].as<int16_t>(), matrix->Color(json["color"][0].as<int16_t>(), json["color"][1].as<int16_t>(), json["color"][2].as<int16_t>()));
-	}
-		else if (type.equals("fill"))
-	{
-		matrix->fillScreen(matrix->Color(json["color"][0].as<int16_t>(), json["color"][1].as<int16_t>(), json["color"][2].as<int16_t>()));
-	}
-	else if (type.equals("drawPixel"))
-	{
-		matrix->drawPixel(json["x"].as<int16_t>(), json["y"].as<int16_t>(), matrix->Color(json["color"][0].as<int16_t>(), json["color"][1].as<int16_t>(), json["color"][2].as<int16_t>()));
-	}
-	else if (type.equals("setBrightness"))
-	{
-		matrix->setBrightness(json["brightness"].as<int16_t>());
-	}
-		else if (type.equals("play"))
-	{
-		myMP3.volume(json["vol"].as<int8>());
-		delay(20);
-		myMP3.playFolder(json["folder"].as<int8>(),json["file"].as<int8>());
-	}
-	else if (type.equals("speedtest"))
-	{
-		matrix->setFont(&TomThumb);
-		matrix->setCursor(0, 7);
+		case 1:{
+			//Command 1: DrawBMP
 
-		endTime = millis();
-		duration = endTime - startTime;
-		if (duration > 85 || duration < 75)
-		{
-			matrix->setTextColor(matrix->Color(255, 0, 0));
+			//Prepare the coordinates
+			uint16_t x_coordinate = int(payload[1]<<8)+int(payload[2]);
+			uint16_t y_coordinate = int(payload[3]<<8)+int(payload[4]);
+
+			int16_t width = payload[5];
+			int16_t height = payload[6];
+	
+			unsigned short colorData[width*height];
+			for(int i = 0; i<width*height*2; i++){
+				colorData[i/2] = payload[i+7]<<8+payload[i+1+8];
+				i++;
+			}
+			
+			for (int16_t j = 0; j < height; j++, y_coordinate++){
+				for (int16_t i = 0; i < width; i++){
+					matrix->drawPixel(x_coordinate + i, y_coordinate, (uint16_t)colorData[j*width+i]);
+				}
+			}
+			break;
 		}
-		else
-		{
-			matrix->setTextColor(matrix->Color(0, 255, 0));
+
+		case 2:{
+			//Command 2: DrawCircle
+
+			//Prepare the coordinates
+			uint16_t x0_coordinate = int(payload[1]<<8)+int(payload[2]);
+			uint16_t y0_coordinate = int(payload[3]<<8)+int(payload[4]);
+			uint16_t radius = payload[5];
+			matrix->drawCircle(x0_coordinate, y0_coordinate, radius, matrix->Color(payload[6], payload[7], payload[8]));
+			break;
 		}
-		matrix->print(duration);
-		startTime = millis();
-	}
-	else if (type.equals("getMatrixInfo"))
-	{
-		StaticJsonBuffer<200> jsonBuffer;
-		JsonObject& root = jsonBuffer.createObject();
-		root["version"] = version;
-		root["wifirssi"] = String(WiFi.RSSI());
-		root["wifiquality"] =GetRSSIasQuality(WiFi.RSSI());
-		root["wifissid"] =WiFi.SSID();
-		root["getIP"] =WiFi.localIP().toString();
-		String JS;
-		root.printTo(JS);
-		Serial.println(String(JS));
-	}
-	else if (type.equals("getLUX"))
-	{
-		StaticJsonBuffer<200> jsonBuffer;
-		JsonObject& root = jsonBuffer.createObject();
-		root["LUX"] = photocell.getCurrentLux();
-		String JS;
-		root.printTo(JS);
-		Serial.println(String(JS));
+		case 3:{
+			//Command 3: FillCircle
+
+			//Prepare the coordinates
+			uint16_t x0_coordinate = int(payload[1]<<8)+int(payload[2]);
+			uint16_t y0_coordinate = int(payload[3]<<8)+int(payload[4]);
+			uint16_t radius = payload[5];
+			matrix->fillCircle(x0_coordinate, y0_coordinate, radius, matrix->Color(payload[6], payload[7], payload[8]));
+			break;
+		}
+		case 4:{
+			//Command 4: DrawPixel
+
+			//Prepare the coordinates
+			uint16_t x0_coordinate = int(payload[1]<<8)+int(payload[2]);
+			uint16_t y0_coordinate = int(payload[3]<<8)+int(payload[4]);
+			matrix->drawPixel(x0_coordinate, y0_coordinate, matrix->Color(payload[5], payload[6], payload[7]));
+			break;
+		}
+		case 5:{
+			//Command 5: DrawRect
+
+			//Prepare the coordinates
+			uint16_t x0_coordinate = int(payload[1]<<8)+int(payload[2]);
+			uint16_t y0_coordinate = int(payload[3]<<8)+int(payload[4]);
+			int16_t width = payload[5];
+			int16_t height = payload[6];
+
+			matrix->drawRect(x0_coordinate, y0_coordinate, width, height, matrix->Color(payload[7], payload[8], payload[9]));
+			break;
+		}
+		case 6:{
+			//Command 6: DrawLine
+
+			//Prepare the coordinates
+			uint16_t x0_coordinate = int(payload[1]<<8)+int(payload[2]);
+			uint16_t y0_coordinate = int(payload[3]<<8)+int(payload[4]);
+			uint16_t x1_coordinate = int(payload[5]<<8)+int(payload[6]);
+			uint16_t y1_coordinate = int(payload[7]<<8)+int(payload[8]);
+			matrix->drawLine(x0_coordinate, y0_coordinate, x1_coordinate, y1_coordinate, matrix->Color(payload[9],payload[10],payload[11]));
+			break;
+		}
+
+		case 7:{
+			//Command 7: FillMatrix
+
+			matrix->fillScreen(matrix->Color(payload[1],payload[2],payload[3]));
+			break;
+		}
+
+		case 8:{
+			//Command 8: Show
+			matrix->show();
+			break;
+		}
+		case 9:{
+			//Command 9: Clear
+			matrix->clear();
+			break;
+		}
+		case 10:{
+			//Command 10: Play
+			myMP3.volume(payload[3]);
+			delay(10);
+			myMP3.playFolder(payload[1],payload[2]);
+			break;
+		}
+		case 11:{
+			//Command 11: GetLux
+			Serial.println(String(photocell.getCurrentLux()).c_str());
+			break;
+		}
+		case 12:{
+			//Command 12: GetMatrixInfo
+			StaticJsonBuffer<200> jsonBuffer;
+			JsonObject& root = jsonBuffer.createObject();
+			root["version"] = version;
+			root["wifirssi"] = String(WiFi.RSSI());
+			root["wifiquality"] =GetRSSIasQuality(WiFi.RSSI());
+			root["wifissid"] =WiFi.SSID();
+			root["getIP"] =WiFi.localIP().toString();
+			String JS;
+			root.printTo(JS);
+			Serial.println((String)JS);
+			break;
+		}
 	}
 }
 #endif
@@ -613,9 +531,14 @@ void flashProgress(unsigned int progress, unsigned int total) {
 
 void setup()
 {
-	Serial.begin(9600);
+	pinMode(D5, OUTPUT);
+
+	#ifndef USB_CONNECTION
+		Serial.begin(9600);
+	#endif
+	mySoftwareSerial.begin(9600);
 	FastLED.addLeds<NEOPIXEL, D2>(leds, 256).setCorrection(TypicalLEDStrip);
-	Serial.println("Hey, I´m your Awtrix!");
+	Serial.println("Hey, I´m your Awtrix!\n");
 	WiFiManager wifiManager;
 	WiFi.mode(WIFI_STA);
 	WiFi.begin(wifiConfig.ssid, wifiConfig.password);
@@ -630,7 +553,6 @@ void setup()
 	{
 		delay(3000);
 		wifiManager.autoConnect("AwtrixWiFiSetup");
-		matrix->print("Bla");
 	}
 
 	matrix->clear();
@@ -647,7 +569,6 @@ void setup()
 	client.setCallback(callback);
  #endif
 
- 	mySoftwareSerial.begin(9600);
 	myMP3.begin(mySoftwareSerial);
 
 	Wire.begin(APDS9960_SDA,APDS9960_SCL);
@@ -665,18 +586,37 @@ void setup()
   });
 
   	ArduinoOTA.begin();
-	client.publish("control", "Hallo Welt");
+	#ifndef USB_CONNECTION
+		client.publish("control", "Hallo Welt");
+	#endif
+	digitalWrite(D5,!digitalRead(D5));
+	bufferpointer=0;
 }
 
-void loop()
-{
+void loop() {
  ArduinoOTA.handle();
  if (!updating) {
 	 #ifdef USB_CONNECTION
-		while (Serial.available () > 0) {
-			String message= Serial.readStringUntil('}')+"}";
-			processing(message);
-			};
+		//while (Serial.available () > 0) {
+			//digitalWrite(D5,!digitalRead(D5));
+			//String message= Serial.readStringUntil(':');
+			//processing(sizeof(message));
+			
+			if(Serial.available () > 0){
+				myBytes[bufferpointer] = Serial.read();
+				//digitalWrite(D5,!digitalRead(D5));
+				if ((myBytes[bufferpointer]==255)&&(myBytes[bufferpointer-1]==255)&&(myBytes[bufferpointer-2]==255)){
+					digitalWrite(D5,!digitalRead(D5));
+					processing(bufferpointer);
+					bufferpointer=0;
+				}
+				bufferpointer++;
+				if(bufferpointer==999){
+					bufferpointer=0;
+				}
+			}
+			
+		//}
 	#else
 		if (!client.connected())
 		{
