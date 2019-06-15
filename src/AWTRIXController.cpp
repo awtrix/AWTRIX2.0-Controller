@@ -176,8 +176,9 @@ void callback(char *topic, byte *payload, unsigned int length)
 			int16_t height = payload[6];
 	
 			unsigned short colorData[width*height];
+
 			for(int i = 0; i<width*height*2; i++){
-				colorData[i/2] = payload[i+7]<<8+payload[i+1+8];
+				colorData[i/2] = (payload[i+7]<<8)+payload[i+1+7];
 				i++;
 			}
 			
