@@ -1,0 +1,108 @@
+# Project information
+site_name: 'AutoConnect for ESP8266/ESP32'
+site_description: 'ESP8266/ESP32 WLAN configuration at run time with web interface'
+site_author: 'Hieromon Ikasamo'
+site_url: 'https://Hieromon.github.io/AutoConnect/'
+
+# Docs
+docs_dir: 'mkdocs'
+
+# Pages
+nav:
+  - 'Overview' : index.md
+  - 'Getting started' : gettingstarted.md
+  - 'AutoConnect menu' : menu.md
+  - 'Basic usage' : basicusage.md
+  - 'Advanced usage' : advancedusage.md
+  - 'Custom Web pages' :
+    - 'Custom Web pages with AutoConnect' : acintro.md
+    - 'AutoConnectElements' : acelements.md
+    - 'Custom Web pages with JSON' : acjson.md
+    - 'Handling the custom Web pages' : achandling.md
+  - 'Library APIs' :
+    - 'AutoConnect API': api.md
+    - 'AutoConnectAux API': apiaux.md
+    - 'AutoConnectConfig API': apiconfig.md
+    - 'AutoConnectElements API': apielements.md
+    - 'Something extra': apiextra.md
+  - 'Examples' :
+    - 'How to embed': howtoembed.md
+    - 'Tips for data conversion': datatips.md
+    - 'Attach the menu': menuize.md
+    - 'Custom Web pages w/o JSON': wojson.md
+  - 'Appendix':
+    - 'Inside AutoConnect::begin': lsbegin.md
+    - 'Saved credentail access': credit.md
+    - 'File upload handler': acupload.md
+    - 'Custom colorized': colorized.md
+  - 'FAQ' : faq.md
+  - 'Change log' : changelog.md
+  - 'License' : license.md
+
+# Repository
+repo_name: 'Hieromon/AutoConnect'
+repo_url: 'https://github.com/Hieromon/AutoConnect'
+edit_uri: ""
+
+# Copyright
+copyright: 'Copyright &copy; 2018-2019 Hieromon Ikasamo'
+
+# Configuration
+use_directory_urls: false
+theme:
+  name: 'material'
+  feature:
+    tabs: false
+  language: 'en'
+  logo: 'images/arduino-logo.svg'
+  palette:
+    primary: 'indigo'
+    accent: 'indigo'
+  font:
+    text: 'Roboto'
+    code: 'Roboto Mono'
+
+# Customization
+extra_css:
+  - 'css/paragraph.css'
+  - 'css/extra.css'
+  - 'https://use.fontawesome.com/releases/v5.6.1/css/all.css'
+extra_javascript:
+  - 'js/gifffer.min.js'
+extra:
+  social:
+    - type: 'github'
+      link: 'https://github.com/Hieromon'
+    - type: 'twitter'
+      link: 'https://twitter.com/hieromon'
+
+# Google Analytics
+google_analytics:
+  - !!python/object/apply:os.getenv ["GOOGLE_ANALYTICS_KEY"]
+  - 'auto'
+
+# Extensions
+markdown_extensions:
+  - admonition
+  - attr_list
+  - def_list
+  - codehilite:
+      guess_lang: false
+      linenums: none
+      noclasses: true
+      use_pygments: true
+      pygments_style: monokai
+  - footnotes
+  - pymdownx.betterem:
+      smart_enable: all
+  - pymdownx.caret
+  - pymdownx.critic
+  - pymdownx.details
+  - pymdownx.inlinehilite
+  - pymdownx.magiclink
+  - pymdownx.mark
+  - pymdownx.smartsymbols
+  - pymdownx.superfences
+  - pymdownx.tasklist
+  - toc:
+      permalink: true

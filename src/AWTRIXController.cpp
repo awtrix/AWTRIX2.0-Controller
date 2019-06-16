@@ -1,5 +1,7 @@
 #include <ArduinoOTA.h>
 #include <ESP8266WiFi.h>
+#include <ESP8266WebServer.h>     // Replace with WebServer.h for ESP32
+#include <AutoConnect.h>
 #include <WiFiClient.h>
 #include <PubSubClient.h>
 #include <FS.h>
@@ -15,6 +17,7 @@
 #include <DFPlayerMini_Fast.h>
 #include "awtrix-conf.h"
 #include <WiFiManager.h>
+#include <WiFiUdp.h>
 
 String version = "0.9b"; 
 
@@ -22,6 +25,14 @@ String version = "0.9b";
 	WiFiClient espClient;
 	PubSubClient client(espClient);
 #endif
+
+//UDP Settings:
+WiFiUDP Udp;
+unsigned int localUdpPort = 7005;
+char packetBuffer[6];
+
+bool firstStart = true;
+
 
 LightDependentResistor photocell(LDR_PIN, LDR_RESISTOR, LDR_PHOTOCELL);
 #define APDS9960_INT    D6
@@ -36,9 +47,9 @@ volatile bool isr_flag = 0;
 bool updating = false;
 DFPlayerMini_Fast myMP3;
 
-//SoftwareSerial mySoftwareSerial(D7, D5); // RX, TX
+SoftwareSerial mySoftwareSerial(D7, D5); // RX, TX
 
-SoftwareSerial mySoftwareSerial(D5, D4); // RX, TX
+//SoftwareSerial mySoftwareSerial(D5, D4); // RX, TX
 
 CRGB leds[256];
 #ifdef MATRIX_MODEV2
@@ -47,17 +58,9 @@ CRGB leds[256];
   FastLED_NeoMatrix *matrix = new FastLED_NeoMatrix(leds, 32, 8, NEO_MATRIX_TOP + NEO_MATRIX_LEFT + NEO_MATRIX_COLUMNS + NEO_MATRIX_ZIGZAG);
 #endif
 
-//WiFiManager
-bool shouldSaveConfig = false;
-char ssid[40];
-char pwd[40];
-
-
-//callback notifying us of the need to save config
-void saveConfigCallback () {
-  	Serial.println("Should save config");
-  	shouldSaveConfig = true;
-}
+//Hotspot
+ESP8266WebServer Server;
+AutoConnect      Portal(Server);
 
 static byte c1;  // Last character buffer
 byte utf8ascii(byte ascii) {
@@ -142,6 +145,39 @@ void callback(char *topic, byte *payload, unsigned int length)
 {
 	int y_offset = 5;
 
+	if(firstStart){
+		firstStart=false;
+		int mydelay = millis();
+		int serverCheckPoints = 0;
+		while(millis()-mydelay<2000){
+			while(serverCheckPoints<7){
+				matrix->clear();
+				matrix->setCursor(1, 6);
+				matrix->print("Server");
+				switch(serverCheckPoints){
+					case 6:
+						matrix->drawPixel(30,2,0x07E0);
+					case 5:
+						matrix->drawPixel(29,3,0x07E0);
+					case 4:
+						matrix->drawPixel(28,4,0x07E0);
+					case 3:
+						matrix->drawPixel(27,5,0x07E0);
+					case 2:
+						matrix->drawPixel(26,6,0x07E0);
+					case 1:
+						matrix->drawPixel(25,5,0x07E0);
+					case 0:
+						matrix->drawPixel(24,4,0x07E0);
+					break;
+				}
+				serverCheckPoints++;
+				matrix->show();
+				delay(100);
+			}
+		}
+	}
+
 	switch(payload[0]){
 		case 0:{
 			//Command 0: DrawText
@@ -151,7 +187,7 @@ void callback(char *topic, byte *payload, unsigned int length)
 			uint16_t y_coordinate = int(payload[3]<<8)+int(payload[4]);
 
 			matrix->setCursor(x_coordinate+1, y_coordinate+y_offset);
-			matrix->setTextColor(matrix->Color(payload[5],payload[6],payload[7]));
+			matrix->setTextColor(matrix->Color(payload[5],payload[6],payload[7])); 
 		
 			String myText = "";
 			char myChar;
@@ -531,16 +567,47 @@ void flashProgress(unsigned int progress, unsigned int total) {
 byte myBytes[1000];
 int bufferpointer;
 
+bool checkForServer(){
+		//Serial.printf("Get...\n");
+		Udp.read(packetBuffer,6);
+		for(int i=0;i<6;i++){
+			printf("%c",packetBuffer[i]);
+		}
+		printf("\n");
+		
+
+	char test[20];
+	if((packetBuffer[0]==123)&&(packetBuffer[1]==1)){
+		sprintf(wifiConfig.awtrix_server,"%03d.%03d.%03d.%03d",int(packetBuffer[2]),int(packetBuffer[3]),int(packetBuffer[4]),int(packetBuffer[5]));
+		return true;
+	} 
+	return false;
+}
+
+String feelsOn(AutoConnectAux& aux, PageArgument& args) {
+
+	// Get the AutoConnectInput named "feels".
+	// The where() function returns an uri string of the AutoConnectAux that triggered this handler.
+	AutoConnectAux* hello = Portal.aux(Portal.where());
+	AutoConnectInput& feels = hello->getElement<AutoConnectInput>("feels");
+
+	strcpy(wifiConfig.awtrix_server, feels.value.c_str());
+	Serial.println(feels.value);
+	return String("");
+}
+
+
 void setup()
 {
-
 	#ifndef USB_CONNECTION
 		Serial.begin(9600);
 	#endif
 	mySoftwareSerial.begin(9600);
 	FastLED.addLeds<NEOPIXEL, D2>(leds, 256).setCorrection(TypicalLEDStrip);
 	Serial.println("Hey, I´m your Awtrix!\n");
-	WiFiManager wifiManager;
+
+	//WiFiManager wifiManager;
+	
 	WiFi.mode(WIFI_STA);
 	WiFi.begin(wifiConfig.ssid, wifiConfig.password);
 	matrix->begin();
@@ -558,25 +625,8 @@ void setup()
 		matrix->print("WiFi");
 
 		switch(wifiPoints){
-			case 0: 
-			break;
-			case 1: 
-				matrix->drawPixel(21,3,0xFFFF);
-			break;
-			case 2: 
-				matrix->drawPixel(21,3,0xFFFF);
-				
-				matrix->drawPixel(23,2,0xFFFF);
-				matrix->drawPixel(24,3,0xFFFF);
-				matrix->drawPixel(23,4,0xFFFF);
-			break;
-			case 3: 
-				matrix->drawPixel(21,3,0xFFFF);
-
-				matrix->drawPixel(23,2,0xFFFF);
-				matrix->drawPixel(24,3,0xFFFF);
-				matrix->drawPixel(23,4,0xFFFF);
-
+			case 3:
+				wifiPoints=-1;
 				matrix->drawPixel(24,0,0xFFFF);
 				matrix->drawPixel(25,1,0xFFFF);
 				matrix->drawPixel(26,2,0xFFFF);
@@ -584,7 +634,13 @@ void setup()
 				matrix->drawPixel(26,4,0xFFFF);
 				matrix->drawPixel(25,5,0xFFFF);
 				matrix->drawPixel(24,6,0xFFFF);
-				wifiPoints=-1;
+			case 2: 
+				matrix->drawPixel(23,2,0xFFFF);
+				matrix->drawPixel(24,3,0xFFFF);
+				matrix->drawPixel(23,4,0xFFFF);
+			case 1: 
+				matrix->drawPixel(21,3,0xFFFF);
+			case 0: 
 			break;	
 		}	
 		matrix->show();
@@ -596,12 +652,75 @@ void setup()
 			matrix->setCursor(3, 6);
 			matrix->print("Hotspot");
 			matrix->show();
-			wifiManager.autoConnect("AwtrixWiFiSetup");
+
+			AutoConnectConfig  Config;
+			Config.title = "Awtrix Setup";
+			Config.apid = "AwtrixSetup";
+			Config.psk = "awtrixxx";
+			Portal.config(Config);
+			
+			/*
+			ACText(header, "On this page you can configure your Awtrix.");
+			ACText(caption1, "The hotspot appears only with unsuccessful wlan connection");
+			AutoConnectInput input("input", "", "Server", "MQTT broker server");
+			ACSubmit(save, "SAVE", "/mqtt_save");
+			AutoConnectRadio radio("radio", { "Awtrix_1", "Awtrix_2", "Awtrix_3" }, "Awtrix Name", AC_Vertical, 1);
+			AutoConnectAux  aux1("/awtrix_setting", "Awtrix Setting",true, { header, caption1, radio, save});
+			ACText(caption2, "Save parameters");
+			Portal.join({ aux1 });
+			
+
+			const static char addonJson[] PROGMEM = R"raw(
+			[
+			{
+				"title": "Hello",
+				"uri": "/hello",
+				"menu": true,
+				"element": [
+				{
+					"name": "feels",
+					"type": "ACInput",
+					"label": "Server address"
+				},
+				{
+					"name": "send",
+					"type": "ACSubmit",
+					"value": "Just it!",
+					"uri": "/feels"
+				}
+				]
+			},
+			{
+				"title": "Hello",
+				"uri": "/feels",
+				"menu": false,
+				"element": [
+				{
+					"name": "echo",
+					"type": "ACText",
+					"style": "color:blue;font-family:verdana;font-size:300%;"
+				}
+				]
+			}
+			]
+			)raw";
+
+			Portal.load(addonJson);   
+			Portal.on("/feels", feelsOn, AC_EXIT_AHEAD);
+			*/
+			Portal.begin();
+			while (WiFi.status() != WL_CONNECTED)
+			{	
+				Portal.handleClient();
+
+			}
+			//wifiManager.autoConnect("AwtrixWiFiSetup");
 		}
 	}
+
+	//show wifi connected
 	int wifiCheckTime = millis();
 	int wifiCheckPoints = 0;
-
 	while(millis()-wifiCheckTime<2000){
 		while(wifiCheckPoints<7){
 			matrix->clear();
@@ -630,21 +749,92 @@ void setup()
 		}
 	}
 	
-	
+	//Connection to Server
+	#ifdef USB_CONNECTION
+		Serial.begin(115200);
+	#else
+		client.setServer(wifiConfig.awtrix_server, 7001);
+		client.setCallback(callback);
+	#endif
+	/*
+	bool clientConnected = false;
+	while(!client.connected()){
+		int ServerTimeout = millis();
+		int serverPoints = 0;
+		Udp.begin(localUdpPort);
+		while (!client.connected()){
+			matrix->clear();
+			matrix->setTextColor(0xFFFF);
+			matrix->setCursor(1, 6);
+			matrix->print("Server");
+			switch(serverPoints){
+				case 3:
+					serverPoints=-1;
+					matrix->drawPixel(28,0,0xFFFF);
+					matrix->drawPixel(29,1,0xFFFF);
+					matrix->drawPixel(30,2,0xFFFF);
+					matrix->drawPixel(31,3,0xFFFF);
+					matrix->drawPixel(30,4,0xFFFF);
+					matrix->drawPixel(29,5,0xFFFF);
+					matrix->drawPixel(28,6,0xFFFF);
+				case 2: 
+					matrix->drawPixel(27,2,0xFFFF);
+					matrix->drawPixel(28,3,0xFFFF);
+					matrix->drawPixel(27,4,0xFFFF);
+				case 1: 
+					matrix->drawPixel(25,3,0xFFFF);
+				case 0: 
+				break;	
+			}	
+			matrix->show();
+			delay(500);	
+			serverPoints++;
 
-	matrix->clear();
-	matrix->setCursor(6, 6);
-	matrix->setTextColor(matrix->Color(0,255,0));
-	matrix->print("Ready!");
-	matrix->show();
+			if (checkForServer()){
+				clientConnected = true;
+				matrix->clear();
+				break;
+			}
+		}
+		Udp.stop();
+		reconnect();
+		//client.setServer(wifiConfig.awtrix_server, 7001);
+		//Serial.println("Hier bin ich...");
+	}
+
+	wifiCheckTime = millis();
+	wifiCheckPoints = 0;
+	while(millis()-wifiCheckTime<2000){
+		while(wifiCheckPoints<7){
+			matrix->clear();
+			matrix->setCursor(1, 6);
+			matrix->print("Server");
+			switch(wifiCheckPoints){
+				case 6:
+					matrix->drawPixel(30,2,0x07E0);
+				case 5:
+					matrix->drawPixel(29,3,0x07E0);
+				case 4:
+					matrix->drawPixel(28,4,0x07E0);
+				case 3:
+					matrix->drawPixel(27,5,0x07E0);
+				case 2:
+					matrix->drawPixel(26,6,0x07E0);
+				case 1:
+					matrix->drawPixel(25,5,0x07E0);
+				case 0:
+					matrix->drawPixel(24,4,0x07E0);
+				break;
+			}
+			wifiCheckPoints++;
+			matrix->show();
+			delay(100);
+		}
+	}
+	*/
+	client.publish("control", "Hallo Welt");
+
 	photocell.setPhotocellPositionOnGround(false);
-
- #ifdef USB_CONNECTION
-	Serial.begin(115200);
- #else
-	client.setServer(wifiConfig.awtrix_server, 7001);
-	client.setCallback(callback);
- #endif
 
 	myMP3.begin(mySoftwareSerial);
 
@@ -663,14 +853,10 @@ void setup()
   });
 
   	ArduinoOTA.begin();
-	#ifndef USB_CONNECTION
-		client.publish("control", "Hallo Welt");
-	#endif
-	digitalWrite(D5,!digitalRead(D5));
 	bufferpointer=0;
+	matrix->clear();
+	matrix->setCursor(7,6);
 }
-
-
 
 void loop() {
  ArduinoOTA.handle();
