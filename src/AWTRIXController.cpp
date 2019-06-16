@@ -16,8 +16,6 @@
 #include "awtrix-conf.h"
 #include <WiFiManager.h>
 
-#define LEDPIN 2
-
 String version = "0.9b"; 
 
 #ifndef USB_CONNECTION
@@ -535,7 +533,6 @@ int bufferpointer;
 
 void setup()
 {
-	pinMode(D5, OUTPUT);
 
 	#ifndef USB_CONNECTION
 		Serial.begin(9600);
@@ -550,14 +547,90 @@ void setup()
 	matrix->setTextWrap(false);
 	matrix->setBrightness(80);
 	matrix->setFont(&TomThumb);
-	matrix->setCursor(7, 6);
-	matrix->print("WiFi...");
-	matrix->show();
+	int wifiTimeout = millis();
+	String wifiString = "WiFi";
+	int wifiPoints = 0;
 	while (WiFi.status() != WL_CONNECTED)
 	{
-		delay(3000);
-		wifiManager.autoConnect("AwtrixWiFiSetup");
+		matrix->clear();
+		matrix->setTextColor(0xFFFF);
+		matrix->setCursor(7, 6);
+		matrix->print("WiFi");
+
+		switch(wifiPoints){
+			case 0: 
+			break;
+			case 1: 
+				matrix->drawPixel(21,3,0xFFFF);
+			break;
+			case 2: 
+				matrix->drawPixel(21,3,0xFFFF);
+				
+				matrix->drawPixel(23,2,0xFFFF);
+				matrix->drawPixel(24,3,0xFFFF);
+				matrix->drawPixel(23,4,0xFFFF);
+			break;
+			case 3: 
+				matrix->drawPixel(21,3,0xFFFF);
+
+				matrix->drawPixel(23,2,0xFFFF);
+				matrix->drawPixel(24,3,0xFFFF);
+				matrix->drawPixel(23,4,0xFFFF);
+
+				matrix->drawPixel(24,0,0xFFFF);
+				matrix->drawPixel(25,1,0xFFFF);
+				matrix->drawPixel(26,2,0xFFFF);
+				matrix->drawPixel(27,3,0xFFFF);
+				matrix->drawPixel(26,4,0xFFFF);
+				matrix->drawPixel(25,5,0xFFFF);
+				matrix->drawPixel(24,6,0xFFFF);
+				wifiPoints=-1;
+			break;	
+		}	
+		matrix->show();
+		delay(500);	
+		wifiPoints++;
+
+		if(millis()-wifiTimeout>10000){
+			matrix->clear();
+			matrix->setCursor(3, 6);
+			matrix->print("Hotspot");
+			matrix->show();
+			wifiManager.autoConnect("AwtrixWiFiSetup");
+		}
 	}
+	int wifiCheckTime = millis();
+	int wifiCheckPoints = 0;
+
+	while(millis()-wifiCheckTime<2000){
+		while(wifiCheckPoints<7){
+			matrix->clear();
+			matrix->setCursor(7, 6);
+			matrix->print("WiFi");
+			switch(wifiCheckPoints){
+				case 6:
+					matrix->drawPixel(27,2,0x07E0);
+				case 5:
+					matrix->drawPixel(26,3,0x07E0);
+				case 4:
+					matrix->drawPixel(25,4,0x07E0);
+				case 3:
+					matrix->drawPixel(24,5,0x07E0);
+				case 2:
+					matrix->drawPixel(23,6,0x07E0);
+				case 1:
+					matrix->drawPixel(22,5,0x07E0);
+				case 0:
+					matrix->drawPixel(21,4,0x07E0);
+				break;
+			}
+			wifiCheckPoints++;
+			matrix->show();
+			delay(100);
+		}
+	}
+	
+	
 
 	matrix->clear();
 	matrix->setCursor(6, 6);
@@ -604,7 +677,6 @@ void loop() {
  if (!updating) {
 	 #ifdef USB_CONNECTION
 		//while (Serial.available () > 0) {
-			//digitalWrite(D5,!digitalRead(D5));
 			//String message= Serial.readStringUntil(':');
 			//processing(sizeof(message));
 			
@@ -612,7 +684,6 @@ void loop() {
 				//debuggingWithMatrix("Hallo");
 
 				myBytes[bufferpointer] = Serial.read();
-				//digitalWrite(D5,!digitalRead(D5));
 				if ((myBytes[bufferpointer]==255)&&(myBytes[bufferpointer-1]==255)&&(myBytes[bufferpointer-2]==255)){
 					processing(myBytes, bufferpointer);
 					bufferpointer=0;
