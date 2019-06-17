@@ -32,7 +32,12 @@ unsigned int localUdpPort = 7005;
 char packetBuffer[6];
 
 bool firstStart = true;
+int myTime;
+int myCounter;
 
+//USB Connection:
+byte myBytes[1000];
+int bufferpointer;
 
 LightDependentResistor photocell(LDR_PIN, LDR_RESISTOR, LDR_PHOTOCELL);
 #define APDS9960_INT    D6
@@ -64,26 +69,26 @@ AutoConnect      Portal(Server);
 
 static byte c1;  // Last character buffer
 byte utf8ascii(byte ascii) {
-  if ( ascii < 128 ) // Standard ASCII-set 0..0x7F handling
-  { c1 = 0;
-    return ( ascii );
-  }
-  // get previous input
-byte last = c1;   // get last char
-  c1 = ascii;       // remember actual character
-  switch (last)     // conversion depending on first UTF8-character
-  { case 0xC2: return  (ascii) - 34;  break;
-    case 0xC3: return  (ascii | 0xC0) - 34;  break;
-    case 0x82: if (ascii == 0xAC) return (0xEA);   
-  }
-  return  (0);
+	if ( ascii < 128 ) // Standard ASCII-set 0..0x7F handling
+	{ c1 = 0;
+		return ( ascii );
+	}
+	// get previous input
+	byte last = c1;   // get last char
+	c1 = ascii;       // remember actual character
+	switch (last)     // conversion depending on first UTF8-character
+	{ case 0xC2: return  (ascii) - 34;  break;
+		case 0xC3: return  (ascii | 0xC0) - 34;  break;
+		case 0x82: if (ascii == 0xAC) return (0xEA);   
+	}
+	return  (0);
 }
 
 void debuggingWithMatrix(String text){
 	matrix->setCursor(7, 6);
-		matrix->clear();
-		matrix->print(text);
-		matrix->show();
+	matrix->clear();
+	matrix->print(text);
+	matrix->show();
 }
 
 String utf8ascii(String s) {
@@ -97,10 +102,104 @@ String utf8ascii(String s) {
   return r;
 }
 
+void hardwareAnimatedCheck(int typ,int x,int y){
+	int wifiCheckTime = millis();
+	int wifiCheckPoints = 0;
+	while(millis()-wifiCheckTime<2000){
+		while(wifiCheckPoints<7){
+			matrix->clear();
+			
+			if(typ==0){
+				matrix->setCursor(7, 6);
+				matrix->print("WiFi");
+			} else if(typ==1){
+				matrix->setCursor(1, 6);
+				matrix->print("Server");
+			}
+			switch(wifiCheckPoints){
+				case 6:
+					matrix->drawPixel(x,y,0x07E0);
+				case 5:
+					matrix->drawPixel(x-1,y+1,0x07E0);
+				case 4:
+					matrix->drawPixel(x-2,y+2,0x07E0);
+				case 3:
+					matrix->drawPixel(x-3,y+3,0x07E0);
+				case 2:
+					matrix->drawPixel(x-4,y+4,0x07E0);
+				case 1:
+					matrix->drawPixel(x-5,y+3,0x07E0);
+				case 0:
+					matrix->drawPixel(x-6,y+2,0x07E0);
+				break;
+				}
+			wifiCheckPoints++;
+			matrix->show();
+			delay(100);
+		}
+	}
+}
 
+void hardwareAnimatedSearchFast(int rounds,int x,int y){
+	matrix->clear();
+	matrix->setTextColor(0xFFFF);
+	matrix->setCursor(1, 6);
+	matrix->print("Server");
 
+	switch(rounds){
+		case 3:
+			matrix->drawPixel(x,y,0xFFFF);
+			matrix->drawPixel(x+1,y+1,0xFFFF);
+			matrix->drawPixel(x+2,y+2,0xFFFF);
+			matrix->drawPixel(x+3,y+3,0xFFFF);
+			matrix->drawPixel(x+2,y+4,0xFFFF);
+			matrix->drawPixel(x+1,y+5,0xFFFF);
+			matrix->drawPixel(x,y+6,0xFFFF);
+		case 2:
+			matrix->drawPixel(x-1,y+2,0xFFFF);
+			matrix->drawPixel(x,y+3,0xFFFF);
+			matrix->drawPixel(x-1,y+4,0xFFFF);
+			case 1: 
+			matrix->drawPixel(x-3,y+3,0xFFFF);
+		case 0: 
+		break;	
+	}	
+	matrix->show();
+}
 
-
+void hardwareAnimatedSearch(int typ,int x,int y){
+	for(int i=0;i<4;i++){
+		matrix->clear();
+		matrix->setTextColor(0xFFFF);
+		if(typ==0){
+			matrix->setCursor(7, 6);
+			matrix->print("WiFi");
+		} else if(typ==1){
+			matrix->setCursor(1, 6);
+			matrix->print("Server");
+		}
+		switch(i){
+			case 3:
+				matrix->drawPixel(x,y,0xFFFF);
+				matrix->drawPixel(x+1,y+1,0xFFFF);
+				matrix->drawPixel(x+2,y+2,0xFFFF);
+				matrix->drawPixel(x+3,y+3,0xFFFF);
+				matrix->drawPixel(x+2,y+4,0xFFFF);
+				matrix->drawPixel(x+1,y+5,0xFFFF);
+				matrix->drawPixel(x,y+6,0xFFFF);
+			case 2: 
+				matrix->drawPixel(x-1,y+2,0xFFFF);
+				matrix->drawPixel(x,y+3,0xFFFF);
+				matrix->drawPixel(x-1,y+4,0xFFFF);
+			case 1: 
+				matrix->drawPixel(x-3,y+3,0xFFFF);
+			case 0: 
+			break;	
+		}	
+		matrix->show();
+		delay(500);	
+	}
+}
 
 void utf8ascii(char* s) {
   int k = 0;
@@ -115,13 +214,11 @@ void utf8ascii(char* s) {
 }
 
 
-String GetChipID()
-{
+String GetChipID(){
 	return String(ESP.getChipId());
 }
 
-int GetRSSIasQuality(int rssi)
-{
+int GetRSSIasQuality(int rssi){
 	int quality = 0;
 
 	if (rssi <= -100)
@@ -149,36 +246,9 @@ void callback(char *topic, byte *payload, unsigned int length)
 	int y_offset = 5;
 
 	if(firstStart){
+		hardwareAnimatedCheck(1,30,2);
 		firstStart=false;
-		int mydelay = millis();
-		int serverCheckPoints = 0;
-		while(millis()-mydelay<2000){
-			while(serverCheckPoints<7){
-				matrix->clear();
-				matrix->setCursor(1, 6);
-				matrix->print("Server");
-				switch(serverCheckPoints){
-					case 6:
-						matrix->drawPixel(30,2,0x07E0);
-					case 5:
-						matrix->drawPixel(29,3,0x07E0);
-					case 4:
-						matrix->drawPixel(28,4,0x07E0);
-					case 3:
-						matrix->drawPixel(27,5,0x07E0);
-					case 2:
-						matrix->drawPixel(26,6,0x07E0);
-					case 1:
-						matrix->drawPixel(25,5,0x07E0);
-					case 0:
-						matrix->drawPixel(24,4,0x07E0);
-					break;
-				}
-				serverCheckPoints++;
-				matrix->show();
-				delay(100);
-			}
-		}
+		return;
 	}
 
 	switch(payload[0]){
@@ -331,7 +401,7 @@ void reconnect()
 	while (!client.connected())
 	{
 		String clientId = "AWTRIXController-";
-    clientId += String(random(0xffff), HEX);
+    	clientId += String(random(0xffff), HEX);
 		if (client.connect(clientId.c_str()))
 		{
 			client.subscribe("awtrixmatrix/#");
@@ -346,12 +416,12 @@ void reconnect()
 #else
 void processing(byte payload[],int length)
 {
-int y_offset = 5;
+	int y_offset = 5;
 
-//byte payload[length];
-//for(int i=0; i<length;i++){
-//	payload[i] = message[i];
-//}
+	if(firstStart){
+		hardwareAnimatedCheck(1,31,2);
+		firstStart=false;
+	}
 
 	switch(payload[0]){
 		case 0:{
@@ -387,8 +457,9 @@ int y_offset = 5;
 			int16_t height = payload[6];
 	
 			unsigned short colorData[width*height];
+
 			for(int i = 0; i<width*height*2; i++){
-				colorData[i/2] = payload[i+7]<<8+payload[i+1+7];
+				colorData[i/2] = (payload[i+7]<<8)+payload[i+1+7];
 				i++;
 			}
 			
@@ -479,7 +550,12 @@ int y_offset = 5;
 		}
 		case 11:{
 			//Command 11: GetLux
-			Serial.println(String(photocell.getCurrentLux()).c_str());
+			StaticJsonBuffer<200> jsonBuffer;
+			JsonObject& root = jsonBuffer.createObject();
+			root["LUX"] = photocell.getCurrentLux();
+			String JS;
+			root.printTo(JS);
+			Serial.println(String(JS));
 			break;
 		}
 		case 12:{
@@ -493,7 +569,7 @@ int y_offset = 5;
 			root["getIP"] =WiFi.localIP().toString();
 			String JS;
 			root.printTo(JS);
-			Serial.println((String)JS);
+			Serial.println(String(JS));
 			break;
 		}
 	}
@@ -567,236 +643,67 @@ void flashProgress(unsigned int progress, unsigned int total) {
     matrix->show();
 }
 
-byte myBytes[1000];
-int bufferpointer;
-
-bool checkForServer(){
-		//Serial.printf("Get...\n");
-		Udp.read(packetBuffer,6);
-		for(int i=0;i<6;i++){
-			printf("%c",packetBuffer[i]);
-		}
-		printf("\n");
-		
-
-	char test[20];
-	if((packetBuffer[0]==123)&&(packetBuffer[1]==1)){
-		sprintf(wifiConfig.awtrix_server,"%03d.%03d.%03d.%03d",int(packetBuffer[2]),int(packetBuffer[3]),int(packetBuffer[4]),int(packetBuffer[5]));
-		return true;
-	} 
-	return false;
-}
-
-String feelsOn(AutoConnectAux& aux, PageArgument& args) {
-
-	// Get the AutoConnectInput named "feels".
-	// The where() function returns an uri string of the AutoConnectAux that triggered this handler.
-	AutoConnectAux* hello = Portal.aux(Portal.where());
-	AutoConnectInput& feels = hello->getElement<AutoConnectInput>("feels");
-
-	strcpy(wifiConfig.awtrix_server, feels.value.c_str());
-	Serial.println(feels.value);
-	return String("");
-}
-
-void rootPage() {
-	char content[] = "Hello, world";
-	Server.send(200, "text/plain", content);
-}
 
 void setup()
 {
-	#ifndef USB_CONNECTION
-		Serial.begin(9600);
-	#endif
-	mySoftwareSerial.begin(9600);
-	FastLED.addLeds<NEOPIXEL, D2>(leds, 256).setCorrection(TypicalLEDStrip);
-	Serial.println("Hey, I´m your Awtrix!\n");
-
-	//WiFiManager wifiManager;
-	
-	WiFi.mode(WIFI_STA);
-	WiFi.begin(wifiConfig.ssid, wifiConfig.password);
 	matrix->begin();
 	matrix->setTextWrap(false);
 	matrix->setBrightness(80);
 	matrix->setFont(&TomThumb);
-	int wifiTimeout = millis();
-	String wifiString = "WiFi";
-	int wifiPoints = 0;
-	while (WiFi.status() != WL_CONNECTED)
-	{
-		matrix->clear();
-		matrix->setTextColor(0xFFFF);
-		matrix->setCursor(7, 6);
-		matrix->print("WiFi");
 
-		switch(wifiPoints){
-			case 3:
-				wifiPoints=-1;
-				matrix->drawPixel(24,0,0xFFFF);
-				matrix->drawPixel(25,1,0xFFFF);
-				matrix->drawPixel(26,2,0xFFFF);
-				matrix->drawPixel(27,3,0xFFFF);
-				matrix->drawPixel(26,4,0xFFFF);
-				matrix->drawPixel(25,5,0xFFFF);
-				matrix->drawPixel(24,6,0xFFFF);
-			case 2: 
-				matrix->drawPixel(23,2,0xFFFF);
-				matrix->drawPixel(24,3,0xFFFF);
-				matrix->drawPixel(23,4,0xFFFF);
-			case 1: 
-				matrix->drawPixel(21,3,0xFFFF);
-			case 0: 
-			break;	
-		}	
-		matrix->show();
-		delay(500);	
-		wifiPoints++;
+	#ifndef USB_CONNECTION
+		Serial.begin(9600);
+		Serial.println("Hey, I´m your Awtrix!\n");
+	#endif
 
-		if(millis()-wifiTimeout>10000){
-			matrix->clear();
-			matrix->setCursor(3, 6);
-			matrix->print("Hotspot");
-			matrix->show();
-
-			AutoConnectConfig  Config;
-			Config.title = "Awtrix Setup";
-			Config.apid = "AwtrixSetup";
-			Config.psk = "awtrixxx";
-			
-			ACText(header,"Awtrix Setup");
-			ACText(caption1,"Bla");
-			ACCheckbox("myCheckbox","myCheckbox","Hallo Welt",true);
-			
-
-			Portal.config(Config);
-
-			Portal.begin();
-			while (WiFi.status() != WL_CONNECTED)
-			{	
-				Portal.handleClient();
-
-			}
-			//wifiManager.autoConnect("AwtrixWiFiSetup");
-		}
-	}
+	mySoftwareSerial.begin(9600);
+	FastLED.addLeds<NEOPIXEL, D2>(leds, 256).setCorrection(TypicalLEDStrip);
 	
-	//show wifi connected
-	int wifiCheckTime = millis();
-	int wifiCheckPoints = 0;
-	while(millis()-wifiCheckTime<2000){
-		while(wifiCheckPoints<7){
-			matrix->clear();
-			matrix->setCursor(7, 6);
-			matrix->print("WiFi");
-			switch(wifiCheckPoints){
-				case 6:
-					matrix->drawPixel(27,2,0x07E0);
-				case 5:
-					matrix->drawPixel(26,3,0x07E0);
-				case 4:
-					matrix->drawPixel(25,4,0x07E0);
-				case 3:
-					matrix->drawPixel(24,5,0x07E0);
-				case 2:
-					matrix->drawPixel(23,6,0x07E0);
-				case 1:
-					matrix->drawPixel(22,5,0x07E0);
-				case 0:
-					matrix->drawPixel(21,4,0x07E0);
-				break;
-			}
-			wifiCheckPoints++;
-			matrix->show();
-			delay(100);
-		}
-	}
-	/*
+	
+	
 	//Connection to Server
 	#ifdef USB_CONNECTION
 		Serial.begin(115200);
 	#else
+		WiFi.mode(WIFI_STA);
+		WiFi.begin(wifiConfig.ssid, wifiConfig.password);
+		int wifiTimeout = millis();
+		while (WiFi.status() != WL_CONNECTED){
+			hardwareAnimatedSearch(0,24,0);
+
+			if(millis()-wifiTimeout>10000){
+				matrix->clear();
+				matrix->setCursor(3, 6);
+				matrix->print("Hotspot");
+				matrix->show();
+
+				AutoConnectConfig  Config;
+				Config.title = "Awtrix Setup";
+				Config.apid = "AwtrixSetup";
+				Config.psk = "awtrixxx";
+				
+				ACText(header,"Awtrix Setup");
+				ACText(caption1,"Bla");
+				//ACCheckbox("myCheckbox","myCheckbox","Hallo Welt",true);
+				
+
+				Portal.config(Config);
+
+				Portal.begin();
+				while (WiFi.status() != WL_CONNECTED)
+				{	
+					Portal.handleClient();
+
+				}
+				//wifiManager.autoConnect("AwtrixWiFiSetup");
+			}
+		}
+		hardwareAnimatedCheck(0,27,2);
+
 		client.setServer(wifiConfig.awtrix_server, 7001);
 		client.setCallback(callback);
+		client.publish("control", "Hallo Welt");
 	#endif
-	
-	bool clientConnected = false;
-	while(!client.connected()){
-		int ServerTimeout = millis();
-		int serverPoints = 0;
-		Udp.begin(localUdpPort);
-		while (!client.connected()){
-			matrix->clear();
-			matrix->setTextColor(0xFFFF);
-			matrix->setCursor(1, 6);
-			matrix->print("Server");
-			switch(serverPoints){
-				case 3:
-					serverPoints=-1;
-					matrix->drawPixel(28,0,0xFFFF);
-					matrix->drawPixel(29,1,0xFFFF);
-					matrix->drawPixel(30,2,0xFFFF);
-					matrix->drawPixel(31,3,0xFFFF);
-					matrix->drawPixel(30,4,0xFFFF);
-					matrix->drawPixel(29,5,0xFFFF);
-					matrix->drawPixel(28,6,0xFFFF);
-				case 2: 
-					matrix->drawPixel(27,2,0xFFFF);
-					matrix->drawPixel(28,3,0xFFFF);
-					matrix->drawPixel(27,4,0xFFFF);
-				case 1: 
-					matrix->drawPixel(25,3,0xFFFF);
-				case 0: 
-				break;	
-			}	
-			matrix->show();
-			delay(500);	
-			serverPoints++;
-
-			if (checkForServer()){
-				clientConnected = true;
-				matrix->clear();
-				break;
-			}
-		}
-		Udp.stop();
-		reconnect();
-		//client.setServer(wifiConfig.awtrix_server, 7001);
-		//Serial.println("Hier bin ich...");
-	}
-
-	wifiCheckTime = millis();
-	wifiCheckPoints = 0;
-	while(millis()-wifiCheckTime<2000){
-		while(wifiCheckPoints<7){
-			matrix->clear();
-			matrix->setCursor(1, 6);
-			matrix->print("Server");
-			switch(wifiCheckPoints){
-				case 6:
-					matrix->drawPixel(30,2,0x07E0);
-				case 5:
-					matrix->drawPixel(29,3,0x07E0);
-				case 4:
-					matrix->drawPixel(28,4,0x07E0);
-				case 3:
-					matrix->drawPixel(27,5,0x07E0);
-				case 2:
-					matrix->drawPixel(26,6,0x07E0);
-				case 1:
-					matrix->drawPixel(25,5,0x07E0);
-				case 0:
-					matrix->drawPixel(24,4,0x07E0);
-				break;
-			}
-			wifiCheckPoints++;
-			matrix->show();
-			delay(100);
-		}
-	}
-	*/
-	client.publish("control", "Hallo Welt");
 
 	photocell.setPhotocellPositionOnGround(false);
 
@@ -812,31 +719,55 @@ void setup()
 		matrix->clear();
   	});
 
-  ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
-    	flashProgress(progress, total);
-  });
+	ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
+			flashProgress(progress, total);
+	});
 
   	ArduinoOTA.begin();
-	bufferpointer=0;
 	matrix->clear();
 	matrix->setCursor(7,6);
+
+	bufferpointer=0;
+
+	myTime = millis()-500;
+	myCounter = 0;
 }
 
+
+
 void loop() {
- ArduinoOTA.handle();
- if (!updating) {
-	 #ifdef USB_CONNECTION
+ 	ArduinoOTA.handle();
+
+	
+	if(firstStart){
+		if(millis()-myTime>500){
+			hardwareAnimatedSearchFast(myCounter,28,0);
+			myCounter++;
+			if(myCounter==4){
+				myCounter=0;
+			}
+			myTime = millis();
+		}
+		
+	}
+
+ 	if (!updating) {
+	 	#ifdef USB_CONNECTION
 		//while (Serial.available () > 0) {
 			//String message= Serial.readStringUntil(':');
 			//processing(sizeof(message));
 			
-			if(Serial.available () > 0){
+			while(Serial.available () > 0){
 				//debuggingWithMatrix("Hallo");
 
 				myBytes[bufferpointer] = Serial.read();
 				if ((myBytes[bufferpointer]==255)&&(myBytes[bufferpointer-1]==255)&&(myBytes[bufferpointer-2]==255)){
 					processing(myBytes, bufferpointer);
+					for(int i =0;i<bufferpointer;i++){
+						myBytes[i]=0;
+					}
 					bufferpointer=0;
+					break;
 				} else {
 					bufferpointer++;
 				}
