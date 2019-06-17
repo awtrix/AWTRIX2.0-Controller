@@ -67,7 +67,7 @@ AutoConnect      Portal(Server);
 
 static byte c1;  // Last character buffer
 byte utf8ascii(byte ascii) {
-	if ( ascii < 128 ) // Standard ASCII-set 0..0x7F handling
+	if ( ascii < 128 ) // Standard ASCII-set 0..0x7F handling 
 	{ c1 = 0;
 		return ( ascii );
 	}
@@ -92,8 +92,7 @@ void debuggingWithMatrix(String text){
 String utf8ascii(String s) {
   String r = "";
   char c;
-  for (int i = 0; i < s.length(); i++)
-  {
+  for (int i = 0; i < s.length(); i++){
     c = utf8ascii(s.charAt(i));
     if (c != 0) r += c;
   }
@@ -404,6 +403,10 @@ void updateMatrix(byte payload[],int length){
 			}
 			break;
 		}
+		case 13:{
+  			matrix->setBrightness(payload[1]);
+			break;
+  		}
 	}
 }
 
@@ -417,20 +420,13 @@ void reconnect(){
 		while (!client.connected()){
 			String clientId = "AWTRIXController-";
 			clientId += String(random(0xffff), HEX);
+			hardwareAnimatedSearch(1,28,0);
 			if (client.connect(clientId.c_str())){
 				client.subscribe("awtrixmatrix/#");
 				client.publish("matrixstate", "connected");
 			}
-			hardwareAnimatedSearch(1,28,0);
 		}
 	}
-}
-
-
-
-void processing(byte payload[],int length)
-{
-	
 }
 
 void ICACHE_RAM_ATTR interruptRoutine() {
@@ -501,8 +497,7 @@ void flashProgress(unsigned int progress, unsigned int total) {
 }
 
 
-void setup()
-{
+void setup(){
 	matrix->begin();
 	matrix->setTextWrap(false);
 	matrix->setBrightness(80);
@@ -532,13 +527,13 @@ void setup()
 				Config.title = "Awtrix Setup";
 				Config.apid = "AwtrixSetup";
 				Config.psk = "awtrixxx";
+				Config.apip = IPAddress(8,8,8,8);
 				
-				ACText(header,"Awtrix Setup");
-				ACText(caption1,"Bla");
 				//ACCheckbox("myCheckbox","myCheckbox","Hallo Welt",true);
 				
-
+								
 				Portal.config(Config);
+				
 
 				Portal.begin();
 				while (WiFi.status() != WL_CONNECTED)
@@ -553,7 +548,6 @@ void setup()
 
 		client.setServer(wifiConfig.awtrix_server, 7001);
 		client.setCallback(callback);
-		client.publish("control", "Hallo Welt");
 	}
 
 	photocell.setPhotocellPositionOnGround(false);

@@ -3,15 +3,15 @@
 // Wifi Config
 
 typedef struct {
-    const char *ssid = "WB Home";
-    const char *password = "G00dnight@Sleep";
+    const char *ssid = "2";
+    const char *password = "";
     char *awtrix_server = "192.168.3.40";
 } configData_t;
 
 configData_t wifiConfig;
 
 
-bool usbWifi = true; // true = usb...
+bool usbWifi = false; // true = usb...
 
 //#define MATRIX_MODEV2
 

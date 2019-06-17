@@ -28,7 +28,7 @@
 
 // Menu item: Configure new AP
 #ifndef AUTOCONNECT_MENULABEL_CONFIGNEW
-#define AUTOCONNECT_MENULABEL_CONFIGNEW   "Configure new AP"
+#define AUTOCONNECT_MENULABEL_CONFIGNEW   "Configure your Awtrix"
 //#define AUTOCONNECT_MENULABEL_CONFIGNEW   "Establish a new AP"
 #endif // !AUTOCONNECT_MENULABEL_CONFIGNEW
 
