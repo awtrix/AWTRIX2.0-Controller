@@ -21,10 +21,8 @@
 
 String version = "0.9b"; 
 
-#ifndef USB_CONNECTION
-	WiFiClient espClient;
-	PubSubClient client(espClient);
-#endif
+WiFiClient espClient;
+PubSubClient client(espClient);
 
 //UDP Settings:
 WiFiUDP Udp;
@@ -37,7 +35,7 @@ int myCounter;
 
 //USB Connection:
 byte myBytes[1000];
-int bufferpointer;
+unsigned int bufferpointer;
 
 LightDependentResistor photocell(LDR_PIN, LDR_RESISTOR, LDR_PHOTOCELL);
 #define APDS9960_INT    D6
@@ -240,186 +238,11 @@ unsigned long startTime = 0;
 unsigned long endTime = 0;
 unsigned long duration;
 
-#ifndef USB_CONNECTION
-void callback(char *topic, byte *payload, unsigned int length)
-{
+void updateMatrix(byte payload[],int length){
 	int y_offset = 5;
 
 	if(firstStart){
 		hardwareAnimatedCheck(1,30,2);
-		firstStart=false;
-		return;
-	}
-
-	switch(payload[0]){
-		case 0:{
-			//Command 0: DrawText
-
-			//Prepare the coordinates
-			uint16_t x_coordinate = int(payload[1]<<8)+int(payload[2]);
-			uint16_t y_coordinate = int(payload[3]<<8)+int(payload[4]);
-
-			matrix->setCursor(x_coordinate+1, y_coordinate+y_offset);
-			matrix->setTextColor(matrix->Color(payload[5],payload[6],payload[7])); 
-		
-			String myText = "";
-			char myChar;
-			for(int i = 8;i<length;i++){
-				char c = payload[i];
-				myText += c;
-			}
-			matrix->print(utf8ascii(myText));
-			break;
-		}
-		 
-		case 1:{
-			//Command 1: DrawBMP
-
-			//Prepare the coordinates
-			uint16_t x_coordinate = int(payload[1]<<8)+int(payload[2]);
-			uint16_t y_coordinate = int(payload[3]<<8)+int(payload[4]);
-
-			int16_t width = payload[5];
-			int16_t height = payload[6];
-	
-			unsigned short colorData[width*height];
-
-			for(int i = 0; i<width*height*2; i++){
-				colorData[i/2] = (payload[i+7]<<8)+payload[i+1+7];
-				i++;
-			}
-			
-			for (int16_t j = 0; j < height; j++, y_coordinate++){
-				for (int16_t i = 0; i < width; i++){
-					matrix->drawPixel(x_coordinate + i, y_coordinate, (uint16_t)colorData[j*width+i]);
-				}
-			}
-			break;
-		}
-		
-		case 2:{
-			//Command 2: DrawCircle
-
-			//Prepare the coordinates
-			uint16_t x0_coordinate = int(payload[1]<<8)+int(payload[2]);
-			uint16_t y0_coordinate = int(payload[3]<<8)+int(payload[4]);
-			uint16_t radius = payload[5];
-			matrix->drawCircle(x0_coordinate, y0_coordinate, radius, matrix->Color(payload[6], payload[7], payload[8]));
-			break;
-		}
-		case 3:{
-			//Command 3: FillCircle
-
-			//Prepare the coordinates
-			uint16_t x0_coordinate = int(payload[1]<<8)+int(payload[2]);
-			uint16_t y0_coordinate = int(payload[3]<<8)+int(payload[4]);
-			uint16_t radius = payload[5];
-			matrix->fillCircle(x0_coordinate, y0_coordinate, radius, matrix->Color(payload[6], payload[7], payload[8]));
-			break;
-		}
-		case 4:{
-			//Command 4: DrawPixel
-
-			//Prepare the coordinates
-			uint16_t x0_coordinate = int(payload[1]<<8)+int(payload[2]);
-			uint16_t y0_coordinate = int(payload[3]<<8)+int(payload[4]);
-			matrix->drawPixel(x0_coordinate, y0_coordinate, matrix->Color(payload[5], payload[6], payload[7]));
-			break;
-		}
-		case 5:{
-			//Command 5: DrawRect
-
-			//Prepare the coordinates
-			uint16_t x0_coordinate = int(payload[1]<<8)+int(payload[2]);
-			uint16_t y0_coordinate = int(payload[3]<<8)+int(payload[4]);
-			int16_t width = payload[5];
-			int16_t height = payload[6];
-
-			matrix->drawRect(x0_coordinate, y0_coordinate, width, height, matrix->Color(payload[7], payload[8], payload[9]));
-			break;
-		}
-		case 6:{
-			//Command 6: DrawLine
-
-			//Prepare the coordinates
-			uint16_t x0_coordinate = int(payload[1]<<8)+int(payload[2]);
-			uint16_t y0_coordinate = int(payload[3]<<8)+int(payload[4]);
-			uint16_t x1_coordinate = int(payload[5]<<8)+int(payload[6]);
-			uint16_t y1_coordinate = int(payload[7]<<8)+int(payload[8]);
-			matrix->drawLine(x0_coordinate, y0_coordinate, x1_coordinate, y1_coordinate, matrix->Color(payload[9],payload[10],payload[11]));
-			break;
-		}
-
-		case 7:{
-			//Command 7: FillMatrix
-
-			matrix->fillScreen(matrix->Color(payload[1],payload[2],payload[3]));
-			break;
-		}
-
-		case 8:{
-			//Command 8: Show
-			matrix->show();
-			break;
-		}
-		case 9:{
-			//Command 9: Clear
-			matrix->clear();
-			break;
-		}
-		case 10:{
-			//Command 10: Play
-			myMP3.volume(payload[3]);
-			delay(10);
-			myMP3.playFolder(payload[1],payload[2]);
-			break;
-		}
-		case 11:{
-			//Command 11: GetLux
-			client.publish("matrixLux", String(photocell.getCurrentLux()).c_str());
-			break;
-		}
-		case 12:{
-			//Command 12: GetMatrixInfo
-			StaticJsonBuffer<200> jsonBuffer;
-			JsonObject& root = jsonBuffer.createObject();
-			root["version"] = version;
-			root["wifirssi"] = String(WiFi.RSSI());
-			root["wifiquality"] =GetRSSIasQuality(WiFi.RSSI());
-			root["wifissid"] =WiFi.SSID();
-			root["getIP"] =WiFi.localIP().toString();
-			String JS;
-			root.printTo(JS);
-			client.publish("matrixInfo", JS.c_str());
-			break;
-		}
-	}
-}
-
-void reconnect()
-{
-	while (!client.connected())
-	{
-		String clientId = "AWTRIXController-";
-    	clientId += String(random(0xffff), HEX);
-		if (client.connect(clientId.c_str()))
-		{
-			client.subscribe("awtrixmatrix/#");
-			client.publish("matrixstate", "connected");
-		}
-		else
-		{
-			delay(5000);
-		}
-	}
-}
-#else
-void processing(byte payload[],int length)
-{
-	int y_offset = 5;
-
-	if(firstStart){
-		hardwareAnimatedCheck(1,31,2);
 		firstStart=false;
 	}
 
@@ -550,12 +373,17 @@ void processing(byte payload[],int length)
 		}
 		case 11:{
 			//Command 11: GetLux
-			StaticJsonBuffer<200> jsonBuffer;
-			JsonObject& root = jsonBuffer.createObject();
-			root["LUX"] = photocell.getCurrentLux();
-			String JS;
-			root.printTo(JS);
-			Serial.println(String(JS));
+			if(!usbWifi){
+				StaticJsonBuffer<200> jsonBuffer;
+				client.publish("matrixLux", String(photocell.getCurrentLux()).c_str());
+			} else {
+				StaticJsonBuffer<200> jsonBuffer;
+				JsonObject& root = jsonBuffer.createObject();
+				root["LUX"] = photocell.getCurrentLux();
+				String JS;
+				root.printTo(JS);
+				Serial.println(String(JS));
+			}
 			break;
 		}
 		case 12:{
@@ -569,12 +397,41 @@ void processing(byte payload[],int length)
 			root["getIP"] =WiFi.localIP().toString();
 			String JS;
 			root.printTo(JS);
-			Serial.println(String(JS));
+			if (!usbWifi){
+				client.publish("matrixInfo", JS.c_str());
+			} else {
+				Serial.println(String(JS));
+			}
 			break;
 		}
 	}
 }
-#endif
+
+void callback(char *topic, byte *payload, unsigned int length){
+	int y_offset = 5;
+	updateMatrix(payload,length);
+}
+
+void reconnect(){
+	if(!usbWifi){
+		while (!client.connected()){
+			String clientId = "AWTRIXController-";
+			clientId += String(random(0xffff), HEX);
+			if (client.connect(clientId.c_str())){
+				client.subscribe("awtrixmatrix/#");
+				client.publish("matrixstate", "connected");
+			}
+			hardwareAnimatedSearch(1,28,0);
+		}
+	}
+}
+
+
+
+void processing(byte payload[],int length)
+{
+	
+}
 
 void ICACHE_RAM_ATTR interruptRoutine() {
   isr_flag = 1;
@@ -651,20 +508,14 @@ void setup()
 	matrix->setBrightness(80);
 	matrix->setFont(&TomThumb);
 
-	#ifndef USB_CONNECTION
-		Serial.begin(9600);
-		Serial.println("Hey, I´m your Awtrix!\n");
-	#endif
-
 	mySoftwareSerial.begin(9600);
 	FastLED.addLeds<NEOPIXEL, D2>(leds, 256).setCorrection(TypicalLEDStrip);
 	
-	
-	
-	//Connection to Server
-	#ifdef USB_CONNECTION
+	if(usbWifi)
 		Serial.begin(115200);
-	#else
+	else {
+		Serial.begin(9600);
+		Serial.println("Hey, I´m your Awtrix!\n");
 		WiFi.mode(WIFI_STA);
 		WiFi.begin(wifiConfig.ssid, wifiConfig.password);
 		int wifiTimeout = millis();
@@ -703,7 +554,7 @@ void setup()
 		client.setServer(wifiConfig.awtrix_server, 7001);
 		client.setCallback(callback);
 		client.publish("control", "Hallo Welt");
-	#endif
+	}
 
 	photocell.setPhotocellPositionOnGround(false);
 
@@ -733,8 +584,6 @@ void setup()
 	myCounter = 0;
 }
 
-
-
 void loop() {
  	ArduinoOTA.handle();
 
@@ -748,21 +597,14 @@ void loop() {
 			}
 			myTime = millis();
 		}
-		
 	}
 
  	if (!updating) {
-	 	#ifdef USB_CONNECTION
-		//while (Serial.available () > 0) {
-			//String message= Serial.readStringUntil(':');
-			//processing(sizeof(message));
-			
+	 	if(usbWifi){
 			while(Serial.available () > 0){
-				//debuggingWithMatrix("Hallo");
-
 				myBytes[bufferpointer] = Serial.read();
 				if ((myBytes[bufferpointer]==255)&&(myBytes[bufferpointer-1]==255)&&(myBytes[bufferpointer-2]==255)){
-					processing(myBytes, bufferpointer);
+					updateMatrix(myBytes, bufferpointer);
 					for(int i =0;i<bufferpointer;i++){
 						myBytes[i]=0;
 					}
@@ -771,21 +613,18 @@ void loop() {
 				} else {
 					bufferpointer++;
 				}
-				
 				if(bufferpointer==1000){
 					bufferpointer=0;
 				}
 			}
-			
-		//}
-	#else
-		if (!client.connected())
-		{
-			reconnect();
-		}else{
-			client.loop();
 		}
-	#endif
+		else {
+			if (!client.connected()){
+				reconnect();
+			}else{
+				client.loop();
+			}
+		}
 	if(isr_flag == 1) {
     detachInterrupt(APDS9960_INT);
     handleGesture();

@@ -10,7 +10,9 @@ typedef struct {
 
 configData_t wifiConfig;
 
-#define USB_CONNECTION
+
+bool usbWifi = true; // true = usb...
+
 //#define MATRIX_MODEV2
 
 /// LDR Config
