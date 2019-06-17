@@ -99,6 +99,9 @@ String utf8ascii(String s) {
 
 
 
+
+
+
 void utf8ascii(char* s) {
   int k = 0;
   char c;
@@ -596,6 +599,10 @@ String feelsOn(AutoConnectAux& aux, PageArgument& args) {
 	return String("");
 }
 
+void rootPage() {
+	char content[] = "Hello, world";
+	Server.send(200, "text/plain", content);
+}
 
 void setup()
 {
@@ -657,57 +664,14 @@ void setup()
 			Config.title = "Awtrix Setup";
 			Config.apid = "AwtrixSetup";
 			Config.psk = "awtrixxx";
+			
+			ACText(header,"Awtrix Setup");
+			ACText(caption1,"Bla");
+			ACCheckbox("myCheckbox","myCheckbox","Hallo Welt",true);
+			
+
 			Portal.config(Config);
-			
-			/*
-			ACText(header, "On this page you can configure your Awtrix.");
-			ACText(caption1, "The hotspot appears only with unsuccessful wlan connection");
-			AutoConnectInput input("input", "", "Server", "MQTT broker server");
-			ACSubmit(save, "SAVE", "/mqtt_save");
-			AutoConnectRadio radio("radio", { "Awtrix_1", "Awtrix_2", "Awtrix_3" }, "Awtrix Name", AC_Vertical, 1);
-			AutoConnectAux  aux1("/awtrix_setting", "Awtrix Setting",true, { header, caption1, radio, save});
-			ACText(caption2, "Save parameters");
-			Portal.join({ aux1 });
-			
 
-			const static char addonJson[] PROGMEM = R"raw(
-			[
-			{
-				"title": "Hello",
-				"uri": "/hello",
-				"menu": true,
-				"element": [
-				{
-					"name": "feels",
-					"type": "ACInput",
-					"label": "Server address"
-				},
-				{
-					"name": "send",
-					"type": "ACSubmit",
-					"value": "Just it!",
-					"uri": "/feels"
-				}
-				]
-			},
-			{
-				"title": "Hello",
-				"uri": "/feels",
-				"menu": false,
-				"element": [
-				{
-					"name": "echo",
-					"type": "ACText",
-					"style": "color:blue;font-family:verdana;font-size:300%;"
-				}
-				]
-			}
-			]
-			)raw";
-
-			Portal.load(addonJson);   
-			Portal.on("/feels", feelsOn, AC_EXIT_AHEAD);
-			*/
 			Portal.begin();
 			while (WiFi.status() != WL_CONNECTED)
 			{	
@@ -717,7 +681,7 @@ void setup()
 			//wifiManager.autoConnect("AwtrixWiFiSetup");
 		}
 	}
-
+	
 	//show wifi connected
 	int wifiCheckTime = millis();
 	int wifiCheckPoints = 0;
@@ -748,7 +712,7 @@ void setup()
 			delay(100);
 		}
 	}
-	
+	/*
 	//Connection to Server
 	#ifdef USB_CONNECTION
 		Serial.begin(115200);
@@ -756,7 +720,7 @@ void setup()
 		client.setServer(wifiConfig.awtrix_server, 7001);
 		client.setCallback(callback);
 	#endif
-	/*
+	
 	bool clientConnected = false;
 	while(!client.connected()){
 		int ServerTimeout = millis();
