@@ -2,7 +2,7 @@
 
 // Wifi Config
 
-const char *ssid = "22";
+const char *ssid = "";
 const char *password = "";
 
 

@@ -2,7 +2,6 @@
 #include <ArduinoOTA.h>
 #include <ESP8266WiFi.h>
 #include <ESP8266WebServer.h>     // Replace with WebServer.h for ESP32
-//#include <AutoConnect.h>
 #include <WiFiClient.h>
 #include <PubSubClient.h>
 #include <ArduinoJson.h>
@@ -17,65 +16,65 @@
 #include <DFPlayerMini_Fast.h>
 #include "awtrix-conf.h"
 #include <WiFiManager.h>
-#include <WiFiUdp.h>
-
+#include <DoubleResetDetect.h>
+ 
 String version = "0.9b"; 
-
+char awtrix_server[40];
 WiFiClient espClient;
 PubSubClient client(espClient);
-
-//UDP Settings:
-WiFiUDP Udp;
-unsigned int localUdpPort = 7005;
-char packetBuffer[6];
+ 
+//resetdetector
+#define DRD_TIMEOUT 2.0
+#define DRD_ADDRESS 0x00
+DoubleResetDetect drd(DRD_TIMEOUT, DRD_ADDRESS);
 
 bool firstStart = true;
 int myTime;
 int myCounter;
-int TIME_FOR_SEARCHING_WIFI = 1;
-
+int TIME_FOR_SEARCHING_WIFI = 10000;
+ 
 //USB Connection:
 byte myBytes[1000];
 unsigned int bufferpointer;
-
+ 
 //Zum speichern...
 int cfgStart = 0;
-
+ 
 //flag for saving data
 bool shouldSaveConfig = false;
 char mqtt_server[40];
 char mqtt_port[6] = "8080";
 char blynk_token[33] = "YOUR_BLYNK_TOKEN";
-
-
+ 
+ 
 LightDependentResistor photocell(LDR_PIN, LDR_RESISTOR, LDR_PHOTOCELL);
 #define APDS9960_INT    D6
 #define APDS9960_SDA    D3
 #define APDS9960_SCL    D1
 SparkFun_APDS9960 apds = SparkFun_APDS9960();
 volatile bool isr_flag = 0;
-
+ 
 #ifndef ICACHE_RAM_ATTR
 #define ICACHE_RAM_ATTR IRAM_ATTR
 #endif
 bool updating = false;
 DFPlayerMini_Fast myMP3;
-
+ 
 SoftwareSerial mySoftwareSerial(D7, D5); // RX, TX
-
+ 
 //SoftwareSerial mySoftwareSerial(D5, D4); // RX, TX
-
+ 
 CRGB leds[256];
 #ifdef MATRIX_MODEV2
   FastLED_NeoMatrix *matrix = new FastLED_NeoMatrix(leds, 32, 8, NEO_MATRIX_TOP + NEO_MATRIX_LEFT + NEO_MATRIX_ROWS + NEO_MATRIX_ZIGZAG);
 #else
   FastLED_NeoMatrix *matrix = new FastLED_NeoMatrix(leds, 32, 8, NEO_MATRIX_TOP + NEO_MATRIX_LEFT + NEO_MATRIX_COLUMNS + NEO_MATRIX_ZIGZAG);
 #endif
-
+ 
 //Hotspot
 //ESP8266WebServer Server;
 //AutoConnect      Portal(Server);
-
+ 
 static byte c1;  // Last character buffer
 byte utf8ascii(byte ascii) {
 	if ( ascii < 128 ) // Standard ASCII-set 0..0x7F handling 
@@ -92,7 +91,7 @@ byte utf8ascii(byte ascii) {
 	}
 	return  (0);
 }
-
+ 
 void debuggingWithMatrix(String text){
 	matrix->setCursor(7, 6);
 	matrix->clear();
@@ -100,6 +99,8 @@ void debuggingWithMatrix(String text){
 	matrix->show();
 }
 
+
+ 
 String utf8ascii(String s) {
   String r = "";
   char c;
@@ -109,7 +110,7 @@ String utf8ascii(String s) {
   }
   return r;
 }
-
+ 
 void hardwareAnimatedCheck(int typ,int x,int y){
 	int wifiCheckTime = millis();
 	int wifiCheckPoints = 0;
@@ -147,13 +148,13 @@ void hardwareAnimatedCheck(int typ,int x,int y){
 		}
 	}
 }
-
+ 
 void hardwareAnimatedSearchFast(int rounds,int x,int y){
 	matrix->clear();
 	matrix->setTextColor(0xFFFF);
 	matrix->setCursor(1, 6);
 	matrix->print("Server");
-
+ 
 	switch(rounds){
 		case 3:
 			matrix->drawPixel(x,y,0xFFFF);
@@ -174,7 +175,7 @@ void hardwareAnimatedSearchFast(int rounds,int x,int y){
 	}	
 	matrix->show();
 }
-
+ 
 void hardwareAnimatedSearch(int typ,int x,int y){
 	for(int i=0;i<4;i++){
 		matrix->clear();
@@ -208,7 +209,7 @@ void hardwareAnimatedSearch(int typ,int x,int y){
 		delay(500);	
 	}
 }
-
+ 
 void utf8ascii(char* s) {
   int k = 0;
   char c;
@@ -220,15 +221,15 @@ void utf8ascii(char* s) {
   }
   s[k] = 0;
 }
-
-
+ 
+ 
 String GetChipID(){
 	return String(ESP.getChipId());
 }
-
+ 
 int GetRSSIasQuality(int rssi){
 	int quality = 0;
-
+ 
 	if (rssi <= -100)
 	{
 		quality = 0;
@@ -243,11 +244,11 @@ int GetRSSIasQuality(int rssi){
 	}
 	return quality;
 }
-
+ 
 unsigned long startTime = 0;
 unsigned long endTime = 0;
 unsigned long duration;
-
+ 
 void updateMatrix(byte payload[],int length){
 	int y_offset = 5;
 
@@ -420,12 +421,11 @@ void updateMatrix(byte payload[],int length){
   		}
 	}
 }
-
+ 
 void callback(char *topic, byte *payload, unsigned int length){
-	int y_offset = 5;
 	updateMatrix(payload,length);
 }
-
+ 
 void reconnect(){
 	if(!usbWifi){
 		while (!client.connected()){
@@ -439,11 +439,11 @@ void reconnect(){
 		}
 	}
 }
-
+ 
 void ICACHE_RAM_ATTR interruptRoutine() {
   isr_flag = 1;
 }
-
+ 
 void handleGesture() {
 		String control;
     if (apds.isGestureAvailable()) {
@@ -480,7 +480,7 @@ void handleGesture() {
 		#endif
   }
 }
-
+ 
 uint32_t Wheel(byte WheelPos, int pos) {
   if(WheelPos < 85) {
    return matrix->Color((WheelPos * 3)-pos, (255 - WheelPos * 3)-pos, 0);
@@ -492,7 +492,7 @@ uint32_t Wheel(byte WheelPos, int pos) {
    return matrix->Color(0, (WheelPos * 3)-pos, (255 - WheelPos * 3)-pos);
   }
 }
-
+ 
 void flashProgress(unsigned int progress, unsigned int total) {
     matrix->setBrightness(100);   
     long num = 32 * 8 * progress / total;
@@ -506,105 +506,84 @@ void flashProgress(unsigned int progress, unsigned int total) {
     matrix->print("FLASHING");
     matrix->show();
 }
-
+ 
 void saveConfigCallback () {
   Serial.println("Should save config");
   shouldSaveConfig = true;
 }
-
+ 
+void configModeCallback (WiFiManager *myWiFiManager) {
+	Serial.println("Entered config mode");
+	Serial.println(WiFi.softAPIP());
+	//if you used auto generated SSID, print it
+	Serial.println(myWiFiManager->getConfigPortalSSID());
+	//matrix->clear();
+	//matrix->setCursor(3, 6);
+	//matrix->print("Hotspot");
+	//matrix->show();
+}
+ 
 void setup(){
 	Serial.begin(9600);
+	WiFi.mode(WIFI_STA);
+	WiFi.begin(ssid, password);
+
+	
 	//SPIFFS.format();
-
-	if (SPIFFS.begin()) {
-    	Serial.println("mounted file system");
-		if (!SPIFFS.exists("/config.json")) {
-			SPIFFS.open("/config.json", "w+");
-			Serial.println("making new file");
-		}
-		if (SPIFFS.exists("/config.json")) {
-			//file exists, reading and loading
-			Serial.println("reading config file");
-			File configFile = SPIFFS.open("/config.json", "r");
-			if (configFile) {
-				Serial.println("opened config file");
-				size_t size = configFile.size();
-				// Allocate a buffer to store contents of the file.
-				std::unique_ptr<char[]> buf(new char[size]);
-
-				configFile.readBytes(buf.get(), size);
-				DynamicJsonBuffer jsonBuffer;
-				JsonObject& json = jsonBuffer.parseObject(buf.get());
-				json.printTo(Serial);
-				if (json.success()) {
-					Serial.println("\nparsed json");
-
-					strcpy(wifiConfig.awtrix_server, json["mqtt_server"]);
-					//strcpy(mqtt_port, json["mqtt_port"]);
-					//strcpy(blynk_token, json["blynk_token"]);
-
-					if(json["ip"]) {
-						Serial.println("setting custom ip from config");
-						//static_ip = json["ip"];
-						//strcpy(static_ip, json["ip"]);
-						//strcpy(static_gw, json["gateway"]);
-						//strcpy(static_sn, json["subnet"]);
-						//strcat(static_ip, json["ip"]);
-						//static_gw = json["gateway"];
-						//static_sn = json["subnet"];
-						//Serial.println(static_ip);
-						/*            Serial.println("converting ip");
-						IPAddress ip = ipFromCharArray(static_ip);
-						Serial.println(ip);*/
-					} else {
-						Serial.println("no custom ip in config");
-					}
-				} else {
-					Serial.println("failed to load json config");
-				}
-			}
-		} else {
-			Serial.println("file not found");
-		}
-  	} else {
-    	Serial.println("failed to mount FS");
-	}
-
-
-	
-
-	//Serial.println("Hey, I´m your Awtrix!\n");
-	//Serial.printf("Stored ServerIP: %s\n",wifiConfig.awtrix_server);
-
+	Serial.println("mounting FS...");
+  	if (SPIFFS.begin()) {
+    Serial.println("mounted file system");
+    if (SPIFFS.exists("/config.json")) {
+      //file exists, reading and loading
+      Serial.println("reading config file");
+      File configFile = SPIFFS.open("/config.json", "r");
+      if (configFile) {
+        Serial.println("opened config file");
+        size_t size = configFile.size();
+        // Allocate a buffer to store contents of the file.
+        std::unique_ptr<char[]> buf(new char[size]);
+ 
+        configFile.readBytes(buf.get(), size);
+        DynamicJsonBuffer jsonBuffer;
+        JsonObject& json = jsonBuffer.parseObject(buf.get());
+        json.printTo(Serial);
+        if (json.success()) {
+          Serial.println("\nparsed json");
+          strcpy(awtrix_server, json["awtrix_server"]);
+        } else {
+          Serial.println("failed to load json config");
+        }
+        configFile.close();
+      }
+    }
+  } else {
+    Serial.println("failed to mount FS");
+  }
+ 
 	//Extra parameter for configuration the Awtrix-Client
-	WiFiManagerParameter custom_server_ip("server", "server_ip", wifiConfig.awtrix_server, 20);
-
+	WiFiManagerParameter custom_server_ip("server", "awtrix_server", awtrix_server, 20);
 	WiFiManager wifiManager;
-
+  	wifiManager.setAPCallback(configModeCallback);
 	wifiManager.setSaveConfigCallback(saveConfigCallback);
-	
 	wifiManager.addParameter(&custom_server_ip);
+
+	if (drd.detect()) {
+		Serial.println("** Double reset boot **");
+		wifiManager.resetSettings();
+	}
 
 	matrix->begin();
 	matrix->setTextWrap(false);
 	matrix->setBrightness(80);
 	matrix->setFont(&TomThumb);
-
+ 
 	mySoftwareSerial.begin(9600);
 	FastLED.addLeds<NEOPIXEL, D2>(leds, 256).setCorrection(TypicalLEDStrip);
 	
-	if(usbWifi)
-		Serial.begin(115200);
-	else {
-		//Serial.begin(9600);
-		//Serial.printf("Stored ServerIP: %s\n",wifiConfig.awtrix_server);
-
-		WiFi.mode(WIFI_STA);
-		WiFi.begin(ssid, password);
-		int wifiTimeout = millis();
-		while (WiFi.status() != WL_CONNECTED){
-			hardwareAnimatedSearch(0,24,0);
-
+	
+	int wifiTimeout = millis();
+	while (WiFi.status() != WL_CONNECTED){
+		hardwareAnimatedSearch(0,24,0);
 			if(millis()-wifiTimeout>TIME_FOR_SEARCHING_WIFI){
 				matrix->clear();
 				matrix->setCursor(3, 6);
@@ -640,17 +619,18 @@ void setup(){
 				}
 			}
 		}
+		hardwareAnimatedCheck(0,27,2);
 
-		strcpy(wifiConfig.awtrix_server, custom_server_ip.getValue());
-
+	strcpy(awtrix_server, custom_server_ip.getValue());
+	Serial.printf("Stored ServerIP: %s\n",awtrix_server);
 		if(shouldSaveConfig){
 			Serial.println("saving config");
 			DynamicJsonBuffer jsonBuffer;
 			JsonObject& json = jsonBuffer.createObject();
-			json["mqtt_server"] = wifiConfig.awtrix_server;
+			json["awtrix_server"] = awtrix_server;
 			//json["mqtt_port"] = mqtt_port;
 			//json["blynk_token"] = blynk_token;
-
+ 
 			File configFile = SPIFFS.open("/config.json", "w");
 			if (!configFile) {
 				Serial.println("failed to open config file for writing");
@@ -658,19 +638,18 @@ void setup(){
 			json.printTo(Serial);
 			json.printTo(configFile);
 			configFile.close();
-			//end save
-			ssid = "222";
+
 		}
-		hardwareAnimatedCheck(0,27,2);
-
-		client.setServer(wifiConfig.awtrix_server, 7001);
+		
+ 
+		client.setServer(awtrix_server, 7001);
 		client.setCallback(callback);
-	}
-
+	
+ 
 	photocell.setPhotocellPositionOnGround(false);
-
+ 
 	myMP3.begin(mySoftwareSerial);
-
+ 
 	Wire.begin(APDS9960_SDA,APDS9960_SCL);
   	pinMode(APDS9960_INT, INPUT);
 	attachInterrupt(APDS9960_INT, interruptRoutine, FALLING);
@@ -680,24 +659,24 @@ void setup(){
 		updating = true;
 		matrix->clear();
   	});
-
+ 
 	ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
 			flashProgress(progress, total);
 	});
-
+ 
   	ArduinoOTA.begin();
 	matrix->clear();
 	matrix->setCursor(7,6);
-
+ 
 	bufferpointer=0;
-
+ 
 	myTime = millis()-500;
 	myCounter = 0;
 }
-
+ 
 void loop() {
  	ArduinoOTA.handle();
-
+ 
 	
 	if(firstStart){
 		if(millis()-myTime>500){
@@ -709,7 +688,7 @@ void loop() {
 			myTime = millis();
 		}
 	}
-
+ 
  	if (!updating) {
 	 	if(usbWifi){
 			while(Serial.available () > 0){
