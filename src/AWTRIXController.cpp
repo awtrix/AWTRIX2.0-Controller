@@ -2,7 +2,6 @@
 #include <ArduinoOTA.h>
 #include <ESP8266WiFi.h>
 #include <ESP8266WebServer.h>     // Replace with WebServer.h for ESP32
-//#include <AutoConnect.h>
 #include <WiFiClient.h>
 #include <PubSubClient.h>
 #include <ArduinoJson.h>
@@ -20,17 +19,17 @@
 #include <WiFiUdp.h>
 #include <DoubleResetDetect.h>
 
-String version = "0.9b"; 
+String version = "0.9b";
 char awtrix_server[40];
 char connection[5] = "wifi";
 
 WiFiClient espClient;
 PubSubClient client(espClient);
 
-//UDP Settings:
-WiFiUDP Udp;
-unsigned int localUdpPort = 7005;
-char packetBuffer[6];
+//resetdetector
+#define DRD_TIMEOUT 2.0
+#define DRD_ADDRESS 0x00
+DoubleResetDetect drd(DRD_TIMEOUT, DRD_ADDRESS);
 
 //resetdetector
 #define DRD_TIMEOUT 2.0
@@ -86,7 +85,7 @@ CRGB leds[256];
 
 static byte c1;  // Last character buffer
 byte utf8ascii(byte ascii) {
-	if ( ascii < 128 ) // Standard ASCII-set 0..0x7F handling 
+	if ( ascii < 128 ) // Standard ASCII-set 0..0x7F handling
 	{ c1 = 0;
 		return ( ascii );
 	}
@@ -96,7 +95,7 @@ byte utf8ascii(byte ascii) {
 	switch (last)     // conversion depending on first UTF8-character
 	{ case 0xC2: return  (ascii) - 34;  break;
 		case 0xC3: return  (ascii | 0xC0) - 34;  break;
-		case 0x82: if (ascii == 0xAC) return (0xEA);   
+		case 0x82: if (ascii == 0xAC) return (0xEA);
 	}
 	return  (0);
 }
@@ -107,6 +106,8 @@ void debuggingWithMatrix(String text){
 	matrix->print(text);
 	matrix->show();
 }
+
+
 
 String utf8ascii(String s) {
   String r = "";
@@ -124,7 +125,7 @@ void hardwareAnimatedCheck(int typ,int x,int y){
 	while(millis()-wifiCheckTime<2000){
 		while(wifiCheckPoints<7){
 			matrix->clear();
-			
+
 			if(typ==0){
 				matrix->setCursor(7, 6);
 				matrix->print("WiFi");
@@ -175,11 +176,11 @@ void hardwareAnimatedSearchFast(int rounds,int x,int y){
 			matrix->drawPixel(x-1,y+2,0xFFFF);
 			matrix->drawPixel(x,y+3,0xFFFF);
 			matrix->drawPixel(x-1,y+4,0xFFFF);
-			case 1: 
+			case 1:
 			matrix->drawPixel(x-3,y+3,0xFFFF);
-		case 0: 
-		break;	
-	}	
+		case 0:
+		break;
+	}
 	matrix->show();
 }
 
@@ -203,17 +204,17 @@ void hardwareAnimatedSearch(int typ,int x,int y){
 				matrix->drawPixel(x+2,y+4,0xFFFF);
 				matrix->drawPixel(x+1,y+5,0xFFFF);
 				matrix->drawPixel(x,y+6,0xFFFF);
-			case 2: 
+			case 2:
 				matrix->drawPixel(x-1,y+2,0xFFFF);
 				matrix->drawPixel(x,y+3,0xFFFF);
 				matrix->drawPixel(x-1,y+4,0xFFFF);
-			case 1: 
+			case 1:
 				matrix->drawPixel(x-3,y+3,0xFFFF);
-			case 0: 
-			break;	
-		}	
+			case 0:
+			break;
+		}
 		matrix->show();
-		delay(500);	
+		delay(500);
 	}
 }
 
@@ -276,7 +277,7 @@ void updateMatrix(byte payload[],int length){
 
 			matrix->setCursor(x_coordinate+1, y_coordinate+y_offset);
 			matrix->setTextColor(matrix->Color(payload[5],payload[6],payload[7]));
-		
+
 			String myText = "";
 			char myChar;
 			for(int i = 8;i<length;i++){
@@ -296,14 +297,14 @@ void updateMatrix(byte payload[],int length){
 
 			int16_t width = payload[5];
 			int16_t height = payload[6];
-	
+
 			unsigned short colorData[width*height];
 
 			for(int i = 0; i<width*height*2; i++){
 				colorData[i/2] = (payload[i+7]<<8)+payload[i+1+7];
 				i++;
 			}
-			
+
 			for (int16_t j = 0; j < height; j++, y_coordinate++){
 				for (int16_t i = 0; i < width; i++){
 					matrix->drawPixel(x_coordinate + i, y_coordinate, (uint16_t)colorData[j*width+i]);
@@ -430,7 +431,6 @@ void updateMatrix(byte payload[],int length){
 }
 
 void callback(char *topic, byte *payload, unsigned int length){
-	int y_offset = 5;
 	updateMatrix(payload,length);
 }
 
@@ -502,7 +502,7 @@ uint32_t Wheel(byte WheelPos, int pos) {
 }
 
 void flashProgress(unsigned int progress, unsigned int total) {
-    matrix->setBrightness(100);   
+    matrix->setBrightness(100);
     long num = 32 * 8 * progress / total;
     for (unsigned char y = 0; y < 8; y++) {
         for (unsigned char x = 0; x < 32; x++) {
@@ -520,8 +520,19 @@ void saveConfigCallback () {
   shouldSaveConfig = true;
 }
 
+void configModeCallback (WiFiManager *myWiFiManager) {
+	Serial.println("Entered config mode");
+	Serial.println(WiFi.softAPIP());
+	//if you used auto generated SSID, print it
+	Serial.println(myWiFiManager->getConfigPortalSSID());
+	//matrix->clear();
+	//matrix->setCursor(3, 6);
+	//matrix->print("Hotspot");
+	//matrix->show();
+}
+
 void setup(){
-	
+
 	SPIFFS.format();
 	Serial.begin(115200);
 	if (SPIFFS.begin()) {
@@ -544,7 +555,7 @@ void setup(){
           		Serial.println("\nparsed json");
           		strcpy(awtrix_server, json["awtrix_server"]);
 				strcpy(connection, json["connection"]);
-        	} 
+        	}
         	configFile.close();
       	}
 	} else {
@@ -577,10 +588,15 @@ void setup(){
 	wifiManager.setSaveConfigCallback(saveConfigCallback);
 	wifiManager.addParameter(&custom_server_ip);
 	wifiManager.addParameter(&custom_connection);
-	
+
 
 	if (drd.detect()) {
     	wifiManager.resetSettings();
+	}
+
+	if (drd.detect()) {
+		Serial.println("** Double reset boot **");
+		wifiManager.resetSettings();
 	}
 
 	matrix->begin();
@@ -590,12 +606,12 @@ void setup(){
 
 	mySoftwareSerial.begin(9600);
 	FastLED.addLeds<NEOPIXEL, D2>(leds, 256).setCorrection(TypicalLEDStrip);
-	
+
 	if(!usbWifi){
 		//Serial.begin(9600);
 		//Serial.printf("Stored ServerIP: %s\n",wifiConfig.awtrix_server);
 
-		
+
 		int wifiTimeout = millis();
 		while (WiFi.status() != WL_CONNECTED){
 			hardwareAnimatedSearch(0,24,0);
@@ -605,11 +621,12 @@ void setup(){
 				matrix->setCursor(3, 6);
 				matrix->print("Hotspot");
 				matrix->show();
-				while (WiFi.status() != WL_CONNECTED){	
+				while (WiFi.status() != WL_CONNECTED){
 					wifiManager.autoConnect("AwtrixWiFiSetup2","awtrixxx");
 				}
 			}
 		}
+		hardwareAnimatedCheck(0,27,2);
 
 		strcpy(awtrix_server, custom_server_ip.getValue());
 		strcpy(connection, custom_connection.getValue());
@@ -646,9 +663,12 @@ void setup(){
 		}
 		hardwareAnimatedCheck(0,27,2);
 
-		client.setServer(wifiConfig.awtrix_server, 7001);
+		}
+
+
+		client.setServer(awtrix_server, 7001);
 		client.setCallback(callback);
-	}
+
 
 	photocell.setPhotocellPositionOnGround(false);
 
@@ -681,7 +701,7 @@ void setup(){
 void loop() {
  	ArduinoOTA.handle();
 
-	
+
 	if(firstStart){
 		if(millis()-myTime>500){
 			hardwareAnimatedSearchFast(myCounter,28,0);
