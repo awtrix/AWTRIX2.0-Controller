@@ -31,11 +31,6 @@ PubSubClient client(espClient);
 #define DRD_ADDRESS 0x00
 DoubleResetDetect drd(DRD_TIMEOUT, DRD_ADDRESS);
 
-//resetdetector
-#define DRD_TIMEOUT 2.0
-#define DRD_ADDRESS 0x00
-DoubleResetDetect drd(DRD_TIMEOUT, DRD_ADDRESS);
-
 bool firstStart = true;
 int myTime;
 int myCounter;
