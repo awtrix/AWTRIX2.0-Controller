@@ -2,10 +2,6 @@
 
 // Wifi Config
 
-const char *ssid = "22";
-const char *password = "";
-
-
 typedef struct {
     char *awtrix_server = "";
     bool connection = false;    //Wifi = false ...

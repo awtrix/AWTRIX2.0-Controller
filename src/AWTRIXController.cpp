@@ -18,8 +18,11 @@
 #include "awtrix-conf.h"
 #include <WiFiManager.h>
 #include <WiFiUdp.h>
+#include <DoubleResetDetect.h>
 
 String version = "0.9b"; 
+char awtrix_server[40];
+char connection[5] = "wifi";
 
 WiFiClient espClient;
 PubSubClient client(espClient);
@@ -29,10 +32,15 @@ WiFiUDP Udp;
 unsigned int localUdpPort = 7005;
 char packetBuffer[6];
 
+//resetdetector
+#define DRD_TIMEOUT 2.0
+#define DRD_ADDRESS 0x00
+DoubleResetDetect drd(DRD_TIMEOUT, DRD_ADDRESS);
+
 bool firstStart = true;
 int myTime;
 int myCounter;
-int TIME_FOR_SEARCHING_WIFI = 1;
+int TIME_FOR_SEARCHING_WIFI = 10000;
 
 //USB Connection:
 byte myBytes[1000];
@@ -513,77 +521,67 @@ void saveConfigCallback () {
 }
 
 void setup(){
-	Serial.begin(9600);
-	//SPIFFS.format();
-
+	
+	SPIFFS.format();
+	Serial.begin(115200);
 	if (SPIFFS.begin()) {
-    	Serial.println("mounted file system");
-		if (!SPIFFS.exists("/config.json")) {
-			SPIFFS.open("/config.json", "w+");
-			Serial.println("making new file");
+		//if file not exists
+		if (!(SPIFFS.exists("/config.json"))) {
+			SPIFFS.open("/test.txt", "w+");
+			Serial.println("make File...");
 		}
-		if (SPIFFS.exists("/config.json")) {
-			//file exists, reading and loading
-			Serial.println("reading config file");
-			File configFile = SPIFFS.open("/config.json", "r");
-			if (configFile) {
-				Serial.println("opened config file");
-				size_t size = configFile.size();
-				// Allocate a buffer to store contents of the file.
-				std::unique_ptr<char[]> buf(new char[size]);
 
-				configFile.readBytes(buf.get(), size);
-				DynamicJsonBuffer jsonBuffer;
-				JsonObject& json = jsonBuffer.parseObject(buf.get());
-				json.printTo(Serial);
-				if (json.success()) {
-					Serial.println("\nparsed json");
+      	File configFile = SPIFFS.open("/config.json", "r");
+      	if (configFile) {
+        	size_t size = configFile.size();
+        	// Allocate a buffer to store contents of the file.
+        	std::unique_ptr < char[] > buf(new char[size]);
+        	configFile.readBytes(buf.get(), size);
+        	DynamicJsonBuffer jsonBuffer;
+        	JsonObject & json = jsonBuffer.parseObject(buf.get());
+        	json.printTo(Serial);
+        	if (json.success()) {
+          		Serial.println("\nparsed json");
+          		strcpy(awtrix_server, json["awtrix_server"]);
+				strcpy(connection, json["connection"]);
+        	} 
+        	configFile.close();
+      	}
+	} else {
+		Serial.println("mounting not possible");
+	}
+	Serial.printf("\nLoading from SPIFFS: %s - %s\n",awtrix_server,connection);
 
-					strcpy(wifiConfig.awtrix_server, json["mqtt_server"]);
-					//strcpy(mqtt_port, json["mqtt_port"]);
-					//strcpy(blynk_token, json["blynk_token"]);
-
-					if(json["ip"]) {
-						Serial.println("setting custom ip from config");
-						//static_ip = json["ip"];
-						//strcpy(static_ip, json["ip"]);
-						//strcpy(static_gw, json["gateway"]);
-						//strcpy(static_sn, json["subnet"]);
-						//strcat(static_ip, json["ip"]);
-						//static_gw = json["gateway"];
-						//static_sn = json["subnet"];
-						//Serial.println(static_ip);
-						/*            Serial.println("converting ip");
-						IPAddress ip = ipFromCharArray(static_ip);
-						Serial.println(ip);*/
-					} else {
-						Serial.println("no custom ip in config");
-					}
-				} else {
-					Serial.println("failed to load json config");
-				}
-			}
-		} else {
-			Serial.println("file not found");
-		}
-  	} else {
-    	Serial.println("failed to mount FS");
+	//set the bool for the connection
+	if((connection[0]==117)&&(connection[1]==115)&&(connection[2]==98)){
+		usbWifi = true;
+		Serial.println("USB eingegeben...");
+	} else if((connection[0]==119)&&(connection[1]==105)&&(connection[2]==102)&&(connection[3]==105)){
+		usbWifi = false;
+		Serial.println("WiFi eingegeben...");
+	} else {
+		usbWifi = false;
+		Serial.println("Flasche eingabe...");
 	}
 
-
-	
-
-	//Serial.println("Hey, I´m your Awtrix!\n");
-	//Serial.printf("Stored ServerIP: %s\n",wifiConfig.awtrix_server);
+	WiFiManager wifiManager;
+	//WiFi.mode(WIFI_STA);
+	//WiFi.begin("", "");
+	wifiManager.setTimeout(1);
+	wifiManager.autoConnect("AwtrixWiFiSetup2","awtrixxx");
+	wifiManager.setTimeout(0);
 
 	//Extra parameter for configuration the Awtrix-Client
-	WiFiManagerParameter custom_server_ip("server", "server_ip", wifiConfig.awtrix_server, 20);
-
-	WiFiManager wifiManager;
-
+	WiFiManagerParameter custom_server_ip("server", "server_ip", awtrix_server, 20);
+	WiFiManagerParameter custom_connection("connection", "usb or wifi", awtrix_server, 5);
 	wifiManager.setSaveConfigCallback(saveConfigCallback);
-	
 	wifiManager.addParameter(&custom_server_ip);
+	wifiManager.addParameter(&custom_connection);
+	
+
+	if (drd.detect()) {
+    	wifiManager.resetSettings();
+	}
 
 	matrix->begin();
 	matrix->setTextWrap(false);
@@ -593,14 +591,11 @@ void setup(){
 	mySoftwareSerial.begin(9600);
 	FastLED.addLeds<NEOPIXEL, D2>(leds, 256).setCorrection(TypicalLEDStrip);
 	
-	if(usbWifi)
-		Serial.begin(115200);
-	else {
+	if(!usbWifi){
 		//Serial.begin(9600);
 		//Serial.printf("Stored ServerIP: %s\n",wifiConfig.awtrix_server);
 
-		WiFi.mode(WIFI_STA);
-		WiFi.begin(ssid, password);
+		
 		int wifiTimeout = millis();
 		while (WiFi.status() != WL_CONNECTED){
 			hardwareAnimatedSearch(0,24,0);
@@ -610,46 +605,35 @@ void setup(){
 				matrix->setCursor(3, 6);
 				matrix->print("Hotspot");
 				matrix->show();
-
-				//AutoConnectConfig  Config;
-				//Config.title = "Awtrix";
-				//Config.apid = "AwtrixSetup";
-				//Config.psk = "awtrixxx";
-				//Config.apip = IPAddress(8,8,8,8);
-				
-				//ACCheckbox("myCheckbox","myCheckbox","Hallo Welt",true);
-				//AutoConnectAux aux1("/awtrix_setup","Awtrix Setting",true);
-				//ACText(header,"<H1>Awtrix Setup</H1>");
-				//ACText(caption,"<H4>On this page you can configure your Awtrix without changing the code.</H4>");
-				//AutoConnectInput input("input", "", "<H3>Server-IP:</H3>", "Awtrix Server");
-				//AutoConnectRadio radio("radio", { "USB", "WiFi" }, "<H3>Connection:</H3>", AC_Vertical, 1);
-				//AutoConnectButton button("button", "SAVE", "myFunction()");
-
-				//aux1.add({header, caption,input,radio,button});
-				//Portal.join(aux1);
-
-				//Portal.config(Config);
-				
-
-				//Portal.begin();
-
-				while (WiFi.status() != WL_CONNECTED)
-				{	
-					//Portal.handleClient();		
+				while (WiFi.status() != WL_CONNECTED){	
 					wifiManager.autoConnect("AwtrixWiFiSetup2","awtrixxx");
 				}
 			}
 		}
 
-		strcpy(wifiConfig.awtrix_server, custom_server_ip.getValue());
+		strcpy(awtrix_server, custom_server_ip.getValue());
+		strcpy(connection, custom_connection.getValue());
 
 		if(shouldSaveConfig){
 			Serial.println("saving config");
+
+			//Check if the connection value is allowed -> if not -> usb!
+			if(strcmp(connection,"usb")||strcmp(connection,"USB")){
+				usbWifi = true;
+				Serial.println("saved usb");
+			} else if(strcmp(connection,"wifi")||strcmp(connection,"WIFI")){
+				usbWifi = false;
+				Serial.println("saved wifi");
+			} else {
+				usbWifi = false;	//default
+				strcpy(connection,"usb");
+				Serial.println("saved usb (default)");
+			}
+
 			DynamicJsonBuffer jsonBuffer;
 			JsonObject& json = jsonBuffer.createObject();
-			json["mqtt_server"] = wifiConfig.awtrix_server;
-			//json["mqtt_port"] = mqtt_port;
-			//json["blynk_token"] = blynk_token;
+			json["mqtt_server"] = awtrix_server;
+			json["mqtt_server"] = connection;
 
 			File configFile = SPIFFS.open("/config.json", "w");
 			if (!configFile) {
@@ -659,7 +643,6 @@ void setup(){
 			json.printTo(configFile);
 			configFile.close();
 			//end save
-			ssid = "222";
 		}
 		hardwareAnimatedCheck(0,27,2);
 
