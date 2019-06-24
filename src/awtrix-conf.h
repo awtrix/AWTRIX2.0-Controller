@@ -1,15 +1,5 @@
 ///////////////////////// AWTRIX CONFIG /////////////////////////
 
-// Wifi Config
-
-typedef struct {
-    char *awtrix_server = "";
-    bool connection = false;    //Wifi = false ...
-} configData_t;
-
-configData_t wifiConfig;
-
-
 bool usbWifi = false; // true = usb...
 
 //#define MATRIX_MODEV2

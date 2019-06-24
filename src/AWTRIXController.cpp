@@ -20,8 +20,8 @@
 #include <DoubleResetDetect.h>
 
 String version = "0.9b";
-char awtrix_server[40];
-char connection[5] = "wifi";
+char awtrix_server[16];
+char connection[5];
 
 WiFiClient espClient;
 PubSubClient client(espClient);
@@ -527,13 +527,18 @@ void configModeCallback (WiFiManager *myWiFiManager) {
 }
 
 void setup(){
+	WiFiManager wifiManager;
+	if (drd.detect()) {
+		Serial.println("** Double reset boot **");
+		wifiManager.resetSettings();
+		SPIFFS.format();
+	}
 
-	SPIFFS.format();
 	Serial.begin(115200);
 	if (SPIFFS.begin()) {
 		//if file not exists
 		if (!(SPIFFS.exists("/config.json"))) {
-			SPIFFS.open("/test.txt", "w+");
+			SPIFFS.open("/config.json", "w+");
 			Serial.println("make File...");
 		}
 
@@ -548,8 +553,15 @@ void setup(){
         	json.printTo(Serial);
         	if (json.success()) {
           		Serial.println("\nparsed json");
-          		strcpy(awtrix_server, json["awtrix_server"]);
-				strcpy(connection, json["connection"]);
+				String tempServer = json["awtrix_server"];
+				String tempConnection = json["connection"];
+
+				for(int i = 0;i<16;i++){
+					awtrix_server[i] = tempServer[i];
+				}
+				for(int i = 0;i<5;i++){
+					connection[i] = tempConnection[i];
+				}
         	}
         	configFile.close();
       	}
@@ -561,16 +573,16 @@ void setup(){
 	//set the bool for the connection
 	if((connection[0]==117)&&(connection[1]==115)&&(connection[2]==98)){
 		usbWifi = true;
-		Serial.println("USB eingegeben...");
+		Serial.println("USB loaded...");
 	} else if((connection[0]==119)&&(connection[1]==105)&&(connection[2]==102)&&(connection[3]==105)){
 		usbWifi = false;
-		Serial.println("WiFi eingegeben...");
+		Serial.println("WiFi loaded...");
 	} else {
 		usbWifi = false;
-		Serial.println("Flasche eingabe...");
+		Serial.println("Wrong loaded...");
 	}
 
-	WiFiManager wifiManager;
+	
 	//WiFi.mode(WIFI_STA);
 	//WiFi.begin("", "");
 	wifiManager.setTimeout(1);
@@ -578,21 +590,11 @@ void setup(){
 	wifiManager.setTimeout(0);
 
 	//Extra parameter for configuration the Awtrix-Client
-	WiFiManagerParameter custom_server_ip("server", "server_ip", awtrix_server, 20);
-	WiFiManagerParameter custom_connection("connection", "usb or wifi", awtrix_server, 5);
+	WiFiManagerParameter custom_server_ip("server", "server_ip", awtrix_server, 15);
+	WiFiManagerParameter custom_connection("connection", "usb or wifi", awtrix_server, 4);
 	wifiManager.setSaveConfigCallback(saveConfigCallback);
 	wifiManager.addParameter(&custom_server_ip);
 	wifiManager.addParameter(&custom_connection);
-
-
-	if (drd.detect()) {
-    	wifiManager.resetSettings();
-	}
-
-	if (drd.detect()) {
-		Serial.println("** Double reset boot **");
-		wifiManager.resetSettings();
-	}
 
 	matrix->begin();
 	matrix->setTextWrap(false);
@@ -603,10 +605,6 @@ void setup(){
 	FastLED.addLeds<NEOPIXEL, D2>(leds, 256).setCorrection(TypicalLEDStrip);
 
 	if(!usbWifi){
-		//Serial.begin(9600);
-		//Serial.printf("Stored ServerIP: %s\n",wifiConfig.awtrix_server);
-
-
 		int wifiTimeout = millis();
 		while (WiFi.status() != WL_CONNECTED){
 			hardwareAnimatedSearch(0,24,0);
@@ -633,6 +631,7 @@ void setup(){
 			if(strcmp(connection,"usb")||strcmp(connection,"USB")){
 				usbWifi = true;
 				Serial.println("saved usb");
+
 			} else if(strcmp(connection,"wifi")||strcmp(connection,"WIFI")){
 				usbWifi = false;
 				Serial.println("saved wifi");
@@ -645,7 +644,7 @@ void setup(){
 			DynamicJsonBuffer jsonBuffer;
 			JsonObject& json = jsonBuffer.createObject();
 			json["mqtt_server"] = awtrix_server;
-			json["mqtt_server"] = connection;
+			json["connection"] = connection;
 
 			File configFile = SPIFFS.open("/config.json", "w");
 			if (!configFile) {
