@@ -1,6 +1,7 @@
 ///////////////////////// AWTRIX CONFIG /////////////////////////
 
 bool usbWifi = false; // true = usb...
+bool changeConnectiom = false;
 
 //#define MATRIX_MODEV2
 

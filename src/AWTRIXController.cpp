@@ -531,7 +531,7 @@ void setup(){
 	if (drd.detect()) {
 		Serial.println("** Double reset boot **");
 		wifiManager.resetSettings();
-		SPIFFS.format();
+		//SPIFFS.format();
 	}
 
 	Serial.begin(115200);
@@ -591,7 +591,7 @@ void setup(){
 
 	//Extra parameter for configuration the Awtrix-Client
 	WiFiManagerParameter custom_server_ip("server", "server_ip", awtrix_server, 15);
-	WiFiManagerParameter custom_connection("connection", "usb or wifi", awtrix_server, 4);
+	WiFiManagerParameter custom_connection("connection", "usb or wifi", connection, 4);
 	wifiManager.setSaveConfigCallback(saveConfigCallback);
 	wifiManager.addParameter(&custom_server_ip);
 	wifiManager.addParameter(&custom_connection);
@@ -604,26 +604,36 @@ void setup(){
 	mySoftwareSerial.begin(9600);
 	FastLED.addLeds<NEOPIXEL, D2>(leds, 256).setCorrection(TypicalLEDStrip);
 
-	if(!usbWifi){
-		int wifiTimeout = millis();
-		while (WiFi.status() != WL_CONNECTED){
-			hardwareAnimatedSearch(0,24,0);
+	int wifiTimeout = millis();
 
-			if(millis()-wifiTimeout>TIME_FOR_SEARCHING_WIFI){
-				matrix->clear();
-				matrix->setCursor(3, 6);
-				matrix->print("Hotspot");
-				matrix->show();
-				while (WiFi.status() != WL_CONNECTED){
-					wifiManager.autoConnect("AwtrixWiFiSetup2","awtrixxx");
-				}
+	while (WiFi.status() != WL_CONNECTED){
+		hardwareAnimatedSearch(0,24,0);
+
+		if(millis()-wifiTimeout>TIME_FOR_SEARCHING_WIFI){
+			matrix->clear();
+			matrix->setCursor(3, 6);
+			matrix->print("Hotspot");
+			matrix->show();
+			while (WiFi.status() != WL_CONNECTED){
+				wifiManager.autoConnect("AwtrixWiFiSetup2","awtrixxx");
 			}
 		}
-		hardwareAnimatedCheck(0,27,2);
-
+	}
+		
 		strcpy(awtrix_server, custom_server_ip.getValue());
 		strcpy(connection, custom_connection.getValue());
 
+		//check the connection and save the changeState if changed (need for restart)
+		if(strcmp(connection,"usb")||strcmp(connection,"USB")){
+			if(usbWifi==false){
+				changeConnectiom = true;
+			}
+		} else if(strcmp(connection,"wifi")||strcmp(connection,"WIFI")){
+			if(usbWifi==true){
+				changeConnectiom = true;
+			}
+		} 
+		
 		if(shouldSaveConfig){
 			Serial.println("saving config");
 
@@ -643,7 +653,7 @@ void setup(){
 
 			DynamicJsonBuffer jsonBuffer;
 			JsonObject& json = jsonBuffer.createObject();
-			json["mqtt_server"] = awtrix_server;
+			json["awtrix_server"] = awtrix_server;
 			json["connection"] = connection;
 
 			File configFile = SPIFFS.open("/config.json", "w");
@@ -654,14 +664,14 @@ void setup(){
 			json.printTo(configFile);
 			configFile.close();
 			//end save
+			if(changeConnectiom){
+				ESP.reset();
+			}
 		}
 		hardwareAnimatedCheck(0,27,2);
 
-		}
-
-
-		client.setServer(awtrix_server, 7001);
-		client.setCallback(callback);
+	client.setServer(awtrix_server, 7001);
+	client.setCallback(callback);
 
 
 	photocell.setPhotocellPositionOnGround(false);
