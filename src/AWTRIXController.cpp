@@ -18,6 +18,12 @@
 #include <WiFiManager.h>
 #include <WiFiUdp.h>
 #include <DoubleResetDetect.h>
+#include <Wire.h>                                                     
+#include <BME280_t.h>
+
+
+// instantiate BME sensor
+BME280<> BMESensor;
 
 String version = "0.9b";
 char awtrix_server[16];
@@ -409,6 +415,11 @@ void updateMatrix(byte payload[],int length){
 			root["wifiquality"] =GetRSSIasQuality(WiFi.RSSI());
 			root["wifissid"] =WiFi.SSID();
 			root["getIP"] =WiFi.localIP().toString();
+			root["LUX"] =photocell.getCurrentLux();
+			BMESensor.refresh();
+			root["Temp"] = BMESensor.temperature;
+			root["Hum"] = BMESensor.humidity;
+			root["hPa"] =BMESensor.pressure;
 			String JS;
 			root.printTo(JS);
 			if (!usbWifi){
@@ -679,6 +690,7 @@ void setup(){
 	myMP3.begin(mySoftwareSerial);
 
 	Wire.begin(APDS9960_SDA,APDS9960_SCL);
+	BMESensor.begin(); 
   	pinMode(APDS9960_INT, INPUT);
 	attachInterrupt(APDS9960_INT, interruptRoutine, FALLING);
   	apds.init();
