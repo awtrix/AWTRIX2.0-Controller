@@ -18,12 +18,16 @@
 #include <WiFiManager.h>
 #include <WiFiUdp.h>
 #include <DoubleResetDetect.h>
-#include <Wire.h>                                                     
+#include <Wire.h>   
+
 #include <BME280_t.h>
 
+//#include "BMP280.h"
 
 // instantiate BME sensor
 BME280<> BMESensor;
+//BMP280 BMESensor;
+
 bool tempState = false;
 
 String version = "0.9b";
@@ -748,11 +752,10 @@ void setup(){
 
 	myMP3.begin(mySoftwareSerial);
 
-	Wire.begin(APDS9960_SDA,APDS9960_SCL);
-	tempState = BMESensor.begin(); 
+	tempState = BMESensor.begin(APDS9960_SDA,APDS9960_SCL); 
 	if(tempState){
 		//temp OK
-		hardwareAnimatedCheck(2,27,2);
+		hardwareAnimatedCheck(2,28,2);
 	} else {
 		//temp NOK
 		hardwareAnimatedUncheck(2,27,1);
