@@ -24,6 +24,7 @@
 
 // instantiate BME sensor
 BME280<> BMESensor;
+bool tempState = false;
 
 String version = "0.9b";
 char awtrix_server[16];
@@ -120,20 +121,78 @@ String utf8ascii(String s) {
   return r;
 }
 
+void hardwareAnimatedUncheck(int typ,int x,int y){
+	int wifiCheckTime = millis();
+	int wifiCheckPoints = 0;
+	while(millis()-wifiCheckTime<2000){
+		while(wifiCheckPoints<10){
+			matrix->clear();
+			switch(typ){
+				case 0:
+					matrix->setCursor(7, 6);
+					matrix->print("WiFi");
+					break;
+				case 1:
+					matrix->setCursor(1, 6);
+					matrix->print("Server");
+					break;
+				case 2:
+					matrix->setCursor(7, 6);
+					matrix->print("Temp");
+					break;
+			}
+
+			switch(wifiCheckPoints){
+				case 9:
+					matrix->drawPixel(x,y+4,0xF800);
+				case 8:
+					matrix->drawPixel(x-1,y+3,0xF800);
+				case 7:
+					matrix->drawPixel(x-2,y+2,0xF800);
+				case 6:
+					matrix->drawPixel(x-3,y+1,0xF800);
+				case 5:
+					matrix->drawPixel(x-4,y,0xF800);
+				case 4:
+					matrix->drawPixel(x-4,y+4,0xF800);
+				case 3:
+					matrix->drawPixel(x-3,y+3,0xF800);
+				case 2:
+					matrix->drawPixel(x-2,y+2,0xF800);
+				case 1:
+					matrix->drawPixel(x-1,y+1,0xF800);
+				case 0:
+					matrix->drawPixel(x,y,0xF800);
+				break;
+				}
+			wifiCheckPoints++;
+			matrix->show();
+			delay(100);
+		}
+	}
+}
+
 void hardwareAnimatedCheck(int typ,int x,int y){
 	int wifiCheckTime = millis();
 	int wifiCheckPoints = 0;
 	while(millis()-wifiCheckTime<2000){
 		while(wifiCheckPoints<7){
 			matrix->clear();
-
-			if(typ==0){
-				matrix->setCursor(7, 6);
-				matrix->print("WiFi");
-			} else if(typ==1){
-				matrix->setCursor(1, 6);
-				matrix->print("Server");
+			switch(typ){
+				case 0:
+					matrix->setCursor(7, 6);
+					matrix->print("WiFi");
+					break;
+				case 1:
+					matrix->setCursor(1, 6);
+					matrix->print("Server");
+					break;
+				case 2:
+					matrix->setCursor(7, 6);
+					matrix->print("Temp");
+					break;
 			}
+
 			switch(wifiCheckPoints){
 				case 6:
 					matrix->drawPixel(x,y,0x07E0);
@@ -544,7 +603,7 @@ void setup(){
 		wifiManager.resetSettings();
 		//SPIFFS.format();
 	}
-
+	Serial.setRxBufferSize(1024);
 	Serial.begin(115200);
 	if (SPIFFS.begin()) {
 		//if file not exists
@@ -690,7 +749,15 @@ void setup(){
 	myMP3.begin(mySoftwareSerial);
 
 	Wire.begin(APDS9960_SDA,APDS9960_SCL);
-	BMESensor.begin(); 
+	tempState = BMESensor.begin(); 
+	if(tempState){
+		//temp OK
+		hardwareAnimatedCheck(2,27,2);
+	} else {
+		//temp NOK
+		hardwareAnimatedUncheck(2,27,1);
+	}
+
   	pinMode(APDS9960_INT, INPUT);
 	attachInterrupt(APDS9960_INT, interruptRoutine, FALLING);
   	apds.init();
