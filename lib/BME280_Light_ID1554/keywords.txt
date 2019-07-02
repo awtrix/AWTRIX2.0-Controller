@@ -1,0 +1,13 @@
+BME280                KEYWORD1
+
+begin                 KEYWORD2
+refresh               KEYWORD2
+
+BMP085_C              LITERAL1
+BMP085_F              LITERAL1
+
+temperature           LITERAL2
+pressure              LITERAL2
+humidity              LITERAL2
+pressureToAltitude    LITERAL2
+seaLevelForAltitude   LITERAL2
