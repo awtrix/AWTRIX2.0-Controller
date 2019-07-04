@@ -19,16 +19,16 @@
 #include <WiFiUdp.h>
 #include <DoubleResetDetect.h>
 #include <Wire.h>   
-
 #include <BME280_t.h>
-
-//#include "BMP280.h"
 
 // instantiate BME sensor
 BME280<> BMESensor;
-//BMP280 BMESensor;
 
-bool tempState = false;
+int tempState = false;			// 0 = None ; 1 = BME280 ; 2 = htu21d
+bool audioState = false;		// 0 = false ; 1 = true
+bool gestureState = false;		// 0 = false ; 1 = true
+int ldrState = false;			// 0 = None
+bool usbWifiState = false;		// true = usb...
 
 String version = "0.9b";
 char awtrix_server[16];
@@ -56,9 +56,6 @@ int cfgStart = 0;
 
 //flag for saving data
 bool shouldSaveConfig = false;
-char mqtt_server[40];
-char mqtt_port[6] = "8080";
-char blynk_token[33] = "YOUR_BLYNK_TOKEN";
 
 
 LightDependentResistor photocell(LDR_PIN, LDR_RESISTOR, LDR_PHOTOCELL);
@@ -104,6 +101,43 @@ byte utf8ascii(byte ascii) {
 		case 0x82: if (ascii == 0xAC) return (0xEA);
 	}
 	return  (0);
+}
+
+bool saveConfig(){
+	//Check if the connection value is allowed -> if not -> usb!
+	if(strcmp(connection,"usb")||strcmp(connection,"USB")){
+		usbWifiState = true;
+		//Serial.println("saved usb");
+	} else if(strcmp(connection,"wifi")||strcmp(connection,"WIFI")){
+		usbWifiState = false;
+		//Serial.println("saved wifi");
+	} else {
+		usbWifiState = false;	//default
+		strcpy(connection,"usb");
+		//Serial.println("saved usb (default)");
+	}
+
+	DynamicJsonBuffer jsonBuffer;
+	JsonObject& json = jsonBuffer.createObject();
+	json["awtrix_server"] = awtrix_server;
+	//json["connection"] = connection;
+
+	json["temp"] = tempState;
+	json["usbWifi"] = usbWifiState;
+	json["ldr"] = ldrState;
+	json["gesture"] = gestureState;
+	json["audio"] = audioState;
+	
+	File configFile = SPIFFS.open("/config.json", "w");
+	if (!configFile) {
+		Serial.println("failed to open config file for writing");
+		return false;
+	}
+	json.printTo(Serial);
+	json.printTo(configFile);
+	configFile.close();
+	//end save
+	return true;
 }
 
 void debuggingWithMatrix(String text){
@@ -194,6 +228,18 @@ void hardwareAnimatedCheck(int typ,int x,int y){
 				case 2:
 					matrix->setCursor(7, 6);
 					matrix->print("Temp");
+					break;
+				case 3:
+					matrix->setCursor(3, 6);
+					matrix->print("Audio");
+					break;
+				case 4:
+					matrix->setCursor(3, 6);
+					matrix->print("Gest.");
+					break;
+				case 5:
+					matrix->setCursor(7, 6);
+					matrix->print("LDR");
 					break;
 			}
 
@@ -456,7 +502,7 @@ void updateMatrix(byte payload[],int length){
 		}
 		case 11:{
 			//Command 11: GetLux
-			if(!usbWifi){
+			if(!usbWifiState){
 				StaticJsonBuffer<200> jsonBuffer;
 				client.publish("matrixLux", String(photocell.getCurrentLux()).c_str());
 			} else {
@@ -485,7 +531,7 @@ void updateMatrix(byte payload[],int length){
 			root["hPa"] =BMESensor.pressure;
 			String JS;
 			root.printTo(JS);
-			if (!usbWifi){
+			if (!usbWifiState){
 				client.publish("matrixInfo", JS.c_str());
 			} else {
 				Serial.println(String(JS));
@@ -496,6 +542,45 @@ void updateMatrix(byte payload[],int length){
   			matrix->setBrightness(payload[1]);
 			break;
   		}
+
+		case 14:{
+			matrix->clear();
+			matrix->setCursor(5, 6);
+			matrix->print("Update");
+			matrix->show();
+
+			//set usbWifiState
+			if(payload[1]==0){
+				usbWifiState = false;
+			} else {
+				usbWifiState = true;
+			}
+
+			//set sensor type for temperatue...
+			tempState = payload[2];
+
+			//set audioState
+			if(payload[3]==0){
+				audioState = false;
+			} else {
+				audioState = true;
+			}
+
+			//set gesture
+			if(payload[4]==0){
+				gestureState = false;
+			} else {
+				gestureState = true;
+			}
+
+			//set LDR resistor
+			ldrState = int(payload[5]<<8)+int(payload[6]);
+			if(saveConfig()){
+				ESP.reset();
+			} else {
+				Serial.println("[UpdateMatrix-14] Fail to Save the File...");
+			}
+  		}
 	}
 }
 
@@ -504,7 +589,7 @@ void callback(char *topic, byte *payload, unsigned int length){
 }
 
 void reconnect(){
-	if(!usbWifi){
+	if(!usbWifiState){
 		while (!client.connected()){
 			String clientId = "AWTRIXController-";
 			clientId += String(random(0xffff), HEX);
@@ -584,6 +669,15 @@ void flashProgress(unsigned int progress, unsigned int total) {
     matrix->show();
 }
 
+bool checkStringForBool(String myString){
+	//check if true
+	if((myString[0]==116)&&(myString[1]==114)&&(myString[2]==117)&&(myString[2]==101)){
+		return true;
+	} else {
+		return false;
+	}
+}
+
 void saveConfigCallback () {
   Serial.println("Should save config");
   shouldSaveConfig = true;
@@ -592,12 +686,7 @@ void saveConfigCallback () {
 void configModeCallback (WiFiManager *myWiFiManager) {
 	Serial.println("Entered config mode");
 	Serial.println(WiFi.softAPIP());
-	//if you used auto generated SSID, print it
 	Serial.println(myWiFiManager->getConfigPortalSSID());
-	//matrix->clear();
-	//matrix->setCursor(3, 6);
-	//matrix->print("Hotspot");
-	//matrix->show();
 }
 
 void setup(){
@@ -605,10 +694,10 @@ void setup(){
 	if (drd.detect()) {
 		Serial.println("** Double reset boot **");
 		wifiManager.resetSettings();
-		//SPIFFS.format();
 	}
 	Serial.setRxBufferSize(1024);
 	Serial.begin(115200);
+
 	if (SPIFFS.begin()) {
 		//if file not exists
 		if (!(SPIFFS.exists("/config.json"))) {
@@ -627,35 +716,86 @@ void setup(){
         	json.printTo(Serial);
         	if (json.success()) {
           		Serial.println("\nparsed json");
-				String tempServer = json["awtrix_server"];
-				String tempConnection = json["connection"];
+				String temporaer = json["awtrix_server"];
 
 				for(int i = 0;i<16;i++){
-					awtrix_server[i] = tempServer[i];
+					awtrix_server[i] = temporaer[i];
 				}
-				for(int i = 0;i<5;i++){
-					connection[i] = tempConnection[i];
+
+				if(checkStringForBool(json["connection"])){
+					usbWifiState = true;
+				} else {
+					usbWifiState = false;
 				}
+
+				if(checkStringForBool(json["audio"])){
+					audioState = true;
+				} else {
+					audioState = false;
+				}
+
+				if(checkStringForBool(json["gesture"])){
+					gestureState = true;
+				} else {
+					gestureState = false;
+				}
+				String ldr = json["ldr"];
+				ldrState = temporaer.toInt();
+
+				String temp = json["temp"];
+				tempState = temporaer.toInt();
         	}
         	configFile.close();
       	}
 	} else {
 		Serial.println("mounting not possible");
 	}
-	Serial.printf("\nLoading from SPIFFS: %s - %s\n",awtrix_server,connection);
 
+
+	Serial.printf("\nLoading from SPIFFS:\nAwtrix Server: %s \n: ",awtrix_server);
+	if(usbWifiState){
+		Serial.println("Connection: true");
+	} else {
+		Serial.println("Connection: false");
+	}
+	if(audioState){
+		Serial.println("Audio: true");
+	} else {
+		Serial.println("Audio: false");
+	}
+	if(gestureState){
+		Serial.println("Gesture: true");
+	} else {
+		Serial.println("Gesture: false");
+	}
+	switch(tempState){
+		case 0: 
+			Serial.println("Temp: None");
+		break;
+		case 1: 
+			Serial.println("Temp: BME280");
+		break;
+		case 2: 
+			Serial.println("Temp: htu21d");
+		break;
+	}
+	Serial.printf("LDR: %d\n",ldrState);
+
+	
+
+	/*
 	//set the bool for the connection
 	if((connection[0]==117)&&(connection[1]==115)&&(connection[2]==98)){
-		usbWifi = true;
+		usbWifiState = true;
 		Serial.println("USB loaded...");
 	} else if((connection[0]==119)&&(connection[1]==105)&&(connection[2]==102)&&(connection[3]==105)){
-		usbWifi = false;
+		usbWifiState = false;
 		Serial.println("WiFi loaded...");
 	} else {
-		usbWifi = false;
+		usbWifiState = false;
 		Serial.println("Wrong loaded...");
 	}
-
+	*/
 	
 	//WiFi.mode(WIFI_STA);
 	//WiFi.begin("", "");
@@ -668,14 +808,14 @@ void setup(){
 	WiFiManagerParameter custom_connection("connection", "usb or wifi", connection, 4);
 	wifiManager.setSaveConfigCallback(saveConfigCallback);
 	wifiManager.addParameter(&custom_server_ip);
-	wifiManager.addParameter(&custom_connection);
+	//wifiManager.addParameter(&custom_connection);
 
 	matrix->begin();
 	matrix->setTextWrap(false);
 	matrix->setBrightness(80);
 	matrix->setFont(&TomThumb);
 
-	mySoftwareSerial.begin(9600);
+	
 	FastLED.addLeds<NEOPIXEL, D2>(leds, 256).setCorrection(TypicalLEDStrip);
 
 	int wifiTimeout = millis();
@@ -695,76 +835,71 @@ void setup(){
 	}
 		
 		strcpy(awtrix_server, custom_server_ip.getValue());
-		strcpy(connection, custom_connection.getValue());
+		//strcpy(connection, custom_connection.getValue());
 
 		//check the connection and save the changeState if changed (need for restart)
 		if(strcmp(connection,"usb")||strcmp(connection,"USB")){
-			if(usbWifi==false){
+			if(usbWifiState==false){
 				changeConnectiom = true;
 			}
 		} else if(strcmp(connection,"wifi")||strcmp(connection,"WIFI")){
-			if(usbWifi==true){
+			if(usbWifiState==true){
 				changeConnectiom = true;
 			}
-		} 
+		}
 		
 		if(shouldSaveConfig){
 			Serial.println("saving config");
-
-			//Check if the connection value is allowed -> if not -> usb!
-			if(strcmp(connection,"usb")||strcmp(connection,"USB")){
-				usbWifi = true;
-				Serial.println("saved usb");
-
-			} else if(strcmp(connection,"wifi")||strcmp(connection,"WIFI")){
-				usbWifi = false;
-				Serial.println("saved wifi");
-			} else {
-				usbWifi = false;	//default
-				strcpy(connection,"usb");
-				Serial.println("saved usb (default)");
-			}
-
-			DynamicJsonBuffer jsonBuffer;
-			JsonObject& json = jsonBuffer.createObject();
-			json["awtrix_server"] = awtrix_server;
-			json["connection"] = connection;
-
-			File configFile = SPIFFS.open("/config.json", "w");
-			if (!configFile) {
-				Serial.println("failed to open config file for writing");
-			}
-			json.printTo(Serial);
-			json.printTo(configFile);
-			configFile.close();
-			//end save
-			if(changeConnectiom){
-				ESP.reset();
-			}
+			saveConfig();
+			ESP.reset();
 		}
+
 		hardwareAnimatedCheck(0,27,2);
 
 	client.setServer(awtrix_server, 7001);
 	client.setCallback(callback);
 
+	//for testing...
+	tempState = 1;
+	audioState= true;
+	gestureState = true;
+	ldrState = 1000;
 
-	photocell.setPhotocellPositionOnGround(false);
-
-	myMP3.begin(mySoftwareSerial);
-
-	tempState = BMESensor.begin(APDS9960_SDA,APDS9960_SCL); 
-	if(tempState){
-		//temp OK
-		hardwareAnimatedCheck(2,28,2);
-	} else {
-		//temp NOK
-		hardwareAnimatedUncheck(2,27,1);
+	//Checking periphery
+	if(tempState==1){
+		bool successfully = BMESensor.begin(APDS9960_SDA,APDS9960_SCL); 
+		if(successfully){
+			//temp OK
+			hardwareAnimatedCheck(2,29,2);
+		} else {
+			//temp NOK
+			hardwareAnimatedUncheck(2,27,1);
+		}
+	} else if(tempState == 2){
+		//htu21d...
 	}
 
-  	pinMode(APDS9960_INT, INPUT);
-	attachInterrupt(APDS9960_INT, interruptRoutine, FALLING);
-  	apds.init();
-  	apds.enableGestureSensor(true);
+	if(audioState){
+		mySoftwareSerial.begin(9600);
+		myMP3.begin(mySoftwareSerial);
+		hardwareAnimatedCheck(3,29,2);
+	}
+	if(gestureState){
+		pinMode(APDS9960_INT, INPUT);
+		attachInterrupt(APDS9960_INT, interruptRoutine, FALLING);
+  		apds.init();
+  		apds.enableGestureSensor(true);
+		hardwareAnimatedCheck(4,29,2);
+	}	
+	if(ldrState){
+		photocell.setPhotocellPositionOnGround(false);
+		hardwareAnimatedCheck(5,29,2);
+	}
+	
+	
+	
+
+  	
   	ArduinoOTA.onStart([&]() {
 		updating = true;
 		matrix->clear();
@@ -800,7 +935,7 @@ void loop() {
 	}
 
  	if (!updating) {
-	 	if(usbWifi){
+	 	if(usbWifiState){
 			while(Serial.available () > 0){
 				myBytes[bufferpointer] = Serial.read();
 				if ((myBytes[bufferpointer]==255)&&(myBytes[bufferpointer-1]==255)&&(myBytes[bufferpointer-2]==255)){
