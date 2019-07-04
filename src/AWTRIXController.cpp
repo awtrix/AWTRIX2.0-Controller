@@ -860,10 +860,10 @@ void setup(){
 	client.setCallback(callback);
 
 	//for testing...
-	tempState = 1;
-	audioState= true;
-	gestureState = true;
-	ldrState = 1000;
+	//tempState = 1;
+	//audioState= true;
+	//gestureState = true;
+	//ldrState = 1000;
 
 	//Checking periphery
 	if(tempState==1){
