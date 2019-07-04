@@ -740,10 +740,10 @@ void setup(){
 					gestureState = false;
 				}
 				String ldr = json["ldr"];
-				ldrState = temporaer.toInt();
+				ldrState = ldr.toInt();
 
 				String temp = json["temp"];
-				tempState = temporaer.toInt();
+				tempState = temp.toInt();
         	}
         	configFile.close();
       	}
