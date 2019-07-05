@@ -1,7 +1,7 @@
 #include <FS.h>
 #include <ArduinoOTA.h>
 #include <ESP8266WiFi.h>
-#include <ESP8266WebServer.h>     // Replace with WebServer.h for ESP32
+#include <ESP8266WebServer.h>
 #include <WiFiClient.h>
 #include <PubSubClient.h>
 #include <ArduinoJson.h>
@@ -14,28 +14,36 @@
 #include <SparkFun_APDS9960.h>
 #include "SoftwareSerial.h"
 #include <DFPlayerMini_Fast.h>
-#include "awtrix-conf.h"
 #include <WiFiManager.h>
 #include <WiFiUdp.h>
 #include <DoubleResetDetect.h>
-#include <Wire.h>   
+#include <Wire.h>
 #include <BME280_t.h>
+#include <WiFiUdp.h>
 
 // instantiate BME sensor
 BME280<> BMESensor;
 
-int tempState = false;			// 0 = None ; 1 = BME280 ; 2 = htu21d
-bool audioState = false;		// 0 = false ; 1 = true
-bool gestureState = false;		// 0 = false ; 1 = true
-int ldrState = false;			// 0 = None
-bool usbWifiState = false;		// true = usb...
+int tempState = false;	// 0 = None ; 1 = BME280 ; 2 = htu21d
+int audioState = false;   // 0 = false ; 1 = true
+int gestureState = false; // 0 = false ; 1 = true
+int ldrState = false;	 // 0 = None
+int usbWifiState = false; // true = usb...
 
 String version = "0.9b";
 char awtrix_server[16];
-char connection[5];
+int ID = 0;
+
+IPAddress Server;
 
 WiFiClient espClient;
 PubSubClient client(espClient);
+
+WiFiManager wifiManager;
+//USP
+WiFiUDP Udp;
+unsigned int localUdpPort = 4210;
+char incomingPacket[20];
 
 //resetdetector
 #define DRD_TIMEOUT 2.0
@@ -52,84 +60,84 @@ byte myBytes[1000];
 unsigned int bufferpointer;
 
 //Zum speichern...
-int cfgStart = 0;
+int cfgStart = 0; 
 
 //flag for saving data
 bool shouldSaveConfig = false;
 
-
+/// LDR Config
+#define LDR_RESISTOR 1000 //ohms
+#define LDR_PIN A0
+#define LDR_PHOTOCELL LightDependentResistor::GL5516
 LightDependentResistor photocell(LDR_PIN, LDR_RESISTOR, LDR_PHOTOCELL);
-#define APDS9960_INT    D6
-#define APDS9960_SDA    D3
-#define APDS9960_SCL    D1
+
+// Gesture Sensor
+#define APDS9960_INT D6
+#define I2C_SDA D3
+#define I2C_SCL D1
 SparkFun_APDS9960 apds = SparkFun_APDS9960();
 volatile bool isr_flag = 0;
 
 #ifndef ICACHE_RAM_ATTR
 #define ICACHE_RAM_ATTR IRAM_ATTR
 #endif
-bool updating = false;
-DFPlayerMini_Fast myMP3;
 
+bool updating = false;
+
+// Audio
+DFPlayerMini_Fast myMP3;
 SoftwareSerial mySoftwareSerial(D7, D5); // RX, TX
 
-//SoftwareSerial mySoftwareSerial(D5, D4); // RX, TX
-
+// Matrix Settings
 CRGB leds[256];
 #ifdef MATRIX_MODEV2
-  FastLED_NeoMatrix *matrix = new FastLED_NeoMatrix(leds, 32, 8, NEO_MATRIX_TOP + NEO_MATRIX_LEFT + NEO_MATRIX_ROWS + NEO_MATRIX_ZIGZAG);
+FastLED_NeoMatrix *matrix = new FastLED_NeoMatrix(leds, 32, 8, NEO_MATRIX_TOP + NEO_MATRIX_LEFT + NEO_MATRIX_ROWS + NEO_MATRIX_ZIGZAG);
 #else
-  FastLED_NeoMatrix *matrix = new FastLED_NeoMatrix(leds, 32, 8, NEO_MATRIX_TOP + NEO_MATRIX_LEFT + NEO_MATRIX_COLUMNS + NEO_MATRIX_ZIGZAG);
+FastLED_NeoMatrix *matrix = new FastLED_NeoMatrix(leds, 32, 8, NEO_MATRIX_TOP + NEO_MATRIX_LEFT + NEO_MATRIX_COLUMNS + NEO_MATRIX_ZIGZAG);
 #endif
 
-//Hotspot
-//ESP8266WebServer Server;
-//AutoConnect      Portal(Server);
-
-static byte c1;  // Last character buffer
-byte utf8ascii(byte ascii) {
-	if ( ascii < 128 ) // Standard ASCII-set 0..0x7F handling
-	{ c1 = 0;
-		return ( ascii );
+static byte c1; // Last character buffer
+byte utf8ascii(byte ascii)
+{
+	if (ascii < 128) // Standard ASCII-set 0..0x7F handling
+	{
+		c1 = 0;
+		return (ascii);
 	}
 	// get previous input
-	byte last = c1;   // get last char
-	c1 = ascii;       // remember actual character
-	switch (last)     // conversion depending on first UTF8-character
-	{ case 0xC2: return  (ascii) - 34;  break;
-		case 0xC3: return  (ascii | 0xC0) - 34;  break;
-		case 0x82: if (ascii == 0xAC) return (0xEA);
+	byte last = c1; // get last char
+	c1 = ascii;		// remember actual character
+	switch (last)   // conversion depending on first UTF8-character
+	{
+	case 0xC2:
+		return (ascii)-34;
+		break;
+	case 0xC3:
+		return (ascii | 0xC0) - 34;
+		break;
+	case 0x82:
+		if (ascii == 0xAC)
+			return (0xEA);
 	}
-	return  (0);
+	return (0);
 }
 
-bool saveConfig(){
-	//Check if the connection value is allowed -> if not -> usb!
-	if(strcmp(connection,"usb")||strcmp(connection,"USB")){
-		usbWifiState = true;
-		//Serial.println("saved usb");
-	} else if(strcmp(connection,"wifi")||strcmp(connection,"WIFI")){
-		usbWifiState = false;
-		//Serial.println("saved wifi");
-	} else {
-		usbWifiState = false;	//default
-		strcpy(connection,"usb");
-		//Serial.println("saved usb (default)");
-	}
-
+bool saveConfig()
+{
 	DynamicJsonBuffer jsonBuffer;
-	JsonObject& json = jsonBuffer.createObject();
+	JsonObject &json = jsonBuffer.createObject();
 	json["awtrix_server"] = awtrix_server;
-	//json["connection"] = connection;
+	json["id"] = ID;
 
 	json["temp"] = tempState;
 	json["usbWifi"] = usbWifiState;
 	json["ldr"] = ldrState;
 	json["gesture"] = gestureState;
 	json["audio"] = audioState;
-	
+
 	File configFile = SPIFFS.open("/config.json", "w");
-	if (!configFile) {
+	if (!configFile)
+	{
 		Serial.println("failed to open config file for writing");
 		return false;
 	}
@@ -140,69 +148,76 @@ bool saveConfig(){
 	return true;
 }
 
-void debuggingWithMatrix(String text){
+void debuggingWithMatrix(String text)
+{
 	matrix->setCursor(7, 6);
 	matrix->clear();
 	matrix->print(text);
 	matrix->show();
 }
 
-
-
-String utf8ascii(String s) {
-  String r = "";
-  char c;
-  for (int i = 0; i < s.length(); i++){
-    c = utf8ascii(s.charAt(i));
-    if (c != 0) r += c;
-  }
-  return r;
+String utf8ascii(String s)
+{
+	String r = "";
+	char c;
+	for (int i = 0; i < s.length(); i++)
+	{
+		c = utf8ascii(s.charAt(i));
+		if (c != 0)
+			r += c;
+	}
+	return r;
 }
 
-void hardwareAnimatedUncheck(int typ,int x,int y){
+void hardwareAnimatedUncheck(int typ, int x, int y)
+{
 	int wifiCheckTime = millis();
 	int wifiCheckPoints = 0;
-	while(millis()-wifiCheckTime<2000){
-		while(wifiCheckPoints<10){
+	while (millis() - wifiCheckTime < 2000)
+	{
+		while (wifiCheckPoints < 10)
+		{
 			matrix->clear();
-			switch(typ){
-				case 0:
-					matrix->setCursor(7, 6);
-					matrix->print("WiFi");
-					break;
-				case 1:
-					matrix->setCursor(1, 6);
-					matrix->print("Server");
-					break;
-				case 2:
-					matrix->setCursor(7, 6);
-					matrix->print("Temp");
-					break;
+			switch (typ)
+			{
+			case 0:
+				matrix->setCursor(7, 6);
+				matrix->print("WiFi");
+				break;
+			case 1:
+				matrix->setCursor(1, 6);
+				matrix->print("Server");
+				break;
+			case 2:
+				matrix->setCursor(7, 6);
+				matrix->print("Temp");
+				break;
 			}
 
-			switch(wifiCheckPoints){
-				case 9:
-					matrix->drawPixel(x,y+4,0xF800);
-				case 8:
-					matrix->drawPixel(x-1,y+3,0xF800);
-				case 7:
-					matrix->drawPixel(x-2,y+2,0xF800);
-				case 6:
-					matrix->drawPixel(x-3,y+1,0xF800);
-				case 5:
-					matrix->drawPixel(x-4,y,0xF800);
-				case 4:
-					matrix->drawPixel(x-4,y+4,0xF800);
-				case 3:
-					matrix->drawPixel(x-3,y+3,0xF800);
-				case 2:
-					matrix->drawPixel(x-2,y+2,0xF800);
-				case 1:
-					matrix->drawPixel(x-1,y+1,0xF800);
-				case 0:
-					matrix->drawPixel(x,y,0xF800);
+			switch (wifiCheckPoints)
+			{
+			case 9:
+				matrix->drawPixel(x, y + 4, 0xF800);
+			case 8:
+				matrix->drawPixel(x - 1, y + 3, 0xF800);
+			case 7:
+				matrix->drawPixel(x - 2, y + 2, 0xF800);
+			case 6:
+				matrix->drawPixel(x - 3, y + 1, 0xF800);
+			case 5:
+				matrix->drawPixel(x - 4, y, 0xF800);
+			case 4:
+				matrix->drawPixel(x - 4, y + 4, 0xF800);
+			case 3:
+				matrix->drawPixel(x - 3, y + 3, 0xF800);
+			case 2:
+				matrix->drawPixel(x - 2, y + 2, 0xF800);
+			case 1:
+				matrix->drawPixel(x - 1, y + 1, 0xF800);
+			case 0:
+				matrix->drawPixel(x, y, 0xF800);
 				break;
-				}
+			}
 			wifiCheckPoints++;
 			matrix->show();
 			delay(100);
@@ -210,56 +225,61 @@ void hardwareAnimatedUncheck(int typ,int x,int y){
 	}
 }
 
-void hardwareAnimatedCheck(int typ,int x,int y){
+void hardwareAnimatedCheck(int typ, int x, int y)
+{
 	int wifiCheckTime = millis();
 	int wifiCheckPoints = 0;
-	while(millis()-wifiCheckTime<2000){
-		while(wifiCheckPoints<7){
+	while (millis() - wifiCheckTime < 2000)
+	{
+		while (wifiCheckPoints < 7)
+		{
 			matrix->clear();
-			switch(typ){
-				case 0:
-					matrix->setCursor(7, 6);
-					matrix->print("WiFi");
-					break;
-				case 1:
-					matrix->setCursor(1, 6);
-					matrix->print("Server");
-					break;
-				case 2:
-					matrix->setCursor(7, 6);
-					matrix->print("Temp");
-					break;
-				case 3:
-					matrix->setCursor(3, 6);
-					matrix->print("Audio");
-					break;
-				case 4:
-					matrix->setCursor(3, 6);
-					matrix->print("Gest.");
-					break;
-				case 5:
-					matrix->setCursor(7, 6);
-					matrix->print("LDR");
-					break;
+			switch (typ)
+			{
+			case 0:
+				matrix->setCursor(7, 6);
+				matrix->print("WiFi");
+				break;
+			case 1:
+				matrix->setCursor(1, 6);
+				matrix->print("Server");
+				break;
+			case 2:
+				matrix->setCursor(7, 6);
+				matrix->print("Temp");
+				break;
+			case 3:
+				matrix->setCursor(3, 6);
+				matrix->print("Audio");
+				break;
+			case 4:
+				matrix->setCursor(3, 6);
+				matrix->print("Gest.");
+				break;
+			case 5:
+				matrix->setCursor(7, 6);
+				matrix->print("LDR");
+				break;
 			}
 
-			switch(wifiCheckPoints){
-				case 6:
-					matrix->drawPixel(x,y,0x07E0);
-				case 5:
-					matrix->drawPixel(x-1,y+1,0x07E0);
-				case 4:
-					matrix->drawPixel(x-2,y+2,0x07E0);
-				case 3:
-					matrix->drawPixel(x-3,y+3,0x07E0);
-				case 2:
-					matrix->drawPixel(x-4,y+4,0x07E0);
-				case 1:
-					matrix->drawPixel(x-5,y+3,0x07E0);
-				case 0:
-					matrix->drawPixel(x-6,y+2,0x07E0);
+			switch (wifiCheckPoints)
+			{
+			case 6:
+				matrix->drawPixel(x, y, 0x07E0);
+			case 5:
+				matrix->drawPixel(x - 1, y + 1, 0x07E0);
+			case 4:
+				matrix->drawPixel(x - 2, y + 2, 0x07E0);
+			case 3:
+				matrix->drawPixel(x - 3, y + 3, 0x07E0);
+			case 2:
+				matrix->drawPixel(x - 4, y + 4, 0x07E0);
+			case 1:
+				matrix->drawPixel(x - 5, y + 3, 0x07E0);
+			case 0:
+				matrix->drawPixel(x - 6, y + 2, 0x07E0);
 				break;
-				}
+			}
 			wifiCheckPoints++;
 			matrix->show();
 			delay(100);
@@ -267,60 +287,68 @@ void hardwareAnimatedCheck(int typ,int x,int y){
 	}
 }
 
-void hardwareAnimatedSearchFast(int rounds,int x,int y){
+void hardwareAnimatedSearchFast(int rounds, int x, int y)
+{
 	matrix->clear();
 	matrix->setTextColor(0xFFFF);
 	matrix->setCursor(1, 6);
 	matrix->print("Server");
 
-	switch(rounds){
-		case 3:
-			matrix->drawPixel(x,y,0xFFFF);
-			matrix->drawPixel(x+1,y+1,0xFFFF);
-			matrix->drawPixel(x+2,y+2,0xFFFF);
-			matrix->drawPixel(x+3,y+3,0xFFFF);
-			matrix->drawPixel(x+2,y+4,0xFFFF);
-			matrix->drawPixel(x+1,y+5,0xFFFF);
-			matrix->drawPixel(x,y+6,0xFFFF);
-		case 2:
-			matrix->drawPixel(x-1,y+2,0xFFFF);
-			matrix->drawPixel(x,y+3,0xFFFF);
-			matrix->drawPixel(x-1,y+4,0xFFFF);
-			case 1:
-			matrix->drawPixel(x-3,y+3,0xFFFF);
-		case 0:
+	switch (rounds)
+	{
+	case 3:
+		matrix->drawPixel(x, y, 0xFFFF);
+		matrix->drawPixel(x + 1, y + 1, 0xFFFF);
+		matrix->drawPixel(x + 2, y + 2, 0xFFFF);
+		matrix->drawPixel(x + 3, y + 3, 0xFFFF);
+		matrix->drawPixel(x + 2, y + 4, 0xFFFF);
+		matrix->drawPixel(x + 1, y + 5, 0xFFFF);
+		matrix->drawPixel(x, y + 6, 0xFFFF);
+	case 2:
+		matrix->drawPixel(x - 1, y + 2, 0xFFFF);
+		matrix->drawPixel(x, y + 3, 0xFFFF);
+		matrix->drawPixel(x - 1, y + 4, 0xFFFF);
+	case 1:
+		matrix->drawPixel(x - 3, y + 3, 0xFFFF);
+	case 0:
 		break;
 	}
 	matrix->show();
 }
 
-void hardwareAnimatedSearch(int typ,int x,int y){
-	for(int i=0;i<4;i++){
+void hardwareAnimatedSearch(int typ, int x, int y)
+{
+	for (int i = 0; i < 4; i++)
+	{
 		matrix->clear();
 		matrix->setTextColor(0xFFFF);
-		if(typ==0){
+		if (typ == 0)
+		{
 			matrix->setCursor(7, 6);
 			matrix->print("WiFi");
-		} else if(typ==1){
+		}
+		else if (typ == 1)
+		{
 			matrix->setCursor(1, 6);
 			matrix->print("Server");
 		}
-		switch(i){
-			case 3:
-				matrix->drawPixel(x,y,0xFFFF);
-				matrix->drawPixel(x+1,y+1,0xFFFF);
-				matrix->drawPixel(x+2,y+2,0xFFFF);
-				matrix->drawPixel(x+3,y+3,0xFFFF);
-				matrix->drawPixel(x+2,y+4,0xFFFF);
-				matrix->drawPixel(x+1,y+5,0xFFFF);
-				matrix->drawPixel(x,y+6,0xFFFF);
-			case 2:
-				matrix->drawPixel(x-1,y+2,0xFFFF);
-				matrix->drawPixel(x,y+3,0xFFFF);
-				matrix->drawPixel(x-1,y+4,0xFFFF);
-			case 1:
-				matrix->drawPixel(x-3,y+3,0xFFFF);
-			case 0:
+		switch (i)
+		{
+		case 3:
+			matrix->drawPixel(x, y, 0xFFFF);
+			matrix->drawPixel(x + 1, y + 1, 0xFFFF);
+			matrix->drawPixel(x + 2, y + 2, 0xFFFF);
+			matrix->drawPixel(x + 3, y + 3, 0xFFFF);
+			matrix->drawPixel(x + 2, y + 4, 0xFFFF);
+			matrix->drawPixel(x + 1, y + 5, 0xFFFF);
+			matrix->drawPixel(x, y + 6, 0xFFFF);
+		case 2:
+			matrix->drawPixel(x - 1, y + 2, 0xFFFF);
+			matrix->drawPixel(x, y + 3, 0xFFFF);
+			matrix->drawPixel(x - 1, y + 4, 0xFFFF);
+		case 1:
+			matrix->drawPixel(x - 3, y + 3, 0xFFFF);
+		case 0:
 			break;
 		}
 		matrix->show();
@@ -328,24 +356,26 @@ void hardwareAnimatedSearch(int typ,int x,int y){
 	}
 }
 
-void utf8ascii(char* s) {
-  int k = 0;
-  char c;
-  for (int i = 0; i < strlen(s); i++)
-  {
-    c = utf8ascii(s[i]);
-    if (c != 0)
-      s[k++] = c;
-  }
-  s[k] = 0;
+void utf8ascii(char *s)
+{
+	int k = 0;
+	char c;
+	for (int i = 0; i < strlen(s); i++)
+	{
+		c = utf8ascii(s[i]);
+		if (c != 0)
+			s[k++] = c;
+	}
+	s[k] = 0;
 }
 
-
-String GetChipID(){
+String GetChipID()
+{
 	return String(ESP.getChipId());
 }
 
-int GetRSSIasQuality(int rssi){
+int GetRSSIasQuality(int rssi)
+{
 	int quality = 0;
 
 	if (rssi <= -100)
@@ -367,497 +397,460 @@ unsigned long startTime = 0;
 unsigned long endTime = 0;
 unsigned long duration;
 
-void updateMatrix(byte payload[],int length){
+void updateMatrix(byte payload[], int length)
+{
 	int y_offset = 5;
 
-	if(firstStart){
-		hardwareAnimatedCheck(1,30,2);
-		firstStart=false;
+	if (firstStart)
+	{
+		hardwareAnimatedCheck(1, 30, 2);
+		firstStart = false;
 	}
 
-	switch(payload[0]){
-		case 0:{
-			//Command 0: DrawText
+	switch (payload[0])
+	{
+	case 0:
+	{
+		//Command 0: DrawText
 
-			//Prepare the coordinates
-			uint16_t x_coordinate = int(payload[1]<<8)+int(payload[2]);
-			uint16_t y_coordinate = int(payload[3]<<8)+int(payload[4]);
+		//Prepare the coordinates
+		uint16_t x_coordinate = int(payload[1] << 8) + int(payload[2]);
+		uint16_t y_coordinate = int(payload[3] << 8) + int(payload[4]);
 
-			//Serial.printf("X: %d - Y: %d\n",x_coordinate,y_coordinate);
+		//Serial.printf("X: %d - Y: %d\n",x_coordinate,y_coordinate);
 
-			matrix->setCursor(x_coordinate+1, y_coordinate+y_offset);
-			matrix->setTextColor(matrix->Color(payload[5],payload[6],payload[7]));
+		matrix->setCursor(x_coordinate + 1, y_coordinate + y_offset);
+		matrix->setTextColor(matrix->Color(payload[5], payload[6], payload[7]));
 
-			String myText = "";
-			char myChar;
-			for(int i = 8;i<length;i++){
-				char c = payload[i];
-				myText += c;
+		String myText = "";
+		for (int i = 8; i < length; i++)
+		{
+			char c = payload[i];
+			myText += c;
+		}
+		//Serial.printf("Text: %s\n",myText.c_str());
+		matrix->print(utf8ascii(myText));
+		break;
+	}
+	case 1:
+	{
+		//Command 1: DrawBMP
+
+		//Prepare the coordinates
+		uint16_t x_coordinate = int(payload[1] << 8) + int(payload[2]);
+		uint16_t y_coordinate = int(payload[3] << 8) + int(payload[4]);
+
+		int16_t width = payload[5];
+		int16_t height = payload[6];
+
+		unsigned short colorData[width * height];
+
+		for (int i = 0; i < width * height * 2; i++)
+		{
+			colorData[i / 2] = (payload[i + 7] << 8) + payload[i + 1 + 7];
+			i++;
+		}
+
+		for (int16_t j = 0; j < height; j++, y_coordinate++)
+		{
+			for (int16_t i = 0; i < width; i++)
+			{
+				matrix->drawPixel(x_coordinate + i, y_coordinate, (uint16_t)colorData[j * width + i]);
 			}
-			//Serial.printf("Text: %s\n",myText.c_str());
-			matrix->print(utf8ascii(myText));
-			break;
 		}
-		case 1:{
-			//Command 1: DrawBMP
+		break;
+	}
 
-			//Prepare the coordinates
-			uint16_t x_coordinate = int(payload[1]<<8)+int(payload[2]);
-			uint16_t y_coordinate = int(payload[3]<<8)+int(payload[4]);
+	case 2:
+	{
+		//Command 2: DrawCircle
 
-			int16_t width = payload[5];
-			int16_t height = payload[6];
+		//Prepare the coordinates
+		uint16_t x0_coordinate = int(payload[1] << 8) + int(payload[2]);
+		uint16_t y0_coordinate = int(payload[3] << 8) + int(payload[4]);
+		uint16_t radius = payload[5];
+		matrix->drawCircle(x0_coordinate, y0_coordinate, radius, matrix->Color(payload[6], payload[7], payload[8]));
+		break;
+	}
+	case 3:
+	{
+		//Command 3: FillCircle
 
-			unsigned short colorData[width*height];
+		//Prepare the coordinates
+		uint16_t x0_coordinate = int(payload[1] << 8) + int(payload[2]);
+		uint16_t y0_coordinate = int(payload[3] << 8) + int(payload[4]);
+		uint16_t radius = payload[5];
+		matrix->fillCircle(x0_coordinate, y0_coordinate, radius, matrix->Color(payload[6], payload[7], payload[8]));
+		break;
+	}
+	case 4:
+	{
+		//Command 4: DrawPixel
 
-			for(int i = 0; i<width*height*2; i++){
-				colorData[i/2] = (payload[i+7]<<8)+payload[i+1+7];
-				i++;
-			}
+		//Prepare the coordinates
+		uint16_t x0_coordinate = int(payload[1] << 8) + int(payload[2]);
+		uint16_t y0_coordinate = int(payload[3] << 8) + int(payload[4]);
+		matrix->drawPixel(x0_coordinate, y0_coordinate, matrix->Color(payload[5], payload[6], payload[7]));
+		break;
+	}
+	case 5:
+	{
+		//Command 5: DrawRect
 
-			for (int16_t j = 0; j < height; j++, y_coordinate++){
-				for (int16_t i = 0; i < width; i++){
-					matrix->drawPixel(x_coordinate + i, y_coordinate, (uint16_t)colorData[j*width+i]);
-				}
-			}
-			break;
+		//Prepare the coordinates
+		uint16_t x0_coordinate = int(payload[1] << 8) + int(payload[2]);
+		uint16_t y0_coordinate = int(payload[3] << 8) + int(payload[4]);
+		int16_t width = payload[5];
+		int16_t height = payload[6];
+
+		matrix->drawRect(x0_coordinate, y0_coordinate, width, height, matrix->Color(payload[7], payload[8], payload[9]));
+		break;
+	}
+	case 6:
+	{
+		//Command 6: DrawLine
+
+		//Prepare the coordinates
+		uint16_t x0_coordinate = int(payload[1] << 8) + int(payload[2]);
+		uint16_t y0_coordinate = int(payload[3] << 8) + int(payload[4]);
+		uint16_t x1_coordinate = int(payload[5] << 8) + int(payload[6]);
+		uint16_t y1_coordinate = int(payload[7] << 8) + int(payload[8]);
+		matrix->drawLine(x0_coordinate, y0_coordinate, x1_coordinate, y1_coordinate, matrix->Color(payload[9], payload[10], payload[11]));
+		break;
+	}
+
+	case 7:
+	{
+		//Command 7: FillMatrix
+
+		matrix->fillScreen(matrix->Color(payload[1], payload[2], payload[3]));
+		break;
+	}
+
+	case 8:
+	{
+		//Command 8: Show
+		matrix->show();
+		break;
+	}
+	case 9:
+	{
+		//Command 9: Clear
+		matrix->clear();
+		break;
+	}
+	case 10:
+	{
+		//Command 10: Play
+		myMP3.volume(payload[3]);
+		delay(10);
+		myMP3.playFolder(payload[1], payload[2]);
+		break;
+	}
+	case 11:
+	{
+		//Command 11: reset
+		ESP.reset();
+		break;
+	}
+	case 12:
+	{
+		//Command 12: GetMatrixInfo
+		StaticJsonBuffer<400> jsonBuffer;
+		JsonObject &root = jsonBuffer.createObject();
+		root["type"] = "MatrixInfo";
+		root["version"] = version;
+		root["wifirssi"] = String(WiFi.RSSI());
+		root["wifiquality"] = GetRSSIasQuality(WiFi.RSSI());
+		root["wifissid"] = WiFi.SSID();
+		root["IP"] = WiFi.localIP().toString();
+		root["LUX"] = photocell.getCurrentLux();
+		BMESensor.refresh();
+		root["Temp"] = BMESensor.temperature;
+		root["Hum"] = BMESensor.humidity;
+		root["hPa"] = BMESensor.pressure;
+		String JS;
+		root.printTo(JS);
+		if (!usbWifiState)
+		{
+			client.publish("matrixClient", JS.c_str());
 		}
-
-		case 2:{
-			//Command 2: DrawCircle
-
-			//Prepare the coordinates
-			uint16_t x0_coordinate = int(payload[1]<<8)+int(payload[2]);
-			uint16_t y0_coordinate = int(payload[3]<<8)+int(payload[4]);
-			uint16_t radius = payload[5];
-			matrix->drawCircle(x0_coordinate, y0_coordinate, radius, matrix->Color(payload[6], payload[7], payload[8]));
-			break;
+		else
+		{
+			Serial.println(String(JS));
 		}
-		case 3:{
-			//Command 3: FillCircle
+		break;
+	}
+	case 13:
+	{
+		matrix->setBrightness(payload[1]);
+		break;
+	}
 
-			//Prepare the coordinates
-			uint16_t x0_coordinate = int(payload[1]<<8)+int(payload[2]);
-			uint16_t y0_coordinate = int(payload[3]<<8)+int(payload[4]);
-			uint16_t radius = payload[5];
-			matrix->fillCircle(x0_coordinate, y0_coordinate, radius, matrix->Color(payload[6], payload[7], payload[8]));
-			break;
-		}
-		case 4:{
-			//Command 4: DrawPixel
-
-			//Prepare the coordinates
-			uint16_t x0_coordinate = int(payload[1]<<8)+int(payload[2]);
-			uint16_t y0_coordinate = int(payload[3]<<8)+int(payload[4]);
-			matrix->drawPixel(x0_coordinate, y0_coordinate, matrix->Color(payload[5], payload[6], payload[7]));
-			break;
-		}
-		case 5:{
-			//Command 5: DrawRect
-
-			//Prepare the coordinates
-			uint16_t x0_coordinate = int(payload[1]<<8)+int(payload[2]);
-			uint16_t y0_coordinate = int(payload[3]<<8)+int(payload[4]);
-			int16_t width = payload[5];
-			int16_t height = payload[6];
-
-			matrix->drawRect(x0_coordinate, y0_coordinate, width, height, matrix->Color(payload[7], payload[8], payload[9]));
-			break;
-		}
-		case 6:{
-			//Command 6: DrawLine
-
-			//Prepare the coordinates
-			uint16_t x0_coordinate = int(payload[1]<<8)+int(payload[2]);
-			uint16_t y0_coordinate = int(payload[3]<<8)+int(payload[4]);
-			uint16_t x1_coordinate = int(payload[5]<<8)+int(payload[6]);
-			uint16_t y1_coordinate = int(payload[7]<<8)+int(payload[8]);
-			matrix->drawLine(x0_coordinate, y0_coordinate, x1_coordinate, y1_coordinate, matrix->Color(payload[9],payload[10],payload[11]));
-			break;
-		}
-
-		case 7:{
-			//Command 7: FillMatrix
-
-			matrix->fillScreen(matrix->Color(payload[1],payload[2],payload[3]));
-			break;
-		}
-
-		case 8:{
-			//Command 8: Show
-			matrix->show();
-			break;
-		}
-		case 9:{
-			//Command 9: Clear
-			matrix->clear();
-			break;
-		}
-		case 10:{
-			//Command 10: Play
-			myMP3.volume(payload[3]);
-			delay(10);
-			myMP3.playFolder(payload[1],payload[2]);
-			break;
-		}
-		case 11:{
-			//Command 11: GetLux
-			if(!usbWifiState){
-				StaticJsonBuffer<200> jsonBuffer;
-				client.publish("matrixLux", String(photocell.getCurrentLux()).c_str());
-			} else {
-				StaticJsonBuffer<200> jsonBuffer;
-				JsonObject& root = jsonBuffer.createObject();
-				root["LUX"] = photocell.getCurrentLux();
-				String JS;
-				root.printTo(JS);
-				Serial.println(String(JS));
-			}
-			break;
-		}
-		case 12:{
-			//Command 12: GetMatrixInfo
-			StaticJsonBuffer<200> jsonBuffer;
-			JsonObject& root = jsonBuffer.createObject();
-			root["version"] = version;
-			root["wifirssi"] = String(WiFi.RSSI());
-			root["wifiquality"] =GetRSSIasQuality(WiFi.RSSI());
-			root["wifissid"] =WiFi.SSID();
-			root["getIP"] =WiFi.localIP().toString();
-			root["LUX"] =photocell.getCurrentLux();
-			BMESensor.refresh();
-			root["Temp"] = BMESensor.temperature;
-			root["Hum"] = BMESensor.humidity;
-			root["hPa"] =BMESensor.pressure;
-			String JS;
-			root.printTo(JS);
-			if (!usbWifiState){
-				client.publish("matrixInfo", JS.c_str());
-			} else {
-				Serial.println(String(JS));
-			}
-			break;
-		}
-		case 13:{
-  			matrix->setBrightness(payload[1]);
-			break;
-  		}
-
-		case 14:{
-			matrix->clear();
-			matrix->setCursor(5, 6);
-			matrix->print("Update");
-			matrix->show();
-
-			//set usbWifiState
-			if(payload[1]==0){
-				usbWifiState = false;
-			} else {
-				usbWifiState = true;
-			}
-
-			//set sensor type for temperatue...
-			tempState = payload[2];
-
-			//set audioState
-			if(payload[3]==0){
-				audioState = false;
-			} else {
-				audioState = true;
-			}
-
-			//set gesture
-			if(payload[4]==0){
-				gestureState = false;
-			} else {
-				gestureState = true;
-			}
-
-			//set LDR resistor
-			ldrState = int(payload[5]<<8)+int(payload[6]);
-			if(saveConfig()){
-				ESP.reset();
-			} else {
-				Serial.println("[UpdateMatrix-14] Fail to Save the File...");
-			}
-  		}
+	case 14:
+	{
+		wifiManager.resetSettings();
+		ESP.reset();
+	}
 	}
 }
 
-void callback(char *topic, byte *payload, unsigned int length){
-	updateMatrix(payload,length);
+void callback(char *topic, byte *payload, unsigned int length)
+{
+	updateMatrix(payload, length);
 }
 
-void reconnect(){
-	if(!usbWifiState){
-		while (!client.connected()){
+void reconnect()
+{
+	if (!usbWifiState)
+	{
+		while (!client.connected())
+		{
 			String clientId = "AWTRIXController-";
 			clientId += String(random(0xffff), HEX);
-			hardwareAnimatedSearch(1,28,0);
-			if (client.connect(clientId.c_str())){
+			hardwareAnimatedSearch(1, 28, 0);
+			if (client.connect(clientId.c_str()))
+			{
 				client.subscribe("awtrixmatrix/#");
-				client.publish("matrixstate", "connected");
+				client.publish("matrixClient", "connected");
 			}
 		}
 	}
 }
 
-void ICACHE_RAM_ATTR interruptRoutine() {
-  isr_flag = 1;
+void ICACHE_RAM_ATTR interruptRoutine()
+{
+	isr_flag = 1;
 }
 
-void handleGesture() {
-		String control;
-    if (apds.isGestureAvailable()) {
-    switch ( apds.readGesture() ) {
-      case DIR_UP:
+void handleGesture()
+{
+	String control;
+	if (apds.isGestureAvailable())
+	{
+		switch (apds.readGesture())
+		{
+		case DIR_UP:
 			control = "UP";
-        break;
-      case DIR_DOWN:
+			break;
+		case DIR_DOWN:
 			control = "DOWN";
-        break;
-      case DIR_LEFT:
+			break;
+		case DIR_LEFT:
 			control = "LEFT";
-        break;
-      case DIR_RIGHT:
-				control = "RIGHT";
-        break;
-      case DIR_NEAR:
-				control = "NEAR";
-        break;
-      case DIR_FAR:
-				control = "FAR";
-        break;
-      default:
-				control = "NONE";
-    }
-		#ifdef USB_CONNECTION
-			StaticJsonBuffer<200> jsonBuffer;
-			JsonObject& root = jsonBuffer.createObject();
-			String JS;
-			root.printTo(JS);
-			Serial.println(String(JS));
-		#else
-			client.publish("control", control.c_str());
-		#endif
-  }
-}
+			break;
+		case DIR_RIGHT:
+			control = "RIGHT";
+			break;
+		case DIR_NEAR:
+			control = "NEAR";
+			break;
+		case DIR_FAR:
+			control = "FAR";
+			break;
+		default:
+			control = "NONE";
+		}
+		StaticJsonBuffer<200> jsonBuffer;
+		JsonObject &root = jsonBuffer.createObject();
+		root["type"] = "gesture";
+		root["gesture"] = control;
+		String JS;
+		root.printTo(JS);
 
-uint32_t Wheel(byte WheelPos, int pos) {
-  if(WheelPos < 85) {
-   return matrix->Color((WheelPos * 3)-pos, (255 - WheelPos * 3)-pos, 0);
-  } else if(WheelPos < 170) {
-   WheelPos -= 85;
-   return matrix->Color((255 - WheelPos * 3)-pos, 0, (WheelPos * 3)-pos);
-  } else {
-   WheelPos -= 170;
-   return matrix->Color(0, (WheelPos * 3)-pos, (255 - WheelPos * 3)-pos);
-  }
-}
-
-void flashProgress(unsigned int progress, unsigned int total) {
-    matrix->setBrightness(100);
-    long num = 32 * 8 * progress / total;
-    for (unsigned char y = 0; y < 8; y++) {
-        for (unsigned char x = 0; x < 32; x++) {
-            if (num-- > 0) matrix->drawPixel(x, 8 - y - 1, Wheel((num*16) & 255,0));
-        }
-    }
-    matrix->setCursor(0, 6);
-		matrix->setTextColor(matrix->Color(255, 255, 255));
-    matrix->print("FLASHING");
-    matrix->show();
-}
-
-bool checkStringForBool(String myString){
-	//check if true
-	if((myString[0]==116)&&(myString[1]==114)&&(myString[2]==117)&&(myString[2]==101)){
-		return true;
-	} else {
-		return false;
+#ifdef USB_CONNECTION
+		Serial.println(String(JS));
+#else
+		client.publish("matrixClient", control.c_str());
+#endif
 	}
 }
 
-void saveConfigCallback () {
-  Serial.println("Should save config");
-  shouldSaveConfig = true;
+uint32_t Wheel(byte WheelPos, int pos)
+{
+	if (WheelPos < 85)
+	{
+		return matrix->Color((WheelPos * 3) - pos, (255 - WheelPos * 3) - pos, 0);
+	}
+	else if (WheelPos < 170)
+	{
+		WheelPos -= 85;
+		return matrix->Color((255 - WheelPos * 3) - pos, 0, (WheelPos * 3) - pos);
+	}
+	else
+	{
+		WheelPos -= 170;
+		return matrix->Color(0, (WheelPos * 3) - pos, (255 - WheelPos * 3) - pos);
+	}
 }
 
-void configModeCallback (WiFiManager *myWiFiManager) {
+void flashProgress(unsigned int progress, unsigned int total)
+{
+	matrix->setBrightness(100);
+	long num = 32 * 8 * progress / total;
+	for (unsigned char y = 0; y < 8; y++)
+	{
+		for (unsigned char x = 0; x < 32; x++)
+		{
+			if (num-- > 0)
+				matrix->drawPixel(x, 8 - y - 1, Wheel((num * 16) & 255, 0));
+		}
+	}
+	matrix->setCursor(0, 6);
+	matrix->setTextColor(matrix->Color(255, 255, 255));
+	matrix->print("FLASHING");
+	matrix->show();
+}
+
+void saveConfigCallback()
+{
+	Serial.println("Should save config");
+	shouldSaveConfig = true;
+}
+
+void configModeCallback(WiFiManager *myWiFiManager)
+{
 	Serial.println("Entered config mode");
 	Serial.println(WiFi.softAPIP());
 	Serial.println(myWiFiManager->getConfigPortalSSID());
 }
 
-void setup(){
-	WiFiManager wifiManager;
-	if (drd.detect()) {
+void setup()
+{
+	delay(2000);
+
+	wifiManager.setAPStaticIPConfig(IPAddress(172, 217, 28, 1), IPAddress(172, 217, 28, 1), IPAddress(255, 255, 255, 0));
+	if (drd.detect())
+	{
 		Serial.println("** Double reset boot **");
 		wifiManager.resetSettings();
 	}
 	Serial.setRxBufferSize(1024);
 	Serial.begin(115200);
 
-	if (SPIFFS.begin()) {
+	if (SPIFFS.begin())
+	{
 		//if file not exists
-		if (!(SPIFFS.exists("/config.json"))) {
+		if (!(SPIFFS.exists("/config.json")))
+		{
 			SPIFFS.open("/config.json", "w+");
 			Serial.println("make File...");
 		}
 
-      	File configFile = SPIFFS.open("/config.json", "r");
-      	if (configFile) {
-        	size_t size = configFile.size();
-        	// Allocate a buffer to store contents of the file.
-        	std::unique_ptr < char[] > buf(new char[size]);
-        	configFile.readBytes(buf.get(), size);
-        	DynamicJsonBuffer jsonBuffer;
-        	JsonObject & json = jsonBuffer.parseObject(buf.get());
-        	json.printTo(Serial);
-        	if (json.success()) {
-          		Serial.println("\nparsed json");
+		File configFile = SPIFFS.open("/config.json", "r");
+		if (configFile)
+		{
+			size_t size = configFile.size();
+			// Allocate a buffer to store contents of the file.
+			std::unique_ptr<char[]> buf(new char[size]);
+			configFile.readBytes(buf.get(), size);
+			DynamicJsonBuffer jsonBuffer;
+			JsonObject &json = jsonBuffer.parseObject(buf.get());
+			json.printTo(Serial);
+			if (json.success())
+			{
+				Serial.println("\nparsed json");
 				String temporaer = json["awtrix_server"];
-
-				for(int i = 0;i<16;i++){
+				for (int i = 0; i < 16; i++)
+				{
 					awtrix_server[i] = temporaer[i];
 				}
-
-				if(checkStringForBool(json["connection"])){
-					usbWifiState = true;
-				} else {
-					usbWifiState = false;
-				}
-
-				if(checkStringForBool(json["audio"])){
-					audioState = true;
-				} else {
-					audioState = false;
-				}
-
-				if(checkStringForBool(json["gesture"])){
-					gestureState = true;
-				} else {
-					gestureState = false;
-				}
-				String ldr = json["ldr"];
-				ldrState = ldr.toInt();
-
-				String temp = json["temp"];
-				tempState = temp.toInt();
-        	}
-        	configFile.close();
-      	}
-	} else {
+				usbWifiState = json["connection"].as<int>();
+				audioState = json["audio"].as<int>();
+				gestureState = json["gesture"].as<int>();
+				ID = json["id"].as<int>();
+				ldrState = json["ldr"].as<int>();
+				tempState = json["temp"].as<int>();
+			}
+			configFile.close();
+		}
+	}
+	else
+	{
 		Serial.println("mounting not possible");
 	}
 
-
-	Serial.printf("\nLoading from SPIFFS:\nAwtrix Server: %s \n: ",awtrix_server);
-	if(usbWifiState){
-		Serial.println("Connection: true");
-	} else {
-		Serial.println("Connection: false");
+	Serial.println("Loading from SPIFFS:");
+	Serial.println(awtrix_server);
+	if (usbWifiState)
+	{
+		Serial.println("Connection: USB");
 	}
-	if(audioState){
+	else
+	{
+		Serial.println("Connection: WiFi");
+	}
+	if (audioState)
+	{
 		Serial.println("Audio: true");
-	} else {
+	}
+	else
+	{
 		Serial.println("Audio: false");
 	}
-	if(gestureState){
+	if (gestureState)
+	{
 		Serial.println("Gesture: true");
-	} else {
+	}
+	else
+	{
 		Serial.println("Gesture: false");
 	}
-	switch(tempState){
-		case 0: 
-			Serial.println("Temp: None");
+	switch (tempState)
+	{
+	case 0:
+		Serial.println("Temp: None");
 		break;
-		case 1: 
-			Serial.println("Temp: BME280");
+	case 1:
+		Serial.println("Temp: BME280");
 		break;
-		case 2: 
-			Serial.println("Temp: htu21d");
+	case 2:
+		Serial.println("Temp: htu21d");
 		break;
 	}
-	Serial.printf("LDR: %d\n",ldrState);
+	Serial.printf("LDR: %d\n", ldrState);
 
-	
-
-	/*
-	//set the bool for the connection
-	if((connection[0]==117)&&(connection[1]==115)&&(connection[2]==98)){
-		usbWifiState = true;
-		Serial.println("USB loaded...");
-	} else if((connection[0]==119)&&(connection[1]==105)&&(connection[2]==102)&&(connection[3]==105)){
-		usbWifiState = false;
-		Serial.println("WiFi loaded...");
-	} else {
-		usbWifiState = false;
-		Serial.println("Wrong loaded...");
-	}
-	*/
-	
-	//WiFi.mode(WIFI_STA);
-	//WiFi.begin("", "");
 	wifiManager.setTimeout(1);
-	wifiManager.autoConnect("AwtrixWiFiSetup2","awtrixxx");
+	wifiManager.autoConnect("Awtrix Controller", "awtrixxx");
 	wifiManager.setTimeout(0);
-
-	//Extra parameter for configuration the Awtrix-Client
-	WiFiManagerParameter custom_server_ip("server", "server_ip", awtrix_server, 15);
-	WiFiManagerParameter custom_connection("connection", "usb or wifi", connection, 4);
 	wifiManager.setSaveConfigCallback(saveConfigCallback);
-	wifiManager.addParameter(&custom_server_ip);
-	//wifiManager.addParameter(&custom_connection);
 
 	matrix->begin();
 	matrix->setTextWrap(false);
 	matrix->setBrightness(80);
 	matrix->setFont(&TomThumb);
 
-	
 	FastLED.addLeds<NEOPIXEL, D2>(leds, 256).setCorrection(TypicalLEDStrip);
 
 	int wifiTimeout = millis();
 
-	while (WiFi.status() != WL_CONNECTED){
-		hardwareAnimatedSearch(0,24,0);
+	while (WiFi.status() != WL_CONNECTED)
+	{
+		hardwareAnimatedSearch(0, 24, 0);
 
-		if(millis()-wifiTimeout>TIME_FOR_SEARCHING_WIFI){
+		if (millis() - wifiTimeout > TIME_FOR_SEARCHING_WIFI)
+		{
 			matrix->clear();
 			matrix->setCursor(3, 6);
 			matrix->print("Hotspot");
 			matrix->show();
-			while (WiFi.status() != WL_CONNECTED){
-				wifiManager.autoConnect("AwtrixWiFiSetup2","awtrixxx");
+			while (WiFi.status() != WL_CONNECTED)
+			{
+				wifiManager.autoConnect("AwtrixWiFiSetup2", "awtrixxx");
 			}
 		}
 	}
-		
-		strcpy(awtrix_server, custom_server_ip.getValue());
-		//strcpy(connection, custom_connection.getValue());
 
-		//check the connection and save the changeState if changed (need for restart)
-		if(strcmp(connection,"usb")||strcmp(connection,"USB")){
-			if(usbWifiState==false){
-				changeConnectiom = true;
-			}
-		} else if(strcmp(connection,"wifi")||strcmp(connection,"WIFI")){
-			if(usbWifiState==true){
-				changeConnectiom = true;
-			}
-		}
-		
-		if(shouldSaveConfig){
-			Serial.println("saving config");
-			saveConfig();
-			ESP.reset();
-		}
+	Udp.begin(localUdpPort);
 
-		hardwareAnimatedCheck(0,27,2);
+	if (shouldSaveConfig)
+	{
+		Serial.println("saving config");
+		saveConfig();
+		ESP.reset();
+	}
 
-	client.setServer(awtrix_server, 7001);
-	client.setCallback(callback);
+	hardwareAnimatedCheck(0, 27, 2);
 
 	//for testing...
 	//tempState = 1;
@@ -866,105 +859,154 @@ void setup(){
 	//ldrState = 1000;
 
 	//Checking periphery
-	if(tempState==1){
-		bool successfully = BMESensor.begin(APDS9960_SDA,APDS9960_SCL); 
-		if(successfully){
+	Wire.begin(I2C_SDA, I2C_SCL);
+	if (tempState == 1)
+	{
+		bool successfully = BMESensor.begin();
+		if (successfully){
 			//temp OK
-			hardwareAnimatedCheck(2,29,2);
-		} else {
-			//temp NOK
-			hardwareAnimatedUncheck(2,27,1);
+			hardwareAnimatedCheck(2, 29, 2);
 		}
-	} else if(tempState == 2){
+		else
+		{
+			//temp NOK
+			hardwareAnimatedUncheck(2, 27, 1);
+		}
+	}
+	else if (tempState == 2)
+	{
 		//htu21d...
 	}
 
-	if(audioState){
+	if (audioState)
+	{
 		mySoftwareSerial.begin(9600);
 		myMP3.begin(mySoftwareSerial);
-		hardwareAnimatedCheck(3,29,2);
+		hardwareAnimatedCheck(3, 29, 2);
 	}
-	if(gestureState){
+	if (gestureState)
+	{
 		pinMode(APDS9960_INT, INPUT);
 		attachInterrupt(APDS9960_INT, interruptRoutine, FALLING);
-  		apds.init();
-  		apds.enableGestureSensor(true);
-		hardwareAnimatedCheck(4,29,2);
-	}	
-	if(ldrState){
-		photocell.setPhotocellPositionOnGround(false);
-		hardwareAnimatedCheck(5,29,2);
+		apds.init();
+		apds.enableGestureSensor(true);
+		hardwareAnimatedCheck(4, 29, 2);
 	}
-	
-	
-	
+	if (ldrState)
+	{
+		photocell.setPhotocellPositionOnGround(false);
+		hardwareAnimatedCheck(5, 29, 2);
+	}
 
-  	
-  	ArduinoOTA.onStart([&]() {
+	ArduinoOTA.onStart([&]() {
 		updating = true;
 		matrix->clear();
-  	});
-
-	ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
-			flashProgress(progress, total);
 	});
 
-  	ArduinoOTA.begin();
+	ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
+		flashProgress(progress, total);
+	});
+
+	ArduinoOTA.begin();
 	matrix->clear();
-	matrix->setCursor(7,6);
+	matrix->setCursor(7, 6);
 
-	bufferpointer=0;
+	bufferpointer = 0;
 
-	myTime = millis()-500;
+	myTime = millis() - 500;
 	myCounter = 0;
+
+	client.setServer(awtrix_server, 7001);
+	client.setCallback(callback);
 }
 
-void loop() {
- 	ArduinoOTA.handle();
+void loop(){
+	ArduinoOTA.handle();
+	int packetSize = Udp.parsePacket();
+	if (packetSize){
+		// receive incoming UDP packets
+		Serial.printf("Received %d bytes from %s, port %d\n", packetSize, Udp.remoteIP().toString().c_str(), Udp.remotePort());
+		int len = Udp.read(incomingPacket, 255);
+		if (len > 0){
+			incomingPacket[len] = 0;
+		}
 
+		Serial.println("Got data via UDP!");
 
-	if(firstStart){
-		if(millis()-myTime>500){
-			hardwareAnimatedSearchFast(myCounter,28,0);
+		if ((int)incomingPacket[10] == ID){
+			matrix->clear();
+			matrix->setCursor(5, 6);
+			matrix->print("Update");
+			matrix->show();
+
+			usbWifiState = (int)incomingPacket[0];
+			tempState = (int)incomingPacket[1];
+			audioState = (int)incomingPacket[2];
+			gestureState = (int)incomingPacket[3];
+			ldrState = int(incomingPacket[4] << 8) + int(incomingPacket[5]);
+
+			IPAddress ip = IPAddress(incomingPacket[6], incomingPacket[7], incomingPacket[8], incomingPacket[9]);
+			ip.toString().toCharArray(awtrix_server, 16);
+
+			if (saveConfig())
+			{
+				ESP.reset();
+			}
+			else
+			{
+				Serial.println("[UpdateMatrix-14] Fail to Save the File...");
+			}
+		}
+		else{
+			Serial.println("Wrong matrix ID. Ignore...");
+		}
+	}
+
+	if (firstStart){
+		if (millis() - myTime > 500){
+			hardwareAnimatedSearchFast(myCounter, 28, 0);
 			myCounter++;
-			if(myCounter==4){
-				myCounter=0;
+			if (myCounter == 4){
+				myCounter = 0;
 			}
 			myTime = millis();
 		}
 	}
 
- 	if (!updating) {
-	 	if(usbWifiState){
-			while(Serial.available () > 0){
+	if (!updating){
+		if (usbWifiState){
+			while (Serial.available() > 0){
 				myBytes[bufferpointer] = Serial.read();
-				if ((myBytes[bufferpointer]==255)&&(myBytes[bufferpointer-1]==255)&&(myBytes[bufferpointer-2]==255)){
+				if ((myBytes[bufferpointer] == 255) && (myBytes[bufferpointer - 1] == 255) && (myBytes[bufferpointer - 2] == 255)){
 					updateMatrix(myBytes, bufferpointer);
-					for(int i =0;i<bufferpointer;i++){
-						myBytes[i]=0;
+					for (int i = 0; i < bufferpointer; i++)
+					{
+						myBytes[i] = 0;
 					}
-					bufferpointer=0;
+					bufferpointer = 0;
 					break;
-				} else {
+				}
+				else{
 					bufferpointer++;
 				}
-				if(bufferpointer==1000){
-					bufferpointer=0;
+				if (bufferpointer == 1000){
+					bufferpointer = 0;
 				}
 			}
 		}
-		else {
+		else{
 			if (!client.connected()){
 				reconnect();
-			}else{
+			}
+			else{
 				client.loop();
 			}
 		}
-	if(isr_flag == 1) {
-    detachInterrupt(APDS9960_INT);
-    handleGesture();
-    isr_flag = 0;
-    attachInterrupt(APDS9960_INT, interruptRoutine, FALLING);
-  }
-}
+		if (isr_flag == 1){
+			detachInterrupt(APDS9960_INT);
+			handleGesture();
+			isr_flag = 0;
+			attachInterrupt(APDS9960_INT, interruptRoutine, FALLING);
+		}
+	}
 }
