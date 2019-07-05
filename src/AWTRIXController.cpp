@@ -29,7 +29,7 @@ int audioState = false;   // 0 = false ; 1 = true
 int gestureState = false; // 0 = false ; 1 = true
 int ldrState = false;	 // 0 = None
 int usbWifiState = false; // true = usb...
-int marriedState = 0;	 //0 = not married ; 1 = married
+int pairingState = 0;	 //0 = not paired ; 1 = paired
 
 String version = "0.9b";
 char awtrix_server[16];
@@ -137,7 +137,7 @@ bool saveConfig()
 	json["gesture"] = gestureState;
 	json["audio"] = audioState;
 
-	json["married"] = marriedState;
+	json["paired"] = pairingState;
 
 	File configFile = SPIFFS.open("/config.json", "w");
 	if (!configFile)
@@ -782,7 +782,7 @@ void setup()
 				gestureState = json["gesture"].as<int>();
 				ldrState = json["ldr"].as<int>();
 				tempState = json["temp"].as<int>();
-				marriedState = json["married"].as<int>();
+				pairingState = json["paired"].as<int>();
 			}
 			configFile.close();
 		}
@@ -942,7 +942,7 @@ void setup()
 void loop()
 {
 	ArduinoOTA.handle();
-	while (marriedState == 0)
+	while (pairingState == 0)
 	{
 		if (millis() - myTime2 > 1000)
 		{
@@ -1015,7 +1015,7 @@ void loop()
 				matrix->print("PAIRED!");
 				matrix->show();
 				delay(3000);
-				marriedState = 1;
+				pairingState = 1;
 				if (saveConfig())
 				{
 					ESP.reset();
