@@ -1,3 +1,7 @@
+// AWTRIX Controller
+// Copyright (C) 2019
+// by Blueforcer & Mazze2000
+
 #include <FS.h>
 #include <ArduinoOTA.h>
 #include <ESP8266WiFi.h>
@@ -15,7 +19,6 @@
 #include "SoftwareSerial.h"
 #include <DFPlayerMini_Fast.h>
 #include <WiFiManager.h>
-#include <WiFiUdp.h>
 #include <DoubleResetDetect.h>
 #include <Wire.h>
 #include <BME280_t.h>
@@ -35,15 +38,13 @@ int pairingState = 0;	 //0 = not paired ; 1 = paired
 
 String version = "0.9b";
 char awtrix_server[16];
-//int ID = 0;
 
 IPAddress Server;
-
 WiFiClient espClient;
 PubSubClient client(espClient);
 
 WiFiManager wifiManager;
-//USP
+//UDP
 WiFiUDP Udp;
 unsigned int localUdpPort = 4210;
 char incomingPacket[20];
@@ -407,12 +408,6 @@ void updateMatrix(byte payload[], int length)
 {
 	int y_offset = 5;
 
-	if (firstStart)
-	{
-		hardwareAnimatedCheck(1, 30, 2);
-		firstStart = false;
-	}
-
 	switch (payload[0])
 	{
 	case 0:
@@ -611,6 +606,25 @@ void updateMatrix(byte payload[], int length)
 
 	case 14:
 	{
+		usbWifiState = (int)payload[1];
+		tempState = (int)payload[2];
+		audioState = (int)payload[3];
+		gestureState = (int)payload[4];
+		ldrState = int(payload[5] << 8) + int(payload[5]);
+
+		matrix->clear();
+		matrix->setCursor(6, 6);
+		matrix->setTextColor(matrix->Color(0, 255, 50));
+		matrix->print("SAVED!");
+		matrix->show();
+		delay(2000);
+		if (saveConfig())
+		{
+			ESP.reset();
+		}
+	}
+	case 15:
+	{
 		wifiManager.resetSettings();
 		ESP.reset();
 	}
@@ -633,6 +647,11 @@ void reconnect()
 			hardwareAnimatedSearch(1, 28, 0);
 			if (client.connect(clientId.c_str()))
 			{
+				if (firstStart)
+				{
+					hardwareAnimatedCheck(1, 30, 2);
+					firstStart = false;
+				}
 				client.subscribe("awtrixmatrix/#");
 				client.publish("matrixClient", "connected");
 			}
@@ -909,9 +928,12 @@ void setup()
 	}
 	else if (tempState == 2)
 	{
-		if(htu.begin()){
+		if (htu.begin())
+		{
 			hardwareAnimatedCheck(2, 29, 2);
-		} else {
+		}
+		else
+		{
 			hardwareAnimatedUncheck(2, 27, 1);
 		}
 	}
@@ -965,37 +987,86 @@ void loop()
 	ArduinoOTA.handle();
 	while (pairingState == 0)
 	{
-		if (millis() - myTime2 > 1000)
+		if (millis() - myTime2 > 200)
 		{
 			switch (myCounter2)
 			{
 			case 0:
 				matrix->clear();
-				matrix->setCursor(3, 6);
+				matrix->setTextColor(matrix->Color(0, 0, 255));
+				matrix->setCursor(8, 6);
 				matrix->print("Need");
-				matrix->show();
 				Serial.println("[Pairing] Need");
+				for (int i = 0; i < 80; i++)
+				{
+					matrix->setBrightness(i);
+					matrix->show();
+					delay(1);
+				}
+				for (int i = 80; i > -1; i--)
+				{
+					matrix->setBrightness(i);
+					matrix->show();
+					delay(1);
+				}
 				break;
 			case 1:
+
 				matrix->clear();
-				matrix->setCursor(3, 6);
+				matrix->setTextColor(matrix->Color(0, 255, 0));
+				matrix->setCursor(5, 6);
 				matrix->print("pairing");
-				matrix->show();
 				Serial.println("[Pairing] pairing");
+				for (int i = 0; i < 80; i++)
+				{
+					matrix->setBrightness(i);
+					matrix->show();
+					delay(1);
+				}
+				for (int i = 80; i > -1; i--)
+				{
+					matrix->setBrightness(i);
+					matrix->show();
+					delay(1);
+				}
 				break;
 			case 2:
 				matrix->clear();
-				matrix->setCursor(3, 6);
+				matrix->setTextColor(matrix->Color(255, 255, 0));
+				matrix->setCursor(9, 6);
 				matrix->print("from");
-				matrix->show();
 				Serial.println("[Pairing] from");
+				for (int i = 0; i < 80; i++)
+				{
+					matrix->setBrightness(i);
+					matrix->show();
+					delay(1);
+				}
+				for (int i = 80; i > -1; i--)
+				{
+					matrix->setBrightness(i);
+					matrix->show();
+					delay(1);
+				}
 				break;
 			case 3:
 				matrix->clear();
-				matrix->setCursor(3, 6);
+				matrix->setTextColor(matrix->Color(255, 127, 0));
+				matrix->setCursor(5, 6);
 				matrix->print("Server");
-				matrix->show();
 				Serial.println("[Pairing] Server");
+				for (int i = 0; i < 80; i++)
+				{
+					matrix->setBrightness(i);
+					matrix->show();
+					delay(1);
+				}
+				for (int i = 80; i > -1; i--)
+				{
+					matrix->setBrightness(i);
+					matrix->show();
+					delay(1);
+				}
 				break;
 			}
 			myCounter2++;
@@ -1016,7 +1087,7 @@ void loop()
 			{
 				incomingPacket[len] = 0;
 			}
-
+			matrix->setBrightness(80);
 			Serial.println("Got data via UDP!");
 
 			usbWifiState = (int)incomingPacket[0];
