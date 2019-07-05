@@ -47,7 +47,7 @@ unsigned int localUdpPort = 4210;
 char incomingPacket[20];
 
 //resetdetector
-#define DRD_TIMEOUT 2.0
+#define DRD_TIMEOUT 5.0
 #define DRD_ADDRESS 0x00
 DoubleResetDetect drd(DRD_TIMEOUT, DRD_ADDRESS);
 
@@ -339,19 +339,19 @@ void hardwareAnimatedSearch(int typ, int x, int y)
 		switch (i)
 		{
 		case 3:
-			matrix->drawPixel(x, y, 0xFFFF);
-			matrix->drawPixel(x + 1, y + 1, 0xFFFF);
-			matrix->drawPixel(x + 2, y + 2, 0xFFFF);
-			matrix->drawPixel(x + 3, y + 3, 0xFFFF);
-			matrix->drawPixel(x + 2, y + 4, 0xFFFF);
-			matrix->drawPixel(x + 1, y + 5, 0xFFFF);
-			matrix->drawPixel(x, y + 6, 0xFFFF);
+			matrix->drawPixel(x, y, 0x22ff);
+			matrix->drawPixel(x + 1, y + 1, 0x22ff);
+			matrix->drawPixel(x + 2, y + 2, 0x22ff);
+			matrix->drawPixel(x + 3, y + 3, 0x22ff);
+			matrix->drawPixel(x + 2, y + 4, 0x22ff);
+			matrix->drawPixel(x + 1, y + 5, 0x22ff);
+			matrix->drawPixel(x, y + 6, 0x22ff);
 		case 2:
-			matrix->drawPixel(x - 1, y + 2, 0xFFFF);
-			matrix->drawPixel(x, y + 3, 0xFFFF);
-			matrix->drawPixel(x - 1, y + 4, 0xFFFF);
+			matrix->drawPixel(x - 1, y + 2, 0x22ff);
+			matrix->drawPixel(x, y + 3, 0x22ff);
+			matrix->drawPixel(x - 1, y + 4, 0x22ff);
 		case 1:
-			matrix->drawPixel(x - 3, y + 3, 0xFFFF);
+			matrix->drawPixel(x - 3, y + 3, 0x22ff);
 		case 0:
 			break;
 		}
@@ -722,6 +722,28 @@ void configModeCallback(WiFiManager *myWiFiManager)
 void setup()
 {
 	delay(2000);
+	FastLED.addLeds<NEOPIXEL, D2>(leds, 256).setCorrection(TypicalLEDStrip);
+	matrix->begin();
+	matrix->setTextWrap(false);
+	matrix->setBrightness(80);
+	matrix->setFont(&TomThumb);
+
+	if (drd.detect())
+	{
+		Serial.println("** Double reset boot **");
+		matrix->clear();
+		matrix->setTextColor(matrix->Color(255, 0, 0));
+		matrix->setCursor(6, 6);
+		matrix->print("RESET!");
+		matrix->show();
+		delay(3000);
+		wifiManager.resetSettings();
+		if (SPIFFS.begin())
+		{
+			SPIFFS.remove("/config.json");
+			SPIFFS.end();
+		}
+	}
 
 	wifiManager.setAPStaticIPConfig(IPAddress(172, 217, 28, 1), IPAddress(172, 217, 28, 1), IPAddress(255, 255, 255, 0));
 
@@ -770,13 +792,6 @@ void setup()
 		Serial.println("mounting not possible");
 	}
 
-	if (drd.detect())
-	{
-		Serial.println("** Double reset boot **");
-		wifiManager.resetSettings();
-		marriedState = 0;
-	}
-
 	Serial.println("Loading from SPIFFS:");
 	Serial.println(awtrix_server);
 	if (usbWifiState)
@@ -822,13 +837,6 @@ void setup()
 	wifiManager.setTimeout(0);
 	wifiManager.setSaveConfigCallback(saveConfigCallback);
 
-	matrix->begin();
-	matrix->setTextWrap(false);
-	matrix->setBrightness(80);
-	matrix->setFont(&TomThumb);
-
-	FastLED.addLeds<NEOPIXEL, D2>(leds, 256).setCorrection(TypicalLEDStrip);
-
 	int wifiTimeout = millis();
 
 	while (WiFi.status() != WL_CONNECTED)
@@ -839,11 +847,12 @@ void setup()
 		{
 			matrix->clear();
 			matrix->setCursor(3, 6);
+			matrix->setTextColor(matrix->Color(0, 255, 50));
 			matrix->print("Hotspot");
 			matrix->show();
 			while (WiFi.status() != WL_CONNECTED)
 			{
-				wifiManager.autoConnect("AwtrixWiFiSetup2", "awtrixxx");
+				wifiManager.autoConnect("AWTRIX Controller", "awtrixxx");
 			}
 		}
 	}
@@ -1000,6 +1009,12 @@ void loop()
 
 			if ((int)incomingPacket[10] == 255 && (int)incomingPacket[11] == 255 && (int)incomingPacket[12] == 255)
 			{
+					matrix->clear();
+			matrix->setCursor(6, 6);
+			matrix->setTextColor(matrix->Color(0, 255, 50));
+			matrix->print("PAIRED!");
+			matrix->show();
+			delay(3000);
 				marriedState = 1;
 				if (saveConfig())
 				{
