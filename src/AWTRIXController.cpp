@@ -19,10 +19,12 @@
 #include <DoubleResetDetect.h>
 #include <Wire.h>
 #include <BME280_t.h>
+#include "Adafruit_HTU21DF.h"
 #include <WiFiUdp.h>
 
-// instantiate BME sensor
+// instantiate temp sensor
 BME280<> BMESensor;
+Adafruit_HTU21DF htu = Adafruit_HTU21DF();
 
 int tempState = false;	// 0 = None ; 1 = BME280 ; 2 = htu21d
 int audioState = false;   // 0 = false ; 1 = true
@@ -570,9 +572,25 @@ void updateMatrix(byte payload[], int length)
 		root["IP"] = WiFi.localIP().toString();
 		root["LUX"] = photocell.getCurrentLux();
 		BMESensor.refresh();
-		root["Temp"] = BMESensor.temperature;
-		root["Hum"] = BMESensor.humidity;
-		root["hPa"] = BMESensor.pressure;
+		if (tempState == 1)
+		{
+			root["Temp"] = BMESensor.temperature;
+			root["Hum"] = BMESensor.humidity;
+			root["hPa"] = BMESensor.pressure;
+		}
+		else if (tempState == 2)
+		{
+			root["Temp"] = htu.readTemperature();
+			root["Hum"] = htu.readHumidity();
+			root["hPa"] = NULL;
+		}
+		else
+		{
+			root["Temp"] = NULL;
+			root["Hum"] = NULL;
+			root["hPa"] = NULL;
+		}
+
 		String JS;
 		root.printTo(JS);
 		if (!usbWifiState)
@@ -878,8 +896,7 @@ void setup()
 	Wire.begin(I2C_SDA, I2C_SCL);
 	if (tempState == 1)
 	{
-		bool successfully = BMESensor.begin();
-		if (successfully)
+		if (BMESensor.begin())
 		{
 			//temp OK
 			hardwareAnimatedCheck(2, 29, 2);
@@ -892,7 +909,11 @@ void setup()
 	}
 	else if (tempState == 2)
 	{
-		//htu21d...
+		if(htu.begin()){
+			hardwareAnimatedCheck(2, 29, 2);
+		} else {
+			hardwareAnimatedUncheck(2, 27, 1);
+		}
 	}
 
 	if (audioState)
