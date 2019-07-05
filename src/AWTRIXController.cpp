@@ -1009,12 +1009,12 @@ void loop()
 
 			if ((int)incomingPacket[10] == 255 && (int)incomingPacket[11] == 255 && (int)incomingPacket[12] == 255)
 			{
-					matrix->clear();
-			matrix->setCursor(6, 6);
-			matrix->setTextColor(matrix->Color(0, 255, 50));
-			matrix->print("PAIRED!");
-			matrix->show();
-			delay(3000);
+				matrix->clear();
+				matrix->setCursor(6, 6);
+				matrix->setTextColor(matrix->Color(0, 255, 50));
+				matrix->print("PAIRED!");
+				matrix->show();
+				delay(3000);
 				marriedState = 1;
 				if (saveConfig())
 				{
