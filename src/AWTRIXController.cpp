@@ -29,10 +29,11 @@ int audioState = false;   // 0 = false ; 1 = true
 int gestureState = false; // 0 = false ; 1 = true
 int ldrState = false;	 // 0 = None
 int usbWifiState = false; // true = usb...
+int marriedState = 0;	 //0 = not married ; 1 = married
 
 String version = "0.9b";
 char awtrix_server[16];
-int ID = 0;
+//int ID = 0;
 
 IPAddress Server;
 
@@ -51,8 +52,10 @@ char incomingPacket[20];
 DoubleResetDetect drd(DRD_TIMEOUT, DRD_ADDRESS);
 
 bool firstStart = true;
-int myTime;
+int myTime;  //need for loop
+int myTime2; //need for loop
 int myCounter;
+int myCounter2;
 int TIME_FOR_SEARCHING_WIFI = 10000;
 
 //USB Connection:
@@ -60,7 +63,7 @@ byte myBytes[1000];
 unsigned int bufferpointer;
 
 //Zum speichern...
-int cfgStart = 0; 
+int cfgStart = 0;
 
 //flag for saving data
 bool shouldSaveConfig = false;
@@ -127,13 +130,14 @@ bool saveConfig()
 	DynamicJsonBuffer jsonBuffer;
 	JsonObject &json = jsonBuffer.createObject();
 	json["awtrix_server"] = awtrix_server;
-	json["id"] = ID;
 
 	json["temp"] = tempState;
 	json["usbWifi"] = usbWifiState;
 	json["ldr"] = ldrState;
 	json["gesture"] = gestureState;
 	json["audio"] = audioState;
+
+	json["married"] = marriedState;
 
 	File configFile = SPIFFS.open("/config.json", "w");
 	if (!configFile)
@@ -720,11 +724,7 @@ void setup()
 	delay(2000);
 
 	wifiManager.setAPStaticIPConfig(IPAddress(172, 217, 28, 1), IPAddress(172, 217, 28, 1), IPAddress(255, 255, 255, 0));
-	if (drd.detect())
-	{
-		Serial.println("** Double reset boot **");
-		wifiManager.resetSettings();
-	}
+
 	Serial.setRxBufferSize(1024);
 	Serial.begin(115200);
 
@@ -758,9 +758,9 @@ void setup()
 				usbWifiState = json["connection"].as<int>();
 				audioState = json["audio"].as<int>();
 				gestureState = json["gesture"].as<int>();
-				ID = json["id"].as<int>();
 				ldrState = json["ldr"].as<int>();
 				tempState = json["temp"].as<int>();
+				marriedState = json["married"].as<int>();
 			}
 			configFile.close();
 		}
@@ -768,6 +768,13 @@ void setup()
 	else
 	{
 		Serial.println("mounting not possible");
+	}
+
+	if (drd.detect())
+	{
+		Serial.println("** Double reset boot **");
+		wifiManager.resetSettings();
+		marriedState = 0;
 	}
 
 	Serial.println("Loading from SPIFFS:");
@@ -863,7 +870,8 @@ void setup()
 	if (tempState == 1)
 	{
 		bool successfully = BMESensor.begin();
-		if (successfully){
+		if (successfully)
+		{
 			//temp OK
 			hardwareAnimatedCheck(2, 29, 2);
 		}
@@ -914,30 +922,72 @@ void setup()
 	bufferpointer = 0;
 
 	myTime = millis() - 500;
+	myTime2 = millis() - 1000;
 	myCounter = 0;
+	myCounter2 = 0;
 
 	client.setServer(awtrix_server, 7001);
 	client.setCallback(callback);
 }
 
-void loop(){
+void loop()
+{
 	ArduinoOTA.handle();
-	int packetSize = Udp.parsePacket();
-	if (packetSize){
-		// receive incoming UDP packets
-		Serial.printf("Received %d bytes from %s, port %d\n", packetSize, Udp.remoteIP().toString().c_str(), Udp.remotePort());
-		int len = Udp.read(incomingPacket, 255);
-		if (len > 0){
-			incomingPacket[len] = 0;
+	while (marriedState == 0)
+	{
+		if (millis() - myTime2 > 1000)
+		{
+			switch (myCounter2)
+			{
+			case 0:
+				matrix->clear();
+				matrix->setCursor(3, 6);
+				matrix->print("Need");
+				matrix->show();
+				Serial.println("[Pairing] Need");
+				break;
+			case 1:
+				matrix->clear();
+				matrix->setCursor(3, 6);
+				matrix->print("pairing");
+				matrix->show();
+				Serial.println("[Pairing] pairing");
+				break;
+			case 2:
+				matrix->clear();
+				matrix->setCursor(3, 6);
+				matrix->print("from");
+				matrix->show();
+				Serial.println("[Pairing] from");
+				break;
+			case 3:
+				matrix->clear();
+				matrix->setCursor(3, 6);
+				matrix->print("Server");
+				matrix->show();
+				Serial.println("[Pairing] Server");
+				break;
+			}
+			myCounter2++;
+			if (myCounter2 == 4)
+			{
+				myCounter2 = 0;
+			}
+			myTime2 = millis();
 		}
 
-		Serial.println("Got data via UDP!");
+		int packetSize = Udp.parsePacket();
+		if (packetSize)
+		{
+			// receive incoming UDP packets
+			Serial.printf("Received %d bytes from %s, port %d\n", packetSize, Udp.remoteIP().toString().c_str(), Udp.remotePort());
+			int len = Udp.read(incomingPacket, 255);
+			if (len > 0)
+			{
+				incomingPacket[len] = 0;
+			}
 
-		if ((int)incomingPacket[10] == ID){
-			matrix->clear();
-			matrix->setCursor(5, 6);
-			matrix->print("Update");
-			matrix->show();
+			Serial.println("Got data via UDP!");
 
 			usbWifiState = (int)incomingPacket[0];
 			tempState = (int)incomingPacket[1];
@@ -948,36 +998,48 @@ void loop(){
 			IPAddress ip = IPAddress(incomingPacket[6], incomingPacket[7], incomingPacket[8], incomingPacket[9]);
 			ip.toString().toCharArray(awtrix_server, 16);
 
-			if (saveConfig())
+			if ((int)incomingPacket[10] == 255 && (int)incomingPacket[11] == 255 && (int)incomingPacket[12] == 255)
 			{
-				ESP.reset();
+				marriedState = 1;
+				if (saveConfig())
+				{
+					ESP.reset();
+				}
+				else
+				{
+					Serial.println("[UpdateMatrix UDP] Fail to Save the File...");
+				}
 			}
 			else
 			{
-				Serial.println("[UpdateMatrix-14] Fail to Save the File...");
+				Serial.println("[UDP Enddelimitter] Not the right delimitter...");
 			}
-		}
-		else{
-			Serial.println("Wrong matrix ID. Ignore...");
 		}
 	}
 
-	if (firstStart){
-		if (millis() - myTime > 500){
+	if (firstStart)
+	{
+		if (millis() - myTime > 500)
+		{
 			hardwareAnimatedSearchFast(myCounter, 28, 0);
 			myCounter++;
-			if (myCounter == 4){
+			if (myCounter == 4)
+			{
 				myCounter = 0;
 			}
 			myTime = millis();
 		}
 	}
 
-	if (!updating){
-		if (usbWifiState){
-			while (Serial.available() > 0){
+	if (!updating)
+	{
+		if (usbWifiState)
+		{
+			while (Serial.available() > 0)
+			{
 				myBytes[bufferpointer] = Serial.read();
-				if ((myBytes[bufferpointer] == 255) && (myBytes[bufferpointer - 1] == 255) && (myBytes[bufferpointer - 2] == 255)){
+				if ((myBytes[bufferpointer] == 255) && (myBytes[bufferpointer - 1] == 255) && (myBytes[bufferpointer - 2] == 255))
+				{
 					updateMatrix(myBytes, bufferpointer);
 					for (int i = 0; i < bufferpointer; i++)
 					{
@@ -986,23 +1048,29 @@ void loop(){
 					bufferpointer = 0;
 					break;
 				}
-				else{
+				else
+				{
 					bufferpointer++;
 				}
-				if (bufferpointer == 1000){
+				if (bufferpointer == 1000)
+				{
 					bufferpointer = 0;
 				}
 			}
 		}
-		else{
-			if (!client.connected()){
+		else
+		{
+			if (!client.connected())
+			{
 				reconnect();
 			}
-			else{
+			else
+			{
 				client.loop();
 			}
 		}
-		if (isr_flag == 1){
+		if (isr_flag == 1)
+		{
 			detachInterrupt(APDS9960_INT);
 			handleGesture();
 			isr_flag = 0;
