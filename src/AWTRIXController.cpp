@@ -770,13 +770,15 @@ void configModeCallback(WiFiManager *myWiFiManager)
 
 void setup()
 {
+	
 	delay(2000);
 
 	wifiManager.setAPStaticIPConfig(IPAddress(172, 217, 28, 1), IPAddress(172, 217, 28, 1), IPAddress(255, 255, 255, 0));
 
 	Serial.setRxBufferSize(1024);
 	Serial.begin(115200);
-
+	Serial.println("");
+	Serial.println(version);
 	if (SPIFFS.begin())
 	{
 		//if file not exists
