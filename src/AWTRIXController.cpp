@@ -38,7 +38,7 @@ int USBConnection = false; // true = usb...
 int pairingState = 0;	  //0 = not paired ; 1 = paired
 int MatrixStyle = 1;
 
-String version = "0.9b";
+String version = "0.10";
 char awtrix_server[16];
 
 IPAddress Server;
@@ -411,7 +411,7 @@ void updateMatrix(byte payload[], int length)
 	int y_offset = 5;
 	if (firstStart)
 	{
-		hardwareAnimatedCheck(1, 30, 2);
+		//hardwareAnimatedCheck(1, 30, 2);
 		firstStart = false;
 	}
 
