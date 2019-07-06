@@ -423,8 +423,6 @@ void updateMatrix(byte payload[], int length)
 		uint16_t x_coordinate = int(payload[1] << 8) + int(payload[2]);
 		uint16_t y_coordinate = int(payload[3] << 8) + int(payload[4]);
 
-		//Serial.printf("X: %d - Y: %d\n",x_coordinate,y_coordinate);
-
 		matrix->setCursor(x_coordinate + 1, y_coordinate + y_offset);
 		matrix->setTextColor(matrix->Color(payload[5], payload[6], payload[7]));
 
@@ -434,7 +432,7 @@ void updateMatrix(byte payload[], int length)
 			char c = payload[i];
 			myText += c;
 		}
-		//Serial.printf("Text: %s\n",myText.c_str());
+
 		matrix->print(utf8ascii(myText));
 		break;
 	}
@@ -636,7 +634,15 @@ void updateMatrix(byte payload[], int length)
 	}
 	case 16:
 	{
-		client.publish("matrixClient", "ping");
+		if (!usbWifiState)
+		{
+			client.publish("matrixClient", "ping");
+		}
+		else
+		{
+			Serial.println("Ping");
+		}
+		break;
 	}
 	}
 }
