@@ -870,6 +870,14 @@ void setup()
 	{
 		Serial.println("Audio: false");
 	}
+	if (MatrixStyle)
+	{
+		Serial.println("MatrixStyle: Type 1");
+	}
+	else
+	{
+		Serial.println("MatrixStyle: Type 2");
+	}
 	if (gestureState)
 	{
 		Serial.println("Gesture: true");
