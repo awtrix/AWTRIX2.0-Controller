@@ -36,7 +36,7 @@ int gestureState = false;  // 0 = false ; 1 = true
 int ldrState = false;	  // 0 = None
 int USBConnection = false; // true = usb...
 int pairingState = 0;	  //0 = not paired ; 1 = paired
-int MatrixStyle = 1;
+int MatrixType = 1;
 
 String version = "0.10";
 char awtrix_server[16];
@@ -65,11 +65,11 @@ int myTime;  //need for loop
 int myTime2; //need for loop
 int myCounter;
 int myCounter2;
-int TIME_FOR_SEARCHING_WIFI = 10000;
+unsigned long TIME_FOR_SEARCHING_WIFI = 10000;
 
 //USB Connection:
 byte myBytes[1000];
-unsigned int bufferpointer;
+int bufferpointer;
 
 //Zum speichern...
 int cfgStart = 0;
@@ -141,7 +141,7 @@ bool saveConfig()
 	json["ldr"] = ldrState;
 	json["gesture"] = gestureState;
 	json["audio"] = audioState;
-	json["MatrixStyle"] = MatrixStyle;
+	json["MatrixType"] = MatrixType;
 	json["paired"] = pairingState;
 
 	File configFile = SPIFFS.open("/config.json", "w");
@@ -165,11 +165,23 @@ void debuggingWithMatrix(String text)
 	matrix->show();
 }
 
+void sendToServer(String s)
+{
+	if (USBConnection)
+	{
+		Serial.println(s.length() + s);
+	}
+	else
+	{
+		client.publish("matrixClient", s.c_str());
+	}
+}
+
 String utf8ascii(String s)
 {
 	String r = "";
 	char c;
-	for (int i = 0; i < s.length(); i++)
+	for (unsigned int i = 0; i < s.length(); i++)
 	{
 		c = utf8ascii(s.charAt(i));
 		if (c != 0)
@@ -369,7 +381,7 @@ void utf8ascii(char *s)
 {
 	int k = 0;
 	char c;
-	for (int i = 0; i < strlen(s); i++)
+	for (unsigned int i = 0; i < strlen(s); i++)
 	{
 		c = utf8ascii(s[i]);
 		if (c != 0)
@@ -401,10 +413,6 @@ int GetRSSIasQuality(int rssi)
 	}
 	return quality;
 }
-
-unsigned long startTime = 0;
-unsigned long endTime = 0;
-unsigned long duration;
 
 void updateMatrix(byte payload[], int length)
 {
@@ -593,14 +601,7 @@ void updateMatrix(byte payload[], int length)
 
 		String JS;
 		root.printTo(JS);
-		if (USBConnection)
-		{
-			Serial.println(String(JS));
-		}
-		else
-		{
-			client.publish("matrixClient", JS.c_str());
-		}
+		sendToServer(JS);
 		break;
 	}
 	case 13:
@@ -616,7 +617,7 @@ void updateMatrix(byte payload[], int length)
 		audioState = (int)payload[3];
 		gestureState = (int)payload[4];
 		ldrState = int(payload[5] << 8) + int(payload[6]);
-		MatrixStyle = (int)payload[7];
+		MatrixType = (int)payload[7];
 		matrix->clear();
 		matrix->setCursor(6, 6);
 		matrix->setTextColor(matrix->Color(0, 255, 50));
@@ -635,14 +636,7 @@ void updateMatrix(byte payload[], int length)
 	}
 	case 16:
 	{
-		if (USBConnection)
-		{
-			Serial.println("Ping");
-		}
-		else
-		{
-			client.publish("matrixClient", "ping");
-		}
+		sendToServer("ping");
 		break;
 	}
 	}
@@ -710,12 +704,7 @@ void handleGesture()
 		root["gesture"] = control;
 		String JS;
 		root.printTo(JS);
-
-#ifdef USB_CONNECTION
-		Serial.println(String(JS));
-#else
-		client.publish("matrixClient", control.c_str());
-#endif
+		sendToServer(JS);
 	}
 }
 
@@ -770,7 +759,7 @@ void configModeCallback(WiFiManager *myWiFiManager)
 
 void setup()
 {
-	
+
 	delay(2000);
 
 	wifiManager.setAPStaticIPConfig(IPAddress(172, 217, 28, 1), IPAddress(172, 217, 28, 1), IPAddress(255, 255, 255, 0));
@@ -812,7 +801,7 @@ void setup()
 				ldrState = json["ldr"].as<int>();
 				tempState = json["temp"].as<int>();
 				pairingState = json["paired"].as<int>();
-				MatrixStyle = json["MatrixStyle"].as<int>();
+				MatrixType = json["MatrixType"].as<int>();
 			}
 			configFile.close();
 		}
@@ -822,7 +811,7 @@ void setup()
 		Serial.println("mounting not possible");
 	}
 
-	if (MatrixStyle)
+	if (MatrixType)
 	{
 		matrix = new FastLED_NeoMatrix(leds, 32, 8, NEO_MATRIX_TOP + NEO_MATRIX_LEFT + NEO_MATRIX_COLUMNS + NEO_MATRIX_ZIGZAG);
 	}
@@ -872,13 +861,13 @@ void setup()
 	{
 		Serial.println("Audio: false");
 	}
-	if (MatrixStyle)
+	if (MatrixType)
 	{
-		Serial.println("MatrixStyle: Type 1");
+		Serial.println("MatrixType: Type 1");
 	}
 	else
 	{
-		Serial.println("MatrixStyle: Type 2");
+		Serial.println("MatrixType: Type 2");
 	}
 	if (gestureState)
 	{
@@ -907,7 +896,7 @@ void setup()
 	wifiManager.setTimeout(0);
 	wifiManager.setSaveConfigCallback(saveConfigCallback);
 
-	int wifiTimeout = millis();
+	unsigned long wifiTimeout = millis();
 
 	while (WiFi.status() != WL_CONNECTED)
 	{
@@ -973,12 +962,6 @@ void setup()
 	}
 
 	hardwareAnimatedCheck(0, 27, 2);
-
-	//for testing...
-	//tempState = 1;
-	//audioState= true;
-	//gestureState = true;
-	//ldrState = 1000;
 
 	//Checking periphery
 	Wire.begin(I2C_SDA, I2C_SCL);
@@ -1163,8 +1146,6 @@ void loop()
 					incomingPacket[len] = 0;
 				}
 				matrix->setBrightness(80);
-				Serial.println("Got data via UDP!");
-
 				USBConnection = (int)incomingPacket[0];
 				tempState = (int)incomingPacket[1];
 				audioState = (int)incomingPacket[2];
@@ -1173,7 +1154,7 @@ void loop()
 
 				IPAddress ip = IPAddress(incomingPacket[6], incomingPacket[7], incomingPacket[8], incomingPacket[9]);
 				ip.toString().toCharArray(awtrix_server, 16);
-				MatrixStyle = (int)incomingPacket[10];
+				MatrixType = (int)incomingPacket[10];
 
 				if ((int)incomingPacket[11] == 255 && (int)incomingPacket[12] == 255 && (int)incomingPacket[13] == 255)
 				{
