@@ -36,6 +36,7 @@ int gestureState = false;  // 0 = false ; 1 = true
 int ldrState = false;	  // 0 = None
 int USBConnection = false; // true = usb...
 int pairingState = 0;	  //0 = not paired ; 1 = paired
+int MatrixStyle = 1;
 
 String version = "0.9b";
 char awtrix_server[16];
@@ -101,11 +102,7 @@ SoftwareSerial mySoftwareSerial(D7, D5); // RX, TX
 
 // Matrix Settings
 CRGB leds[256];
-#ifdef MATRIX_MODEV2
-FastLED_NeoMatrix *matrix = new FastLED_NeoMatrix(leds, 32, 8, NEO_MATRIX_TOP + NEO_MATRIX_LEFT + NEO_MATRIX_ROWS + NEO_MATRIX_ZIGZAG);
-#else
-FastLED_NeoMatrix *matrix = new FastLED_NeoMatrix(leds, 32, 8, NEO_MATRIX_TOP + NEO_MATRIX_LEFT + NEO_MATRIX_COLUMNS + NEO_MATRIX_ZIGZAG);
-#endif
+FastLED_NeoMatrix *matrix;
 
 static byte c1; // Last character buffer
 byte utf8ascii(byte ascii)
@@ -144,7 +141,7 @@ bool saveConfig()
 	json["ldr"] = ldrState;
 	json["gesture"] = gestureState;
 	json["audio"] = audioState;
-
+	json["MatrixStyle"] = MatrixStyle;
 	json["paired"] = pairingState;
 
 	File configFile = SPIFFS.open("/config.json", "w");
@@ -618,8 +615,8 @@ void updateMatrix(byte payload[], int length)
 		tempState = (int)payload[2];
 		audioState = (int)payload[3];
 		gestureState = (int)payload[4];
-		ldrState = int(payload[5] << 8) + int(payload[5]);
-
+		ldrState = int(payload[5] << 8) + int(payload[6]);
+		MatrixStyle = (int)payload[7];
 		matrix->clear();
 		matrix->setCursor(6, 6);
 		matrix->setTextColor(matrix->Color(0, 255, 50));
@@ -774,28 +771,6 @@ void configModeCallback(WiFiManager *myWiFiManager)
 void setup()
 {
 	delay(2000);
-	FastLED.addLeds<NEOPIXEL, D2>(leds, 256).setCorrection(TypicalLEDStrip);
-	matrix->begin();
-	matrix->setTextWrap(false);
-	matrix->setBrightness(80);
-	matrix->setFont(&TomThumb);
-
-	if (drd.detect())
-	{
-		Serial.println("** Double reset boot **");
-		matrix->clear();
-		matrix->setTextColor(matrix->Color(255, 0, 0));
-		matrix->setCursor(6, 6);
-		matrix->print("RESET!");
-		matrix->show();
-		delay(3000);
-		wifiManager.resetSettings();
-		if (SPIFFS.begin())
-		{
-			SPIFFS.remove("/config.json");
-			SPIFFS.end();
-		}
-	}
 
 	wifiManager.setAPStaticIPConfig(IPAddress(172, 217, 28, 1), IPAddress(172, 217, 28, 1), IPAddress(255, 255, 255, 0));
 
@@ -835,6 +810,7 @@ void setup()
 				ldrState = json["ldr"].as<int>();
 				tempState = json["temp"].as<int>();
 				pairingState = json["paired"].as<int>();
+				MatrixStyle = json["MatrixStyle"].as<int>();
 			}
 			configFile.close();
 		}
@@ -842,6 +818,38 @@ void setup()
 	else
 	{
 		Serial.println("mounting not possible");
+	}
+
+	if (MatrixStyle)
+	{
+		matrix = new FastLED_NeoMatrix(leds, 32, 8, NEO_MATRIX_TOP + NEO_MATRIX_LEFT + NEO_MATRIX_COLUMNS + NEO_MATRIX_ZIGZAG);
+	}
+	else
+	{
+		matrix = new FastLED_NeoMatrix(leds, 32, 8, NEO_MATRIX_TOP + NEO_MATRIX_LEFT + NEO_MATRIX_ROWS + NEO_MATRIX_ZIGZAG);
+	}
+
+	FastLED.addLeds<NEOPIXEL, D2>(leds, 256).setCorrection(TypicalLEDStrip);
+	matrix->begin();
+	matrix->setTextWrap(false);
+	matrix->setBrightness(80);
+	matrix->setFont(&TomThumb);
+
+	if (drd.detect())
+	{
+		Serial.println("** Double reset boot **");
+		matrix->clear();
+		matrix->setTextColor(matrix->Color(255, 0, 0));
+		matrix->setCursor(6, 6);
+		matrix->print("RESET!");
+		matrix->show();
+		delay(3000);
+		wifiManager.resetSettings();
+		if (SPIFFS.begin())
+		{
+			SPIFFS.remove("/config.json");
+			SPIFFS.end();
+		}
 	}
 
 	Serial.println("Loading from SPIFFS:");
@@ -1155,8 +1163,9 @@ void loop()
 
 				IPAddress ip = IPAddress(incomingPacket[6], incomingPacket[7], incomingPacket[8], incomingPacket[9]);
 				ip.toString().toCharArray(awtrix_server, 16);
+				MatrixStyle = (int)incomingPacket[10];
 
-				if ((int)incomingPacket[10] == 255 && (int)incomingPacket[11] == 255 && (int)incomingPacket[12] == 255)
+				if ((int)incomingPacket[11] == 255 && (int)incomingPacket[12] == 255 && (int)incomingPacket[13] == 255)
 				{
 					matrix->clear();
 					matrix->setCursor(6, 6);
