@@ -6,6 +6,7 @@
 #include <ArduinoOTA.h>
 #include <ESP8266WiFi.h>
 #include <ESP8266WebServer.h>
+#include <ESP8266httpUpdate.h>
 #include <WiFiClient.h>
 #include <PubSubClient.h>
 #include <ArduinoJson.h>
@@ -29,12 +30,12 @@
 BME280<> BMESensor;
 Adafruit_HTU21DF htu = Adafruit_HTU21DF();
 
-int tempState = false;	// 0 = None ; 1 = BME280 ; 2 = htu21d
-int audioState = false;   // 0 = false ; 1 = true
-int gestureState = false; // 0 = false ; 1 = true
-int ldrState = false;	 // 0 = None
-int usbWifiState = false; // true = usb...
-int pairingState = 0;	 //0 = not paired ; 1 = paired
+int tempState = false;	 // 0 = None ; 1 = BME280 ; 2 = htu21d
+int audioState = false;	// 0 = false ; 1 = true
+int gestureState = false;  // 0 = false ; 1 = true
+int ldrState = false;	  // 0 = None
+int USBConnection = false; // true = usb...
+int pairingState = 0;	  //0 = not paired ; 1 = paired
 
 String version = "0.9b";
 char awtrix_server[16];
@@ -48,6 +49,10 @@ WiFiManager wifiManager;
 WiFiUDP Udp;
 unsigned int localUdpPort = 4210;
 char incomingPacket[20];
+
+//update
+ESP8266WebServer server(80);
+const char *serverIndex = "<form method='POST' action='/update' enctype='multipart/form-data'><input type='file' name='update'><input type='submit' value='Update'></form>";
 
 //resetdetector
 #define DRD_TIMEOUT 5.0
@@ -135,7 +140,7 @@ bool saveConfig()
 	json["awtrix_server"] = awtrix_server;
 
 	json["temp"] = tempState;
-	json["usbWifi"] = usbWifiState;
+	json["usbWifi"] = USBConnection;
 	json["ldr"] = ldrState;
 	json["gesture"] = gestureState;
 	json["audio"] = audioState;
@@ -591,13 +596,13 @@ void updateMatrix(byte payload[], int length)
 
 		String JS;
 		root.printTo(JS);
-		if (!usbWifiState)
+		if (USBConnection)
 		{
-			client.publish("matrixClient", JS.c_str());
+			Serial.println(String(JS));
 		}
 		else
 		{
-			Serial.println(String(JS));
+			client.publish("matrixClient", JS.c_str());
 		}
 		break;
 	}
@@ -609,8 +614,7 @@ void updateMatrix(byte payload[], int length)
 
 	case 14:
 	{
-		usbWifiState = (int)payload[1];
-		Serial.println(usbWifiState);
+		USBConnection = (int)payload[1];
 		tempState = (int)payload[2];
 		audioState = (int)payload[3];
 		gestureState = (int)payload[4];
@@ -634,13 +638,13 @@ void updateMatrix(byte payload[], int length)
 	}
 	case 16:
 	{
-		if (!usbWifiState)
+		if (USBConnection)
 		{
-			client.publish("matrixClient", "ping");
+			Serial.println("Ping");
 		}
 		else
 		{
-			Serial.println("Ping");
+			client.publish("matrixClient", "ping");
 		}
 		break;
 	}
@@ -654,7 +658,7 @@ void callback(char *topic, byte *payload, unsigned int length)
 
 void reconnect()
 {
-	if (!usbWifiState)
+	if (!USBConnection)
 	{
 		while (!client.connected())
 		{
@@ -738,7 +742,7 @@ uint32_t Wheel(byte WheelPos, int pos)
 
 void flashProgress(unsigned int progress, unsigned int total)
 {
-	matrix->setBrightness(100);
+	matrix->setBrightness(80);
 	long num = 32 * 8 * progress / total;
 	for (unsigned char y = 0; y < 8; y++)
 	{
@@ -825,7 +829,7 @@ void setup()
 				{
 					awtrix_server[i] = temporaer[i];
 				}
-				usbWifiState = json["usbWifi"].as<int>();
+				USBConnection = json["usbWifi"].as<int>();
 				audioState = json["audio"].as<int>();
 				gestureState = json["gesture"].as<int>();
 				ldrState = json["ldr"].as<int>();
@@ -842,7 +846,7 @@ void setup()
 
 	Serial.println("Loading from SPIFFS:");
 	Serial.println(awtrix_server);
-	if (usbWifiState)
+	if (USBConnection)
 	{
 		Serial.println("Connection: USB");
 	}
@@ -906,6 +910,42 @@ void setup()
 	}
 
 	Udp.begin(localUdpPort);
+
+	server.on("/", HTTP_GET, []() {
+		server.sendHeader("Connection", "close");
+		server.send(200, "text/html", serverIndex);
+	});
+	server.on("/update", HTTP_POST, []() {
+      server.sendHeader("Connection", "close");
+      server.send(200, "text/plain", (Update.hasError()) ? "FAIL" : "OK");
+      ESP.restart(); }, []() {
+      HTTPUpload& upload = server.upload();
+	  
+      if (upload.status == UPLOAD_FILE_START) {
+        Serial.setDebugOutput(true);
+        WiFiUDP::stopAll();
+        Serial.printf("Update: %s\n", upload.filename.c_str());
+        uint32_t maxSketchSpace = (ESP.getFreeSketchSpace() - 0x1000) & 0xFFFFF000;
+        if (!Update.begin(maxSketchSpace)) { //start with max available size
+          Update.printError(Serial);
+        }
+      } else if (upload.status == UPLOAD_FILE_WRITE) {
+		  matrix->clear();
+		  flashProgress((int)upload.currentSize,(int)upload.buf);
+        if (Update.write(upload.buf, upload.currentSize) != upload.currentSize) {
+          Update.printError(Serial);
+        }
+      } else if (upload.status == UPLOAD_FILE_END) {
+        if (Update.end(true)) { //true to set the size to the current progress
+		  server.send(200, "text/plain", (Update.hasError()) ? "FAIL" : "OK");
+          Serial.printf("Update Success: %u\nRebooting...\n", upload.totalSize);
+        } else {
+          Update.printError(Serial);
+        }
+        Serial.setDebugOutput(false);
+      }
+      yield(); });
+	server.begin();
 
 	if (shouldSaveConfig)
 	{
@@ -989,14 +1029,18 @@ void setup()
 	myCounter = 0;
 	myCounter2 = 0;
 
-	client.setServer(awtrix_server, 7001);
-	client.setCallback(callback);
+	if (!USBConnection)
+	{
+		client.setServer(awtrix_server, 7001);
+		client.setCallback(callback);
+	}
 }
 
 void loop()
 {
+	server.handleClient();
 	ArduinoOTA.handle();
-	if (usbWifiState == 1)
+	if (!USBConnection)
 	{
 		while (pairingState == 0)
 		{
@@ -1103,7 +1147,7 @@ void loop()
 				matrix->setBrightness(80);
 				Serial.println("Got data via UDP!");
 
-				usbWifiState = (int)incomingPacket[0];
+				USBConnection = (int)incomingPacket[0];
 				tempState = (int)incomingPacket[1];
 				audioState = (int)incomingPacket[2];
 				gestureState = (int)incomingPacket[3];
@@ -1154,11 +1198,10 @@ void loop()
 
 	if (!updating)
 	{
-		if (usbWifiState)
+		if (USBConnection)
 		{
 			while (Serial.available() > 0)
 			{
-
 				myBytes[bufferpointer] = Serial.read();
 				if ((myBytes[bufferpointer] == 255) && (myBytes[bufferpointer - 1] == 255) && (myBytes[bufferpointer - 2] == 255))
 				{
@@ -1180,6 +1223,7 @@ void loop()
 				}
 			}
 		}
+
 		else
 		{
 			if (!client.connected())
