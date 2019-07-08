@@ -82,7 +82,7 @@ bool shouldSaveConfig = false;
 #define LDR_RESISTOR 1000 //ohms
 #define LDR_PIN A0
 #define LDR_PHOTOCELL LightDependentResistor::GL5516
-LightDependentResistor photocell(LDR_PIN, LDR_RESISTOR, LDR_PHOTOCELL);
+LightDependentResistor photocell(LDR_PIN, ldrState, LDR_PHOTOCELL);
 
 // Gesture Sensor
 #define APDS9960_INT D6
