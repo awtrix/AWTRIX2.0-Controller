@@ -82,7 +82,7 @@ bool shouldSaveConfig = false;
 #define LDR_RESISTOR 1000 //ohms
 #define LDR_PIN A0
 #define LDR_PHOTOCELL LightDependentResistor::GL5516
-LightDependentResistor photocell(LDR_PIN, LDR_RESISTOR, LDR_PHOTOCELL);
+LightDependentResistor photocell(LDR_PIN, ldrState, LDR_PHOTOCELL);
 
 // Gesture Sensor
 #define APDS9960_INT D6
@@ -580,7 +580,12 @@ void updateMatrix(byte payload[], int length)
 		root["wifiquality"] = GetRSSIasQuality(WiFi.RSSI());
 		root["wifissid"] = WiFi.SSID();
 		root["IP"] = WiFi.localIP().toString();
-		root["LUX"] = photocell.getCurrentLux();
+		if(ldrState!=0){
+			root["LUX"] = photocell.getCurrentLux();
+		} else {
+			root["LUX"] = NULL;
+		}
+		
 		BMESensor.refresh();
 		if (tempState == 1)
 		{
@@ -611,7 +616,6 @@ void updateMatrix(byte payload[], int length)
 		matrix->setBrightness(payload[1]);
 		break;
 	}
-
 	case 14:
 	{
 		USBConnection = (int)payload[1];
@@ -620,7 +624,7 @@ void updateMatrix(byte payload[], int length)
 		gestureState = (int)payload[4];
 		ldrState = int(payload[5] << 8) + int(payload[6]);
 		MatrixType = (int)payload[7];
-		matrixTempCorrection = (int)payload[8];
+		//matrixTempCorrection = (int)payload[8];
 
 		matrix->clear();
 		matrix->setCursor(6, 6);
@@ -892,7 +896,7 @@ void setup()
 		FastLED.addLeds<NEOPIXEL, D2>(leds, 256).setTemperature(UncorrectedTemperature);
 		break;
 	}
-	//photocell.updateResistor(ldrState);
+	photocell.updateResistor(ldrState);
 
 
 	matrix->begin();
