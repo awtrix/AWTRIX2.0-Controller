@@ -37,6 +37,7 @@ int ldrState = false;	  // 0 = None
 int USBConnection = false; // true = usb...
 int pairingState = 0;	  //0 = not paired ; 1 = paired
 int MatrixType = 1;
+int matrixTempCorrection = 0;
 
 String version = "0.10";
 char awtrix_server[16];
@@ -143,6 +144,7 @@ bool saveConfig()
 	json["audio"] = audioState;
 	json["MatrixType"] = MatrixType;
 	json["paired"] = pairingState;
+	json["matrixCorrection"] = matrixTempCorrection;
 
 	File configFile = SPIFFS.open("/config.json", "w");
 	if (!configFile)
@@ -618,6 +620,8 @@ void updateMatrix(byte payload[], int length)
 		gestureState = (int)payload[4];
 		ldrState = int(payload[5] << 8) + int(payload[6]);
 		MatrixType = (int)payload[7];
+		matrixTempCorrection = (int)payload[8];
+
 		matrix->clear();
 		matrix->setCursor(6, 6);
 		matrix->setTextColor(matrix->Color(0, 255, 50));
@@ -628,11 +632,13 @@ void updateMatrix(byte payload[], int length)
 		{
 			ESP.reset();
 		}
+		break;
 	}
 	case 15:
 	{
 		wifiManager.resetSettings();
 		ESP.reset();
+		break;
 	}
 	case 16:
 	{
@@ -802,6 +808,7 @@ void setup()
 				tempState = json["temp"].as<int>();
 				pairingState = json["paired"].as<int>();
 				MatrixType = json["MatrixType"].as<int>();
+				matrixTempCorrection = json["matrixCorrection"].as<int>();
 			}
 			configFile.close();
 		}
@@ -819,8 +826,73 @@ void setup()
 	{
 		matrix = new FastLED_NeoMatrix(leds, 32, 8, NEO_MATRIX_TOP + NEO_MATRIX_LEFT + NEO_MATRIX_ROWS + NEO_MATRIX_ZIGZAG);
 	}
+	switch (matrixTempCorrection)
+	{
+	case 0:
+		FastLED.addLeds<NEOPIXEL, D2>(leds, 256).setCorrection(TypicalLEDStrip);
+		break;
+	case 1:
+		FastLED.addLeds<NEOPIXEL, D2>(leds, 256).setTemperature(Candle);
+		break;
+	case 2:
+		FastLED.addLeds<NEOPIXEL, D2>(leds, 256).setTemperature(Tungsten40W);
+		break;
+	case 3:
+		FastLED.addLeds<NEOPIXEL, D2>(leds, 256).setTemperature(Tungsten100W);
+		break;
+	case 4:
+		FastLED.addLeds<NEOPIXEL, D2>(leds, 256).setTemperature(Halogen);
+		break;
+	case 5:
+		FastLED.addLeds<NEOPIXEL, D2>(leds, 256).setTemperature(CarbonArc);
+		break;
+	case 6:
+		FastLED.addLeds<NEOPIXEL, D2>(leds, 256).setTemperature(HighNoonSun);
+		break;
+	case 7:
+		FastLED.addLeds<NEOPIXEL, D2>(leds, 256).setTemperature(DirectSunlight);
+		break;
+	case 8:
+		FastLED.addLeds<NEOPIXEL, D2>(leds, 256).setTemperature(OvercastSky);
+		break;
+	case 9:
+		FastLED.addLeds<NEOPIXEL, D2>(leds, 256).setTemperature(ClearBlueSky);
+		break;
+	case 10:
+		FastLED.addLeds<NEOPIXEL, D2>(leds, 256).setTemperature(WarmFluorescent);
+		break;
+	case 11:
+		FastLED.addLeds<NEOPIXEL, D2>(leds, 256).setTemperature(StandardFluorescent);
+		break;
+	case 12:
+		FastLED.addLeds<NEOPIXEL, D2>(leds, 256).setTemperature(CoolWhiteFluorescent);
+		break;
+	case 13:
+		FastLED.addLeds<NEOPIXEL, D2>(leds, 256).setTemperature(FullSpectrumFluorescent);
+		break;
+	case 14:
+		FastLED.addLeds<NEOPIXEL, D2>(leds, 256).setTemperature(GrowLightFluorescent);
+		break;
+	case 15:
+		FastLED.addLeds<NEOPIXEL, D2>(leds, 256).setTemperature(BlackLightFluorescent);
+		break;
+	case 16:
+		FastLED.addLeds<NEOPIXEL, D2>(leds, 256).setTemperature(MercuryVapor);
+		break;
+	case 17:
+		FastLED.addLeds<NEOPIXEL, D2>(leds, 256).setTemperature(SodiumVapor);
+		break;
+	case 18:
+		FastLED.addLeds<NEOPIXEL, D2>(leds, 256).setTemperature(MetalHalide);
+		break;
+	case 19:
+		FastLED.addLeds<NEOPIXEL, D2>(leds, 256).setTemperature(HighPressureSodium);
+		break;
+	case 20:
+		FastLED.addLeds<NEOPIXEL, D2>(leds, 256).setTemperature(UncorrectedTemperature);
+		break;
+	}
 
-	FastLED.addLeds<NEOPIXEL, D2>(leds, 256).setCorrection(TypicalLEDStrip);
 	matrix->begin();
 	matrix->setTextWrap(false);
 	matrix->setBrightness(80);
@@ -828,7 +900,7 @@ void setup()
 
 	if (drd.detect())
 	{
-		Serial.println("** Double reset boot **");
+		//Serial.println("** Double reset boot **");
 		matrix->clear();
 		matrix->setTextColor(matrix->Color(255, 0, 0));
 		matrix->setCursor(6, 6);
@@ -843,6 +915,7 @@ void setup()
 		}
 	}
 
+	/*
 	Serial.println("Loading from SPIFFS:");
 	Serial.println(awtrix_server);
 	if (USBConnection)
@@ -890,6 +963,7 @@ void setup()
 		break;
 	}
 	Serial.printf("LDR: %d\n", ldrState);
+	*/
 
 	wifiManager.setTimeout(1);
 	wifiManager.autoConnect("Awtrix Controller", "awtrixxx");
@@ -1054,7 +1128,7 @@ void loop()
 					matrix->setTextColor(matrix->Color(0, 0, 255));
 					matrix->setCursor(8, 6);
 					matrix->print("Need");
-					Serial.println("[Pairing] Need");
+					//Serial.println("[Pairing] Need");
 					for (int i = 0; i < 80; i++)
 					{
 						matrix->setBrightness(i);
@@ -1074,7 +1148,7 @@ void loop()
 					matrix->setTextColor(matrix->Color(0, 255, 0));
 					matrix->setCursor(5, 6);
 					matrix->print("pairing");
-					Serial.println("[Pairing] pairing");
+					//Serial.println("[Pairing] pairing");
 					for (int i = 0; i < 80; i++)
 					{
 						matrix->setBrightness(i);
@@ -1093,7 +1167,7 @@ void loop()
 					matrix->setTextColor(matrix->Color(255, 255, 0));
 					matrix->setCursor(9, 6);
 					matrix->print("from");
-					Serial.println("[Pairing] from");
+					//Serial.println("[Pairing] from");
 					for (int i = 0; i < 80; i++)
 					{
 						matrix->setBrightness(i);
@@ -1112,7 +1186,7 @@ void loop()
 					matrix->setTextColor(matrix->Color(255, 127, 0));
 					matrix->setCursor(5, 6);
 					matrix->print("Server");
-					Serial.println("[Pairing] Server");
+					//Serial.println("[Pairing] Server");
 					for (int i = 0; i < 80; i++)
 					{
 						matrix->setBrightness(i);
@@ -1139,7 +1213,7 @@ void loop()
 			if (packetSize)
 			{
 				// receive incoming UDP packets
-				Serial.printf("Received %d bytes from %s, port %d\n", packetSize, Udp.remoteIP().toString().c_str(), Udp.remotePort());
+				//Serial.printf("Received %d bytes from %s, port %d\n", packetSize, Udp.remoteIP().toString().c_str(), Udp.remotePort());
 				int len = Udp.read(incomingPacket, 255);
 				if (len > 0)
 				{
@@ -1155,7 +1229,8 @@ void loop()
 				IPAddress ip = IPAddress(incomingPacket[6], incomingPacket[7], incomingPacket[8], incomingPacket[9]);
 				ip.toString().toCharArray(awtrix_server, 16);
 				MatrixType = (int)incomingPacket[10];
-
+				//matrixTempCorrection = (int)incomingPacket[11];
+				//hier noch die nächsten Ändern!!!!!
 				if ((int)incomingPacket[11] == 255 && (int)incomingPacket[12] == 255 && (int)incomingPacket[13] == 255)
 				{
 					matrix->clear();
@@ -1171,12 +1246,12 @@ void loop()
 					}
 					else
 					{
-						Serial.println("[UpdateMatrix UDP] Fail to Save the File...");
+						//Serial.println("[UpdateMatrix UDP] Fail to Save the File...");
 					}
 				}
 				else
 				{
-					Serial.println("[UDP Enddelimitter] Not the right delimitter...");
+					//Serial.println("[UDP Enddelimitter] Not the right delimitter...");
 				}
 			}
 		}
