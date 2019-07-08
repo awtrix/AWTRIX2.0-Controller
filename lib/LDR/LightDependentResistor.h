@@ -141,6 +141,8 @@ class LightDependentResistor
      */
     void updatePhotocellParameters(float mult_value, float pow_value);
 
+    void updateResistor(unsigned long other_resistor);
+
   private:
     int _pin;
     unsigned long _other_resistor;

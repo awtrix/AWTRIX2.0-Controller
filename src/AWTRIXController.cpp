@@ -33,7 +33,7 @@ Adafruit_HTU21DF htu = Adafruit_HTU21DF();
 int tempState = false;	 // 0 = None ; 1 = BME280 ; 2 = htu21d
 int audioState = false;	// 0 = false ; 1 = true
 int gestureState = false;  // 0 = false ; 1 = true
-int ldrState = false;	  // 0 = None
+int ldrState = 1000;	  // 0 = None
 int USBConnection = false; // true = usb...
 int pairingState = 0;	  //0 = not paired ; 1 = paired
 int MatrixType = 1;
@@ -82,7 +82,7 @@ bool shouldSaveConfig = false;
 #define LDR_RESISTOR 1000 //ohms
 #define LDR_PIN A0
 #define LDR_PHOTOCELL LightDependentResistor::GL5516
-LightDependentResistor photocell(LDR_PIN, ldrState, LDR_PHOTOCELL);
+LightDependentResistor photocell(LDR_PIN, LDR_RESISTOR, LDR_PHOTOCELL);
 
 // Gesture Sensor
 #define APDS9960_INT D6
@@ -320,19 +320,19 @@ void hardwareAnimatedSearchFast(int rounds, int x, int y)
 	switch (rounds)
 	{
 	case 3:
-		matrix->drawPixel(x, y, 0xFFFF);
-		matrix->drawPixel(x + 1, y + 1, 0xFFFF);
-		matrix->drawPixel(x + 2, y + 2, 0xFFFF);
-		matrix->drawPixel(x + 3, y + 3, 0xFFFF);
-		matrix->drawPixel(x + 2, y + 4, 0xFFFF);
-		matrix->drawPixel(x + 1, y + 5, 0xFFFF);
-		matrix->drawPixel(x, y + 6, 0xFFFF);
+		matrix->drawPixel(x, y, 0x22ff);
+		matrix->drawPixel(x + 1, y + 1, 0x22ff);
+		matrix->drawPixel(x + 2, y + 2, 0x22ff);
+		matrix->drawPixel(x + 3, y + 3, 0x22ff);
+		matrix->drawPixel(x + 2, y + 4, 0x22ff);
+		matrix->drawPixel(x + 1, y + 5, 0x22ff);
+		matrix->drawPixel(x, y + 6, 0x22ff);
 	case 2:
-		matrix->drawPixel(x - 1, y + 2, 0xFFFF);
-		matrix->drawPixel(x, y + 3, 0xFFFF);
-		matrix->drawPixel(x - 1, y + 4, 0xFFFF);
+		matrix->drawPixel(x - 1, y + 2, 0x22ff);
+		matrix->drawPixel(x, y + 3, 0x22ff);
+		matrix->drawPixel(x - 1, y + 4, 0x22ff);
 	case 1:
-		matrix->drawPixel(x - 3, y + 3, 0xFFFF);
+		matrix->drawPixel(x - 3, y + 3, 0x22ff);
 	case 0:
 		break;
 	}
@@ -892,6 +892,8 @@ void setup()
 		FastLED.addLeds<NEOPIXEL, D2>(leds, 256).setTemperature(UncorrectedTemperature);
 		break;
 	}
+	//photocell.updateResistor(ldrState);
+
 
 	matrix->begin();
 	matrix->setTextWrap(false);
