@@ -67,6 +67,8 @@ int myTime2; //need for loop
 int myCounter;
 int myCounter2;
 unsigned long TIME_FOR_SEARCHING_WIFI = 10000;
+boolean getLength = true;
+int prefix = -5;
 
 //USB Connection:
 byte myBytes[1000];
@@ -316,32 +318,75 @@ void hardwareAnimatedCheck(int typ, int x, int y)
 		}
 	}
 }
-
-void hardwareAnimatedSearchFast(int rounds, int x, int y)
+ 
+void serverSearch(int rounds, int typ, int x, int y)
 {
 	matrix->clear();
 	matrix->setTextColor(0xFFFF);
 	matrix->setCursor(1, 6);
 	matrix->print("Server");
 
-	switch (rounds)
-	{
-	case 3:
-		matrix->drawPixel(x, y, 0x22ff);
-		matrix->drawPixel(x + 1, y + 1, 0x22ff);
-		matrix->drawPixel(x + 2, y + 2, 0x22ff);
-		matrix->drawPixel(x + 3, y + 3, 0x22ff);
-		matrix->drawPixel(x + 2, y + 4, 0x22ff);
-		matrix->drawPixel(x + 1, y + 5, 0x22ff);
-		matrix->drawPixel(x, y + 6, 0x22ff);
-	case 2:
-		matrix->drawPixel(x - 1, y + 2, 0x22ff);
-		matrix->drawPixel(x, y + 3, 0x22ff);
-		matrix->drawPixel(x - 1, y + 4, 0x22ff);
-	case 1:
-		matrix->drawPixel(x - 3, y + 3, 0x22ff);
-	case 0:
-		break;
+	if(typ ==0){
+		switch (rounds)
+		{
+		case 3:
+			matrix->drawPixel(x, y, 0x22ff);
+			matrix->drawPixel(x + 1, y + 1, 0x22ff);
+			matrix->drawPixel(x + 2, y + 2, 0x22ff);
+			matrix->drawPixel(x + 3, y + 3, 0x22ff);
+			matrix->drawPixel(x + 2, y + 4, 0x22ff);
+			matrix->drawPixel(x + 1, y + 5, 0x22ff);
+			matrix->drawPixel(x, y + 6, 0x22ff);
+		case 2:
+			matrix->drawPixel(x - 1, y + 2, 0x22ff);
+			matrix->drawPixel(x, y + 3, 0x22ff);
+			matrix->drawPixel(x - 1, y + 4, 0x22ff);
+		case 1:
+			matrix->drawPixel(x - 3, y + 3, 0x22ff);
+		case 0:
+			break;
+		}
+	} else if(typ ==1){
+		
+		switch (rounds)
+		{
+		case 12:
+			//matrix->drawPixel(x+3, y+2, 0x22ff);
+			matrix->drawPixel(x+3, y+3, 0x22ff);
+			//matrix->drawPixel(x+3, y+4, 0x22ff);
+			matrix->drawPixel(x+3, y+5, 0x22ff);
+			//matrix->drawPixel(x+3, y+6, 0x22ff);
+		case 11:
+			matrix->drawPixel(x+2, y+2, 0x22ff);
+			matrix->drawPixel(x+2, y+3, 0x22ff);
+			matrix->drawPixel(x+2, y+4, 0x22ff);
+			matrix->drawPixel(x+2, y+5, 0x22ff);
+			matrix->drawPixel(x+2, y+6, 0x22ff);
+		case 10:
+			matrix->drawPixel(x+1, y+3, 0x22ff);
+			matrix->drawPixel(x+1, y+4, 0x22ff);
+			matrix->drawPixel(x+1, y+5, 0x22ff);
+		case 9:
+			matrix->drawPixel(x, y+4, 0x22ff);
+		case 8:
+			matrix->drawPixel(x-1, y+4, 0x22ff);
+		case 7:
+			matrix->drawPixel(x - 2, y+4, 0x22ff);
+		case 6:
+			matrix->drawPixel(x - 3, y+4, 0x22ff);
+		case 5:
+			matrix->drawPixel(x - 3, y+5, 0x22ff);
+		case 4:
+			matrix->drawPixel(x - 3, y+6, 0x22ff);
+		case 3:
+			matrix->drawPixel(x - 3, y+7, 0x22ff);
+		case 2:
+			matrix->drawPixel(x - 4, y+7, 0x22ff);
+		case 1:
+			matrix->drawPixel(x - 5, y+7, 0x22ff);
+		case 0:
+			break;
+		}
 	}
 	matrix->show();
 }
@@ -763,15 +808,19 @@ void flashProgress(unsigned int progress, unsigned int total)
 
 void saveConfigCallback()
 {
-	Serial.println("Should save config");
+	if(!USBConnection){
+		Serial.println("Should save config");
+	}
 	shouldSaveConfig = true;
 }
 
 void configModeCallback(WiFiManager *myWiFiManager)
-{
-	Serial.println("Entered config mode");
-	Serial.println(WiFi.softAPIP());
-	Serial.println(myWiFiManager->getConfigPortalSSID());
+{	
+	if(!USBConnection){
+		Serial.println("Entered config mode");
+		Serial.println(WiFi.softAPIP());
+		Serial.println(myWiFiManager->getConfigPortalSSID());
+	}
 }
 
 void setup()
@@ -781,17 +830,24 @@ void setup()
 
 	wifiManager.setAPStaticIPConfig(IPAddress(172, 217, 28, 1), IPAddress(172, 217, 28, 1), IPAddress(255, 255, 255, 0));
 
+
 	Serial.setRxBufferSize(1024);
 	Serial.begin(115200);
-	Serial.println("");
-	Serial.println(version);
+
+	if(!USBConnection){
+		Serial.println("");
+		Serial.println(version);
+	}
+
 	if (SPIFFS.begin())
 	{
 		//if file not exists
 		if (!(SPIFFS.exists("/config.json")))
 		{
 			SPIFFS.open("/config.json", "w+");
-			Serial.println("make File...");
+			if(!USBConnection){
+				Serial.println("make File...");
+			}
 		}
 
 		File configFile = SPIFFS.open("/config.json", "r");
@@ -803,10 +859,15 @@ void setup()
 			configFile.readBytes(buf.get(), size);
 			DynamicJsonBuffer jsonBuffer;
 			JsonObject &json = jsonBuffer.parseObject(buf.get());
-			json.printTo(Serial);
+			if(!USBConnection){
+				json.printTo(Serial);
+			}
+			
 			if (json.success())
 			{
-				Serial.println("\nparsed json");
+				if(!USBConnection){
+					Serial.println("\nparsed json");
+				}
 				String temporaer = json["awtrix_server"];
 				for (int i = 0; i < 16; i++)
 				{
@@ -826,7 +887,9 @@ void setup()
 	}
 	else
 	{
-		Serial.println("mounting not possible");
+		if(!USBConnection){
+			Serial.println("mounting not possible");
+		}
 	}
 
 	if (MatrixType)
@@ -1127,6 +1190,9 @@ void setup()
 	myCounter = 0;
 	myCounter2 = 0;
 
+	getLength = true;
+	prefix = -5;
+
 	if (!USBConnection)
 	{
 		client.setServer(awtrix_server, 7001);
@@ -1260,7 +1326,7 @@ void loop()
 				matrix->setTextColor(matrix->Color(0, 255, 50));
 				matrix->print("PAIRED!");
 				matrix->show();
-				delay(3000);
+				delay(2000);
 				pairingState = 1;
 				if (saveConfig())
 				{
@@ -1280,15 +1346,30 @@ void loop()
 
 	if (firstStart)
 	{
-		if (millis() - myTime > 500)
-		{
-			hardwareAnimatedSearchFast(myCounter, 28, 0);
-			myCounter++;
-			if (myCounter == 4)
+		if(!USBConnection){
+			if (millis() - myTime > 500)
 			{
-				myCounter = 0;
+				serverSearch(myCounter,0, 28, 0);
+				myCounter++;
+				if (myCounter == 4)
+				{
+					myCounter = 0;
+				}
+				myTime = millis();
 			}
-			myTime = millis();
+		}
+		else
+		{
+			if (millis() - myTime > 100)
+			{
+				serverSearch(myCounter, 1, 28, 0);
+				myCounter++;
+				if (myCounter == 13)
+				{
+					myCounter = 0;
+				}
+				myTime = millis();
+			}
 		}
 	}
 
@@ -1298,21 +1379,27 @@ void loop()
 		{
 			while (Serial.available() > 0)
 			{
-				//debuggingWithMatrix("Hier.");
 				myBytes[bufferpointer] = Serial.read();
-				if ((myBytes[bufferpointer] == 255) && (myBytes[bufferpointer - 1] == 255) && (myBytes[bufferpointer - 2] == 255))
+
+				if(bufferpointer>4 && getLength) {
+					getLength = false;
+					prefix = int(myBytes[0]<<24) + int(myBytes[1]<<16) + int(myBytes[2]<<8) + int(myBytes[3]);
+					debuggingWithMatrix("Länge: " + prefix);
+				}
+				
+				if ((bufferpointer)==prefix+4)
 				{
-					//debuggingWithMatrix("Yeah!");
 					for (int i = 0; i<bufferpointer-4;i++){
 						myBytes[i]= myBytes[i+4];
 					}
-
 					updateMatrix(myBytes, bufferpointer-4);
 					for (int i = 0; i < bufferpointer; i++)
 					{
 						myBytes[i] = 0;
 					}
 					bufferpointer = 0;
+					getLength = true;
+					prefix = -5;
 					break;
 				}
 				else
