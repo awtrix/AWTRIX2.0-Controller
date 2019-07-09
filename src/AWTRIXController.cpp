@@ -33,7 +33,7 @@ Adafruit_HTU21DF htu = Adafruit_HTU21DF();
 int tempState = false;	 // 0 = None ; 1 = BME280 ; 2 = htu21d
 int audioState = false;	// 0 = false ; 1 = true
 int gestureState = false;  // 0 = false ; 1 = true
-int ldrState = 1000;	  // 0 = None
+int ldrState = 0;	  // 0 = None
 int USBConnection = false; // true = usb...
 int pairingState = 0;	  //0 = not paired ; 1 = paired
 int MatrixType = 1;
@@ -149,10 +149,16 @@ bool saveConfig()
 	File configFile = SPIFFS.open("/config.json", "w");
 	if (!configFile)
 	{
-		Serial.println("failed to open config file for writing");
+		if(!USBConnection){
+			Serial.println("failed to open config file for writing");
+		}
+		
 		return false;
 	}
-	json.printTo(Serial);
+
+	if(!USBConnection){
+		json.printTo(Serial);
+	}
 	json.printTo(configFile);
 	configFile.close();
 	//end save
@@ -171,7 +177,8 @@ void sendToServer(String s)
 {
 	if (USBConnection)
 	{
-		Serial.println(s.length() + s);
+		uint32_t laenge = s.length();
+		Serial.printf("%c%c%c%c%s",(laenge & 0xFF000000)>>24,(laenge & 0x00FF0000)>>16,(laenge & 0x0000FF00)>>8,(laenge & 0x000000FF),s.c_str());
 	}
 	else
 	{
@@ -624,7 +631,7 @@ void updateMatrix(byte payload[], int length)
 		gestureState = (int)payload[4];
 		ldrState = int(payload[5] << 8) + int(payload[6]);
 		MatrixType = (int)payload[7];
-		//matrixTempCorrection = (int)payload[8];
+		matrixTempCorrection = (int)payload[8];
 
 		matrix->clear();
 		matrix->setCursor(6, 6);
@@ -895,6 +902,10 @@ void setup()
 	case 20:
 		FastLED.addLeds<NEOPIXEL, D2>(leds, 256).setTemperature(UncorrectedTemperature);
 		break;
+	default:
+		FastLED.addLeds<NEOPIXEL, D2>(leds, 256).setCorrection(TypicalLEDStrip);
+		break; 
+	
 	}
 	photocell.updateResistor(ldrState);
 
@@ -996,8 +1007,10 @@ void setup()
 		}
 	}
 
-	Udp.begin(localUdpPort);
 
+	
+	Udp.begin(localUdpPort);
+	/*
 	server.on("/", HTTP_GET, []() {
 		server.sendHeader("Connection", "close");
 		server.send(200, "text/html", serverIndex);
@@ -1032,11 +1045,15 @@ void setup()
         Serial.setDebugOutput(false);
       }
       yield(); });
+	  
 	server.begin();
+	*/
 
 	if (shouldSaveConfig)
 	{
-		Serial.println("saving config");
+		if(!USBConnection){
+			Serial.println("saving config");
+		}
 		saveConfig();
 		ESP.reset();
 	}
@@ -1119,146 +1136,144 @@ void setup()
 
 void loop()
 {
-	server.handleClient();
+	//server.handleClient();
 	ArduinoOTA.handle();
-	if (!USBConnection)
+
+	while (pairingState == 0)
 	{
-		while (pairingState == 0)
+		if (millis() - myTime2 > 200)
 		{
-			if (millis() - myTime2 > 200)
+			switch (myCounter2)
 			{
-				switch (myCounter2)
+			case 0:
+				matrix->clear();
+				matrix->setTextColor(matrix->Color(0, 0, 255));
+				matrix->setCursor(8, 6);
+				matrix->print("Need");
+				//Serial.println("[Pairing] Need");
+				for (int i = 0; i < 80; i++)
 				{
-				case 0:
-					matrix->clear();
-					matrix->setTextColor(matrix->Color(0, 0, 255));
-					matrix->setCursor(8, 6);
-					matrix->print("Need");
-					//Serial.println("[Pairing] Need");
-					for (int i = 0; i < 80; i++)
-					{
-						matrix->setBrightness(i);
-						matrix->show();
-						delay(1);
-					}
-					for (int i = 80; i > -1; i--)
-					{
-						matrix->setBrightness(i);
-						matrix->show();
-						delay(1);
-					}
-					break;
-				case 1:
-
-					matrix->clear();
-					matrix->setTextColor(matrix->Color(0, 255, 0));
-					matrix->setCursor(5, 6);
-					matrix->print("pairing");
-					//Serial.println("[Pairing] pairing");
-					for (int i = 0; i < 80; i++)
-					{
-						matrix->setBrightness(i);
-						matrix->show();
-						delay(1);
-					}
-					for (int i = 80; i > -1; i--)
-					{
-						matrix->setBrightness(i);
-						matrix->show();
-						delay(1);
-					}
-					break;
-				case 2:
-					matrix->clear();
-					matrix->setTextColor(matrix->Color(255, 255, 0));
-					matrix->setCursor(9, 6);
-					matrix->print("from");
-					//Serial.println("[Pairing] from");
-					for (int i = 0; i < 80; i++)
-					{
-						matrix->setBrightness(i);
-						matrix->show();
-						delay(1);
-					}
-					for (int i = 80; i > -1; i--)
-					{
-						matrix->setBrightness(i);
-						matrix->show();
-						delay(1);
-					}
-					break;
-				case 3:
-					matrix->clear();
-					matrix->setTextColor(matrix->Color(255, 127, 0));
-					matrix->setCursor(5, 6);
-					matrix->print("Server");
-					//Serial.println("[Pairing] Server");
-					for (int i = 0; i < 80; i++)
-					{
-						matrix->setBrightness(i);
-						matrix->show();
-						delay(1);
-					}
-					for (int i = 80; i > -1; i--)
-					{
-						matrix->setBrightness(i);
-						matrix->show();
-						delay(1);
-					}
-					break;
-				}
-				myCounter2++;
-				if (myCounter2 == 4)
-				{
-					myCounter2 = 0;
-				}
-				myTime2 = millis();
-			}
-
-			int packetSize = Udp.parsePacket();
-			if (packetSize)
-			{
-				// receive incoming UDP packets
-				//Serial.printf("Received %d bytes from %s, port %d\n", packetSize, Udp.remoteIP().toString().c_str(), Udp.remotePort());
-				int len = Udp.read(incomingPacket, 255);
-				if (len > 0)
-				{
-					incomingPacket[len] = 0;
-				}
-				matrix->setBrightness(80);
-				USBConnection = (int)incomingPacket[0];
-				tempState = (int)incomingPacket[1];
-				audioState = (int)incomingPacket[2];
-				gestureState = (int)incomingPacket[3];
-				ldrState = int(incomingPacket[4] << 8) + int(incomingPacket[5]);
-
-				IPAddress ip = IPAddress(incomingPacket[6], incomingPacket[7], incomingPacket[8], incomingPacket[9]);
-				ip.toString().toCharArray(awtrix_server, 16);
-				MatrixType = (int)incomingPacket[10];
-				//matrixTempCorrection = (int)incomingPacket[11];
-				//hier noch die nächsten Ändern!!!!!
-				if ((int)incomingPacket[11] == 255 && (int)incomingPacket[12] == 255 && (int)incomingPacket[13] == 255)
-				{
-					matrix->clear();
-					matrix->setCursor(6, 6);
-					matrix->setTextColor(matrix->Color(0, 255, 50));
-					matrix->print("PAIRED!");
+					matrix->setBrightness(i);
 					matrix->show();
-					delay(3000);
-					pairingState = 1;
-					if (saveConfig())
-					{
-						ESP.reset();
-					}
-					else
-					{
-						//Serial.println("[UpdateMatrix UDP] Fail to Save the File...");
-					}
+					delay(1);
+				}
+				for (int i = 80; i > -1; i--)
+				{
+					matrix->setBrightness(i);
+					matrix->show();
+					delay(1);
+				}
+				break;
+			case 1:
+
+				matrix->clear();
+				matrix->setTextColor(matrix->Color(0, 255, 0));
+				matrix->setCursor(5, 6);
+				matrix->print("pairing");
+				//Serial.println("[Pairing] pairing");
+				for (int i = 0; i < 80; i++)
+				{
+					matrix->setBrightness(i);
+					matrix->show();
+					delay(1);
+				}
+				for (int i = 80; i > -1; i--)
+				{
+					matrix->setBrightness(i);
+					matrix->show();
+					delay(1);
+				}
+				break;
+			case 2:
+				matrix->clear();
+				matrix->setTextColor(matrix->Color(255, 255, 0));
+				matrix->setCursor(9, 6);
+				matrix->print("from");
+				//Serial.println("[Pairing] from");
+				for (int i = 0; i < 80; i++)
+				{
+					matrix->setBrightness(i);
+					matrix->show();
+					delay(1);
+				}
+				for (int i = 80; i > -1; i--)
+				{
+					matrix->setBrightness(i);
+					matrix->show();
+					delay(1);
+				}
+				break;
+			case 3:
+				matrix->clear();
+				matrix->setTextColor(matrix->Color(255, 127, 0));
+				matrix->setCursor(5, 6);
+				matrix->print("Server");
+				//Serial.println("[Pairing] Server");
+				for (int i = 0; i < 80; i++)
+				{
+					matrix->setBrightness(i);
+					matrix->show();
+					delay(1);
+				}
+				for (int i = 80; i > -1; i--)
+				{
+					matrix->setBrightness(i);
+					matrix->show();
+					delay(1);
+				}
+				break;
+			}
+			myCounter2++;
+			if (myCounter2 == 4)
+			{
+				myCounter2 = 0;
+			}
+			myTime2 = millis();
+		}
+
+		int packetSize = Udp.parsePacket();
+		if (packetSize)
+		{
+			// receive incoming UDP packets
+			//Serial.printf("Received %d bytes from %s, port %d\n", packetSize, Udp.remoteIP().toString().c_str(), Udp.remotePort());
+			int len = Udp.read(incomingPacket, 255);
+			if (len > 0)
+			{
+				incomingPacket[len] = 0;
+			}
+			matrix->setBrightness(80);
+			USBConnection = (int)incomingPacket[0];
+			tempState = (int)incomingPacket[1];
+			audioState = (int)incomingPacket[2];
+			gestureState = (int)incomingPacket[3];
+			ldrState = int(incomingPacket[4] << 8) + int(incomingPacket[5]);
+
+			IPAddress ip = IPAddress(incomingPacket[6], incomingPacket[7], incomingPacket[8], incomingPacket[9]);
+			ip.toString().toCharArray(awtrix_server, 16);
+			MatrixType = (int)incomingPacket[10];
+			matrixTempCorrection = (int)incomingPacket[11];
+
+			if ((int)incomingPacket[12] == 255 && (int)incomingPacket[13] == 255 && (int)incomingPacket[14] == 255)
+			{
+				matrix->clear();
+				matrix->setCursor(6, 6);
+				matrix->setTextColor(matrix->Color(0, 255, 50));
+				matrix->print("PAIRED!");
+				matrix->show();
+				delay(3000);
+				pairingState = 1;
+				if (saveConfig())
+				{
+					ESP.reset();
 				}
 				else
 				{
-					//Serial.println("[UDP Enddelimitter] Not the right delimitter...");
+					//Serial.println("[UpdateMatrix UDP] Fail to Save the File...");
 				}
+			}
+			else
+			{
+				//Serial.println("[UDP Enddelimitter] Not the right delimitter...");
 			}
 		}
 	}
@@ -1283,10 +1298,16 @@ void loop()
 		{
 			while (Serial.available() > 0)
 			{
+				//debuggingWithMatrix("Hier.");
 				myBytes[bufferpointer] = Serial.read();
 				if ((myBytes[bufferpointer] == 255) && (myBytes[bufferpointer - 1] == 255) && (myBytes[bufferpointer - 2] == 255))
 				{
-					updateMatrix(myBytes, bufferpointer);
+					//debuggingWithMatrix("Yeah!");
+					for (int i = 0; i<bufferpointer-4;i++){
+						myBytes[i]= myBytes[i+4];
+					}
+
+					updateMatrix(myBytes, bufferpointer-4);
 					for (int i = 0; i < bufferpointer; i++)
 					{
 						myBytes[i] = 0;
@@ -1300,6 +1321,7 @@ void loop()
 				}
 				if (bufferpointer == 1000)
 				{
+					debuggingWithMatrix("Overflow");
 					bufferpointer = 0;
 				}
 			}
