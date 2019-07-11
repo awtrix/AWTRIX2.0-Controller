@@ -66,7 +66,7 @@ int myTime;  //need for loop
 int myTime2; //need for loop
 int myCounter;
 int myCounter2;
-unsigned long TIME_FOR_SEARCHING_WIFI = 10000;
+unsigned long TIME_FOR_SEARCHING_WIFI = 1000;
 boolean getLength = true;
 int prefix = -5;
 
@@ -187,6 +187,18 @@ void sendToServer(String s)
 		client.publish("matrixClient", s.c_str());
 	}
 }
+
+void logToServer(String s)
+{
+	StaticJsonBuffer<400> jsonBuffer;
+		JsonObject &root = jsonBuffer.createObject();
+		root["type"] = "log";
+		root["msg"] = s;
+		String JS;
+		root.printTo(JS);
+		sendToServer(JS);
+}
+
 
 String utf8ascii(String s)
 {
@@ -1377,14 +1389,109 @@ void loop()
 	{
 		if (USBConnection)
 		{
-			while (Serial.available() > 0)
+			boolean awtrixFound = false;
+			uint32_t laenge2 = 0;
+			int hello = millis();
+			while(Serial.available() > 0){
+				if (millis() - hello > 200)
+				{
+					logToServer("I´m alive!");
+					hello = millis();
+				}
+				
+				myBytes[bufferpointer++] = Serial.read();
+				if (!awtrixFound && bufferpointer>12)
+				{
+					if (myBytes[bufferpointer-9] == 97 && myBytes[bufferpointer-8] == 119 && myBytes[bufferpointer-7] == 116 && myBytes[bufferpointer-6] == 114 && myBytes[bufferpointer-5] == 105 && myBytes[bufferpointer-4] == 120)
+					{
+						uint32_t laenge = (int(myBytes[bufferpointer-13])<<24) + (int(myBytes[bufferpointer-12])<<16) + (int(myBytes[bufferpointer-11])<<8) + int(myBytes[bufferpointer-10]);
+						laenge2 = (int(myBytes[bufferpointer-3])<<24) + (int(myBytes[bufferpointer-2])<<16) + (int(myBytes[bufferpointer-1])<<8) + int(myBytes[bufferpointer]);
+						if (laenge == 6){
+							awtrixFound = true;
+							logToServer("Found Awtrix!");
+						}
+					}
+				}
+
+				if(awtrixFound){
+					bufferpointer = 0;
+					while(bufferpointer<=laenge2){
+						myBytes[bufferpointer++] = Serial.read();
+					}
+					updateMatrix(myBytes, bufferpointer);
+					awtrixFound = false;
+				}
+			}
+
+
+
+			/*
+			if (Serial.available() > 0)
 			{
+				
+				boolean timeoutBool = true;
+				boolean useData = false;
+				uint32_t laenge2;
+				int timeout = millis();
+				//Read the startframe "awtrix" + prefix (4 bytes)
+				while (bufferpointer<14){
+					myBytes[bufferpointer++] = Serial.read();
+					if (millis() - timeout > 200){
+						timeoutBool = false;
+						logToServer("USB Timeout");
+						break;
+					}
+				}
+
+				if (timeoutBool) { 
+					uint32_t laenge = (int(myBytes[0])<<24) + (int(myBytes[1])<<16) + (int(myBytes[2])<<8) + int(myBytes[3]);
+					laenge2 = (int(myBytes[10])<<24) + (int(myBytes[11])<<16) + (int(myBytes[12])<<8) + int(myBytes[13]);
+					if (laenge==6){
+						if(myBytes[4]==97 && myBytes[5]==119 && myBytes[6]==116 && myBytes[7]==114 && myBytes[8]==105 && myBytes[9]==120) {
+							logToServer("Found Awtrix!");
+							useData = true;
+						}
+						else {
+							logToServer("No Awtrix!");
+						}
+					}
+				}
+				
+				if(useData){
+					timeout = millis();
+					logToServer("Bufferpointer" + String(bufferpointer));
+					logToServer("Laenge2" + String(laenge2));
+					bufferpointer = 0;
+					//Read Prefix from message
+					while (bufferpointer<=laenge2){
+						if(laenge2>2000){
+							break;
+						}
+						myBytes[bufferpointer++] = Serial.read();
+						if (millis() - timeout > 200){
+							timeoutBool = false;
+							logToServer("USB Timeout");
+							break;
+						}
+					}
+					if (timeoutBool) { 
+						logToServer("Update Matrix" + String(myBytes[0]));
+						updateMatrix(myBytes, bufferpointer);
+					}
+				} 
+				else {
+					logToServer("Data unused!");
+				}
+
+				bufferpointer = 0;
+
+				
 				myBytes[bufferpointer] = Serial.read();
 
 				if(bufferpointer>4 && getLength) {
 					getLength = false;
 					prefix = int(myBytes[0]<<24) + int(myBytes[1]<<16) + int(myBytes[2]<<8) + int(myBytes[3]);
-					debuggingWithMatrix("Länge: " + prefix);
+					//debuggingWithMatrix("Länge: " + prefix);
 				}
 				
 				if ((bufferpointer)==prefix+4)
@@ -1400,7 +1507,6 @@ void loop()
 					bufferpointer = 0;
 					getLength = true;
 					prefix = -5;
-					break;
 				}
 				else
 				{
@@ -1412,6 +1518,7 @@ void loop()
 					bufferpointer = 0;
 				}
 			}
+			*/
 		}
 
 		else
