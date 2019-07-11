@@ -1389,6 +1389,9 @@ void loop()
 	{
 		if (USBConnection)
 		{
+
+			//Second Try
+
 			boolean awtrixFound = false;
 			uint32_t laenge2 = 0;
 			int hello = millis();
@@ -1426,6 +1429,9 @@ void loop()
 
 
 			/*
+
+			//First Try
+
 			if (Serial.available() > 0)
 			{
 				
@@ -1484,41 +1490,7 @@ void loop()
 				}
 
 				bufferpointer = 0;
-
-				
-				myBytes[bufferpointer] = Serial.read();
-
-				if(bufferpointer>4 && getLength) {
-					getLength = false;
-					prefix = int(myBytes[0]<<24) + int(myBytes[1]<<16) + int(myBytes[2]<<8) + int(myBytes[3]);
-					//debuggingWithMatrix("Länge: " + prefix);
-				}
-				
-				if ((bufferpointer)==prefix+4)
-				{
-					for (int i = 0; i<bufferpointer-4;i++){
-						myBytes[i]= myBytes[i+4];
-					}
-					updateMatrix(myBytes, bufferpointer-4);
-					for (int i = 0; i < bufferpointer; i++)
-					{
-						myBytes[i] = 0;
-					}
-					bufferpointer = 0;
-					getLength = true;
-					prefix = -5;
-				}
-				else
-				{
-					bufferpointer++;
-				}
-				if (bufferpointer == 1000)
-				{
-					debuggingWithMatrix("Overflow");
-					bufferpointer = 0;
-				}
-			}
-			*/
+				*/
 		}
 
 		else
