@@ -64,11 +64,17 @@ DoubleResetDetect drd(DRD_TIMEOUT, DRD_ADDRESS);
 bool firstStart = true;
 int myTime;  //need for loop
 int myTime2; //need for loop
+int myTime3; //need for loop3
 int myCounter;
 int myCounter2;
 unsigned long TIME_FOR_SEARCHING_WIFI = 1000;
 boolean getLength = true;
 int prefix = -5;
+boolean awtrixFound = false;
+int myPointer[14];
+uint32_t messageLength = 0;
+uint32_t SavemMessageLength = 0;
+
 
 //USB Connection:
 byte myBytes[1000];
@@ -1199,6 +1205,7 @@ void setup()
 
 	myTime = millis() - 500;
 	myTime2 = millis() - 1000;
+	myTime3 = millis() - 500;
 	myCounter = 0;
 	myCounter2 = 0;
 
@@ -1389,44 +1396,177 @@ void loop()
 	{
 		if (USBConnection)
 		{
-
-			//Second Try
-
-			boolean awtrixFound = false;
-			uint32_t laenge2 = 0;
-			int hello = millis();
-			while(Serial.available() > 0){
-				if (millis() - hello > 200)
-				{
-					logToServer("I´m alive!");
-					hello = millis();
+			//third try
+			if(Serial.available()>0){
+				//read and fill in ringbuffer
+				myBytes[bufferpointer] = Serial.read();
+				messageLength--;
+				
+				
+				for(int i = 0 ; i<14 ; i++){
+					if((bufferpointer-i)<0){
+						myPointer[i] = 1000+bufferpointer-i;
+					} else {
+						myPointer[i] = bufferpointer-i;
+					}
 				}
 				
-				myBytes[bufferpointer++] = Serial.read();
-				if (!awtrixFound && bufferpointer>12)
-				{
-					if (myBytes[bufferpointer-9] == 97 && myBytes[bufferpointer-8] == 119 && myBytes[bufferpointer-7] == 116 && myBytes[bufferpointer-6] == 114 && myBytes[bufferpointer-5] == 105 && myBytes[bufferpointer-4] == 120)
+				/* 
+				myPointer[13] = prefix MSB (from "awtrix")
+				myPointer[12] = prefix (from "awtrix")
+				myPointer[11] = prefix (from "awtrix")
+				myPointer[10] = prefix LSB (from "awtrix")
+				myPointer[9] = "a"
+				myPointer[8] = "w"
+				myPointer[7] = "t"
+				myPointer[6] = "r"
+				myPointer[5] = "i"
+				myPointer[4] = "x"
+				myPointer[3] = prefix MSB (from message)
+				myPointer[2] = prefix (from message)
+				myPointer[1] = prefix (from message)
+				myPointer[0] = prefix LSB (from message)
+				*/
+
+				//prefix from "awtrix" == 6?
+				if(myBytes[myPointer[13]]==0 && myBytes[myPointer[12]]==0 && myBytes[myPointer[11]]==0 && myBytes[myPointer[10]]==6){
+					//logToServer("Found the right length");
+					//"awtrix" ?
+					if (myBytes[myPointer[9]] == 97 && myBytes[myPointer[8]] == 119 && myBytes[myPointer[7]] == 116 && myBytes[myPointer[6]] == 114 && myBytes[myPointer[5]] == 105 && myBytes[myPointer[4]] == 120)
 					{
-						uint32_t laenge = (int(myBytes[bufferpointer-13])<<24) + (int(myBytes[bufferpointer-12])<<16) + (int(myBytes[bufferpointer-11])<<8) + int(myBytes[bufferpointer-10]);
-						laenge2 = (int(myBytes[bufferpointer-3])<<24) + (int(myBytes[bufferpointer-2])<<16) + (int(myBytes[bufferpointer-1])<<8) + int(myBytes[bufferpointer]);
+						messageLength = (int(myBytes[myPointer[3]])<<24) + (int(myBytes[myPointer[2]])<<16) + (int(myBytes[myPointer[1]])<<8) + int(myBytes[myPointer[0]]);
+						/* 
+						logToServer("Prefix Awtrix1: [" + String(myPointer[13]) + "] " + String(myBytes[myPointer[13]]));
+						logToServer("Prefix Awtrix2: [" + String(myPointer[12]) + "] " + String(myBytes[myPointer[12]]));
+						logToServer("Prefix Awtrix3: [" + String(myPointer[11]) + "] " + String(myBytes[myPointer[11]]));
+						logToServer("Prefix Awtrix4: [" + String(myPointer[10]) + "] " + String(myBytes[myPointer[10]]));
+
+						logToServer("A: [" + String(myPointer[9]) + "] " + char(myBytes[myPointer[9]]));
+						logToServer("W: [" + String(myPointer[8]) + "] " + char(myBytes[myPointer[8]]));
+						logToServer("T: [" + String(myPointer[7]) + "] " + char(myBytes[myPointer[7]]));
+						logToServer("R: [" + String(myPointer[6]) + "] " + char(myBytes[myPointer[6]]));
+						logToServer("I: [" + String(myPointer[5]) + "] " + char(myBytes[myPointer[5]]));
+						logToServer("X: [" + String(myPointer[4]) + "] " + char(myBytes[myPointer[4]]));
+
+						logToServer("Prefix Message1: [" + String(myPointer[3]) + "] " + String(myBytes[myPointer[3]]));
+						logToServer("Prefix Message2: [" + String(myPointer[2]) + "] " + String(myBytes[myPointer[2]]));
+						logToServer("Prefix Message3: [" + String(myPointer[1]) + "] " + String(myBytes[myPointer[1]]));
+						logToServer("Prefix Message4: [" + String(myPointer[0]) + "] " + String(myBytes[myPointer[0]]));
+						*/
+						SavemMessageLength = messageLength;
+						awtrixFound = true;
+						//logToServer("Found Awtrix!");
+						
+					}
+				}
+
+				if(awtrixFound && messageLength == 0){
+					//logToServer("Message Length: " + String(SavemMessageLength));
+					byte tempData[SavemMessageLength];
+					for(int i =0;i<SavemMessageLength;i++){
+						if((bufferpointer-(SavemMessageLength-i-1))<0){
+							tempData[i]= myBytes[1000+bufferpointer-SavemMessageLength+i+1];
+							if(i==0){
+								//logToServer("Update Matrix - Case: [" + String(1000+bufferpointer-SavemMessageLength+i+1) + "] " + String(myBytes[i]));
+							}
+						} else {
+							tempData[i]= myBytes[bufferpointer-SavemMessageLength+i+1];
+							if(i==0){
+								//logToServer("Update Matrix - Case: [" + String(bufferpointer-SavemMessageLength+i+1) + "] " + String(myBytes[i]));
+							}
+						}
+						
+					}
+					if(tempData[0]<20){
+						updateMatrix(tempData, SavemMessageLength);
+					}
+					else {
+						//logToServer("invalid case!");
+					}
+				
+					awtrixFound = false;
+				}
+
+				bufferpointer++;
+				if(bufferpointer==1000){
+					bufferpointer = 0;
+				}
+
+			}
+
+
+			/*
+
+			//Second Try		
+			uint32_t laenge2 = 0;
+			boolean useData = true;
+
+			while(Serial.available() > 0){		
+				myBytes[bufferpointer++] = Serial.read();
+				if(bufferpointer>1000){
+					bufferpointer=0;
+					//logToServer("bufferpointer overflow");
+				}
+				if (!awtrixFound && bufferpointer>13)
+				{
+					//logToServer("Search Awtrix!");
+					if (myBytes[bufferpointer-10] == 97 && myBytes[bufferpointer-9] == 119 && myBytes[bufferpointer-8] == 116 && myBytes[bufferpointer-7] == 114 && myBytes[bufferpointer-6] == 105 && myBytes[bufferpointer-5] == 120)
+					{
+						logToServer("Found Awtrix!");
+						uint32_t laenge = (int(myBytes[bufferpointer-14])<<24) + (int(myBytes[bufferpointer-13])<<16) + (int(myBytes[bufferpointer-12])<<8) + int(myBytes[bufferpointer-11]);
+						
+						laenge2 = (int(myBytes[bufferpointer-4])<<24) + (int(myBytes[bufferpointer-3])<<16) + (int(myBytes[bufferpointer-2])<<8) + int(myBytes[bufferpointer-1]);
+
+
 						if (laenge == 6){
 							awtrixFound = true;
-							logToServer("Found Awtrix!");
+							if(firstStart){
+								logToServer("Found Awtrix incl. length!");
+							}
+							
 						}
 					}
 				}
 
-				if(awtrixFound){
+				if (awtrixFound)
+				{
+					logToServer("Laenge2" + String(laenge2));
 					bufferpointer = 0;
-					while(bufferpointer<=laenge2){
-						myBytes[bufferpointer++] = Serial.read();
+					if (laenge2 > 1000)
+					{
+						logToServer("zu lang...");
+						useData = false;
 					}
-					updateMatrix(myBytes, bufferpointer);
+					else
+					{
+						while (bufferpointer <= (laenge2-1))
+						{
+							myBytes[bufferpointer++] = Serial.read();
+							if (bufferpointer > 999)
+							{
+								bufferpointer = 0;
+								logToServer("bufferpointer overflow");
+								useData = false;
+								break;
+							}
+						}
+					}
+
+					if(myBytes[0]<21 && useData){
+						logToServer("Update Matrix - Case: " + String(myBytes[0]));
+						updateMatrix(myBytes, bufferpointer-1);
+						bufferpointer = 0;
+						break;
+					} else {
+						logToServer("its not a valid case");
+						bufferpointer = 0;
+					}
 					awtrixFound = false;
+					useData = true;
 				}
 			}
 
-
+			*/
 
 			/*
 
