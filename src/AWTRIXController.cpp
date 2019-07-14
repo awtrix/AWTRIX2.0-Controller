@@ -1410,7 +1410,7 @@ void loop()
 						myPointer[i] = bufferpointer-i;
 					}
 				}
-				
+
 				/* 
 				myPointer[13] = prefix MSB (from "awtrix")
 				myPointer[12] = prefix (from "awtrix")
@@ -1462,10 +1462,11 @@ void loop()
 
 				if(awtrixFound && messageLength == 0){
 					//logToServer("Message Length: " + String(SavemMessageLength));
+					//logToServer("Bufferpointer: " + String(bufferpointer));
 					byte tempData[SavemMessageLength];
 					for(int i =0;i<SavemMessageLength;i++){
-						if((bufferpointer-(SavemMessageLength-i-1))<0){
-							tempData[i]= myBytes[1000+bufferpointer-SavemMessageLength+i+1];
+						if((bufferpointer-SavemMessageLength+i+1)<0){
+							tempData[i]= myBytes[1000+bufferpointer-SavemMessageLength+i+2];
 							if(i==0){
 								//logToServer("Update Matrix - Case: [" + String(1000+bufferpointer-SavemMessageLength+i+1) + "] " + String(myBytes[i]));
 							}
@@ -1493,144 +1494,6 @@ void loop()
 				}
 
 			}
-
-
-			/*
-
-			//Second Try		
-			uint32_t laenge2 = 0;
-			boolean useData = true;
-
-			while(Serial.available() > 0){		
-				myBytes[bufferpointer++] = Serial.read();
-				if(bufferpointer>1000){
-					bufferpointer=0;
-					//logToServer("bufferpointer overflow");
-				}
-				if (!awtrixFound && bufferpointer>13)
-				{
-					//logToServer("Search Awtrix!");
-					if (myBytes[bufferpointer-10] == 97 && myBytes[bufferpointer-9] == 119 && myBytes[bufferpointer-8] == 116 && myBytes[bufferpointer-7] == 114 && myBytes[bufferpointer-6] == 105 && myBytes[bufferpointer-5] == 120)
-					{
-						logToServer("Found Awtrix!");
-						uint32_t laenge = (int(myBytes[bufferpointer-14])<<24) + (int(myBytes[bufferpointer-13])<<16) + (int(myBytes[bufferpointer-12])<<8) + int(myBytes[bufferpointer-11]);
-						
-						laenge2 = (int(myBytes[bufferpointer-4])<<24) + (int(myBytes[bufferpointer-3])<<16) + (int(myBytes[bufferpointer-2])<<8) + int(myBytes[bufferpointer-1]);
-
-
-						if (laenge == 6){
-							awtrixFound = true;
-							if(firstStart){
-								logToServer("Found Awtrix incl. length!");
-							}
-							
-						}
-					}
-				}
-
-				if (awtrixFound)
-				{
-					logToServer("Laenge2" + String(laenge2));
-					bufferpointer = 0;
-					if (laenge2 > 1000)
-					{
-						logToServer("zu lang...");
-						useData = false;
-					}
-					else
-					{
-						while (bufferpointer <= (laenge2-1))
-						{
-							myBytes[bufferpointer++] = Serial.read();
-							if (bufferpointer > 999)
-							{
-								bufferpointer = 0;
-								logToServer("bufferpointer overflow");
-								useData = false;
-								break;
-							}
-						}
-					}
-
-					if(myBytes[0]<21 && useData){
-						logToServer("Update Matrix - Case: " + String(myBytes[0]));
-						updateMatrix(myBytes, bufferpointer-1);
-						bufferpointer = 0;
-						break;
-					} else {
-						logToServer("its not a valid case");
-						bufferpointer = 0;
-					}
-					awtrixFound = false;
-					useData = true;
-				}
-			}
-
-			*/
-
-			/*
-
-			//First Try
-
-			if (Serial.available() > 0)
-			{
-				
-				boolean timeoutBool = true;
-				boolean useData = false;
-				uint32_t laenge2;
-				int timeout = millis();
-				//Read the startframe "awtrix" + prefix (4 bytes)
-				while (bufferpointer<14){
-					myBytes[bufferpointer++] = Serial.read();
-					if (millis() - timeout > 200){
-						timeoutBool = false;
-						logToServer("USB Timeout");
-						break;
-					}
-				}
-
-				if (timeoutBool) { 
-					uint32_t laenge = (int(myBytes[0])<<24) + (int(myBytes[1])<<16) + (int(myBytes[2])<<8) + int(myBytes[3]);
-					laenge2 = (int(myBytes[10])<<24) + (int(myBytes[11])<<16) + (int(myBytes[12])<<8) + int(myBytes[13]);
-					if (laenge==6){
-						if(myBytes[4]==97 && myBytes[5]==119 && myBytes[6]==116 && myBytes[7]==114 && myBytes[8]==105 && myBytes[9]==120) {
-							logToServer("Found Awtrix!");
-							useData = true;
-						}
-						else {
-							logToServer("No Awtrix!");
-						}
-					}
-				}
-				
-				if(useData){
-					timeout = millis();
-					logToServer("Bufferpointer" + String(bufferpointer));
-					logToServer("Laenge2" + String(laenge2));
-					bufferpointer = 0;
-					//Read Prefix from message
-					while (bufferpointer<=laenge2){
-						if(laenge2>2000){
-							break;
-						}
-						myBytes[bufferpointer++] = Serial.read();
-						if (millis() - timeout > 200){
-							timeoutBool = false;
-							logToServer("USB Timeout");
-							break;
-						}
-					}
-					if (timeoutBool) { 
-						logToServer("Update Matrix" + String(myBytes[0]));
-						updateMatrix(myBytes, bufferpointer);
-					}
-				} 
-				else {
-					logToServer("Data unused!");
-				}
-
-				bufferpointer = 0;
-				*/
 		}
 
 		else
