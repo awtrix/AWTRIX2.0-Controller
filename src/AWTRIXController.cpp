@@ -1486,7 +1486,8 @@ void loop()
 					byte tempData[SavemMessageLength];
 					for(int i =0;i<SavemMessageLength;i++){
 						if((bufferpointer-SavemMessageLength+i+1)<0){
-							tempData[i]= myBytes[1000+bufferpointer-SavemMessageLength+i+2];
+							tempData[i]= myBytes[1000+bufferpointer-SavemMessageLength+i+1];
+							//tempData[i]= myBytes[1000+bufferpointer-SavemMessageLength+i+2];
 							if(i==0){
 								//logToServer("Update Matrix - Case: [" + String(1000+bufferpointer-SavemMessageLength+i+1) + "] " + String(myBytes[i]));
 							}
@@ -1496,7 +1497,6 @@ void loop()
 								//logToServer("Update Matrix - Case: [" + String(bufferpointer-SavemMessageLength+i+1) + "] " + String(myBytes[i]));
 							}
 						}
-						
 					}
 					if(tempData[0]<20){
 						updateMatrix(tempData, SavemMessageLength);
