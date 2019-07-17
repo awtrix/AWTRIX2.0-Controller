@@ -758,15 +758,31 @@ void handleGesture()
 		switch (apds.readGesture())
 		{
 		case DIR_UP:
+			if (!USBConnection)
+			{
+				Serial.println("Gesture: up");
+			}
 			control = "UP";
 			break;
 		case DIR_DOWN:
+			if (!USBConnection)
+			{
+				Serial.println("Gesture: down");
+			}
 			control = "DOWN";
 			break;
 		case DIR_LEFT:
+			if (!USBConnection)
+			{
+				Serial.println("Gesture: left");
+			}
 			control = "LEFT";
 			break;
 		case DIR_RIGHT:
+			if (!USBConnection)
+			{
+				Serial.println("Gesture: right");
+			}
 			control = "RIGHT";
 			break;
 		case DIR_NEAR:
@@ -1217,6 +1233,10 @@ void setup()
 		client.setServer(awtrix_server, 7001);
 		client.setCallback(callback);
 	}
+
+	myMP3.volume(5);
+	delay(10);
+	myMP3.play(1);
 }
 
 void loop()
