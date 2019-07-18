@@ -38,9 +38,10 @@ int USBConnection = false; // true = usb...
 int pairingState = 0;	  //0 = not paired ; 1 = paired
 int MatrixType = 1;
 int matrixTempCorrection = 0;
+char awtrix_server[16];
 
 String version = "0.10";
-char awtrix_server[16];
+
 
 IPAddress Server;
 WiFiClient espClient;
@@ -74,6 +75,7 @@ boolean awtrixFound = false;
 int myPointer[14];
 uint32_t messageLength = 0;
 uint32_t SavemMessageLength = 0;
+int usbTimout = 0;
 
 
 //USB Connection:
@@ -114,6 +116,7 @@ CRGB leds[256];
 FastLED_NeoMatrix *matrix;
 
 static byte c1; // Last character buffer
+
 byte utf8ascii(byte ascii)
 {
 	if (ascii < 128) // Standard ASCII-set 0..0x7F handling
@@ -1088,7 +1091,7 @@ void setup()
 
 	
 	Udp.begin(localUdpPort);
-	/*
+	
 	server.on("/", HTTP_GET, []() {
 		server.sendHeader("Connection", "close");
 		server.send(200, "text/html", serverIndex);
@@ -1125,7 +1128,7 @@ void setup()
       yield(); });
 	  
 	server.begin();
-	*/
+	
 
 	if (shouldSaveConfig)
 	{
@@ -1203,6 +1206,7 @@ void setup()
 	myTime = millis() - 500;
 	myTime2 = millis() - 1000;
 	myTime3 = millis() - 500;
+	usbTimout = millis() - 5000;
 	myCounter = 0;
 	myCounter2 = 0;
 
@@ -1393,8 +1397,23 @@ void loop()
 	{
 		if (USBConnection)
 		{
-			//third try
+			if (millis() - usbTimout > 5000 && !firstStart)
+			{
+				if (millis() - myTime > 100)
+				{
+					serverSearch(myCounter, 1, 28, 0);
+					myCounter++;
+					if (myCounter == 13)
+					{
+						myCounter = 0;
+					}
+						myTime = millis();
+				}
+			}
+
 			if(Serial.available()>0){
+				usbTimout = millis();
+
 				//read and fill in ringbuffer
 				myBytes[bufferpointer] = Serial.read();
 				messageLength--;
