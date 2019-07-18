@@ -230,7 +230,7 @@ void callback(char *topic, byte *payload, unsigned int length)
 	{
 		StaticJsonBuffer<200> jsonBuffer;
 		client.publish("matrixLux", String(photocell.getCurrentLux()).c_str());
-	}
+	} 
 }
 
 void reconnect()
