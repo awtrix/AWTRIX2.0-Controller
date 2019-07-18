@@ -4,7 +4,7 @@
 
 
 #ifndef DFPlayerMini_Fast_cpp
-	#define DFPlayerMini_Fast_cpp
+#define DFPlayerMini_Fast_cpp
 
 
 
