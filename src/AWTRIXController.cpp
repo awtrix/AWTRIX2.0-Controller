@@ -1464,7 +1464,7 @@ void loop()
 					//logToServer("Bufferpointer: " + String(bufferpointer));
 					byte tempData[SavemMessageLength];
 					int temp = 0;
-					logToServer("Start Message: " + String(SavemMessageLength) + " bP: " + String(bufferpointer));
+					//logToServer("Start Message: " + String(SavemMessageLength) + " bP: " + String(bufferpointer));
 					/*
 					for (int i = 0; i < SavemMessageLength; i++)
 					{
