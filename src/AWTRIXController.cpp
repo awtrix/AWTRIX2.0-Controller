@@ -1407,82 +1407,22 @@ void loop()
 						myPointer[i] = bufferpointer-i;
 					}
 				}
-
-				/* 
-				myPointer[13] = prefix MSB (from "awtrix")
-				myPointer[12] = prefix (from "awtrix")
-				myPointer[11] = prefix (from "awtrix")
-				myPointer[10] = prefix LSB (from "awtrix")
-				myPointer[9] = "a"
-				myPointer[8] = "w"
-				myPointer[7] = "t"
-				myPointer[6] = "r"
-				myPointer[5] = "i"
-				myPointer[4] = "x"
-				myPointer[3] = prefix MSB (from message)
-				myPointer[2] = prefix (from message)
-				myPointer[1] = prefix (from message)
-				myPointer[0] = prefix LSB (from message)
-				*/
-
 				//prefix from "awtrix" == 6?
 				if (myBytes[myPointer[13]] == 0 && myBytes[myPointer[12]] == 0 && myBytes[myPointer[11]] == 0 && myBytes[myPointer[10]] == 6)
 				{
-					//logToServer("Found the right length");
 					//"awtrix" ?
 					if (myBytes[myPointer[9]] == 97 && myBytes[myPointer[8]] == 119 && myBytes[myPointer[7]] == 116 && myBytes[myPointer[6]] == 114 && myBytes[myPointer[5]] == 105 && myBytes[myPointer[4]] == 120)
 					{
 						messageLength = (int(myBytes[myPointer[3]])<<24) + (int(myBytes[myPointer[2]])<<16) + (int(myBytes[myPointer[1]])<<8) + int(myBytes[myPointer[0]]);
-						/* 
-						logToServer("Prefix Awtrix1: [" + String(myPointer[13]) + "] " + String(myBytes[myPointer[13]]));
-						logToServer("Prefix Awtrix2: [" + String(myPointer[12]) + "] " + String(myBytes[myPointer[12]]));
-						logToServer("Prefix Awtrix3: [" + String(myPointer[11]) + "] " + String(myBytes[myPointer[11]]));
-						logToServer("Prefix Awtrix4: [" + String(myPointer[10]) + "] " + String(myBytes[myPointer[10]]));
-
-						logToServer("A: [" + String(myPointer[9]) + "] " + char(myBytes[myPointer[9]]));
-						logToServer("W: [" + String(myPointer[8]) + "] " + char(myBytes[myPointer[8]]));
-						logToServer("T: [" + String(myPointer[7]) + "] " + char(myBytes[myPointer[7]]));
-						logToServer("R: [" + String(myPointer[6]) + "] " + char(myBytes[myPointer[6]]));
-						logToServer("I: [" + String(myPointer[5]) + "] " + char(myBytes[myPointer[5]]));
-						logToServer("X: [" + String(myPointer[4]) + "] " + char(myBytes[myPointer[4]]));
-
-						logToServer("Prefix Message1: [" + String(myPointer[3]) + "] " + String(myBytes[myPointer[3]]));
-						logToServer("Prefix Message2: [" + String(myPointer[2]) + "] " + String(myBytes[myPointer[2]]));
-						logToServer("Prefix Message3: [" + String(myPointer[1]) + "] " + String(myBytes[myPointer[1]]));
-						logToServer("Prefix Message4: [" + String(myPointer[0]) + "] " + String(myBytes[myPointer[0]]));
-						*/
 						SavemMessageLength = messageLength;
 						awtrixFound = true;
-						//logToServer("Found Awtrix!");
-						
 					}
 				}
 
 				if (awtrixFound && messageLength == 0)
 				{
-					//logToServer("Message Length: " + String(SavemMessageLength));
-					//logToServer("Bufferpointer: " + String(bufferpointer));
 					byte tempData[SavemMessageLength];
 					int temp = 0;
-					//logToServer("Start Message: " + String(SavemMessageLength) + " bP: " + String(bufferpointer));
-					/*
-					for (int i = 0; i < SavemMessageLength; i++)
-					{
-						if ((bufferpointer - SavemMessageLength + i + 1) < 0)
-						{
-							temp = 1000 + bufferpointer - SavemMessageLength + i + 1;
-							tempData[i] = myBytes[1000 + bufferpointer - SavemMessageLength + i + 1];
-							logToServer("Neg: " + String(temp));
-							//tempData[i]= myBytes[1000+bufferpointer-SavemMessageLength+i+2];
-						}
-						else
-						{
-							temp = bufferpointer - SavemMessageLength + i + 1;
-							tempData[i] = myBytes[bufferpointer - SavemMessageLength + i + 1];
-							logToServer("Pos: " + String(temp));
-						}
-					}
-					*/
 					int up = 0;
 					for (int i = SavemMessageLength-1; i >= 0; i--)
 					{
@@ -1496,20 +1436,9 @@ void loop()
 						}
 						up++;
 					}
-
-
-					if (tempData[0] < 20)
-					{
-						updateMatrix(tempData, SavemMessageLength);
-					}
-					else
-					{
-						//logToServer("invalid case!");
-					}
-
+					updateMatrix(tempData, SavemMessageLength);
 					awtrixFound = false;
 				}
-
 				bufferpointer++;
 				if (bufferpointer == 1000)
 				{
