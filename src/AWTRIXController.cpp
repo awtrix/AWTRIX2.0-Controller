@@ -39,7 +39,7 @@ int pairingState = 0;	  //0 = not paired ; 1 = paired
 int MatrixType = 1;
 int matrixTempCorrection = 0;
 
-String version = "0.11";
+String version = "0.12";
 char awtrix_server[16];
 
 IPAddress Server;
