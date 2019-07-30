@@ -1005,7 +1005,6 @@ void setup()
 		matrix->print("RESET!");
 		matrix->show();
 		delay(1000);
-		
 		if (SPIFFS.begin())
 		{
 			delay(1000);
@@ -1013,11 +1012,11 @@ void setup()
 			Serial.println("/config.json removed");
 			SPIFFS.end();
 			delay(1000);
-			ESP.reset();
 		}else{
 			Serial.println("Could not begin SPIFFS");
 		}
 		wifiManager.resetSettings();
+		ESP.reset();
 	}
 
 	/*
