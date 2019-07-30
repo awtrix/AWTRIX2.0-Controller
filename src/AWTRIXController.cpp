@@ -154,7 +154,7 @@ bool saveConfig()
 	json["paired"] = pairingState;
 	json["matrixCorrection"] = matrixTempCorrection;
 
-	File configFile = SPIFFS.open("/config.json", "w");
+	File configFile = SPIFFS.open("/awtrix.json", "w");
 	if (!configFile)
 	{
 		if(!USBConnection){
@@ -860,15 +860,15 @@ void setup()
 	if (SPIFFS.begin())
 	{
 		//if file not exists
-		if (!(SPIFFS.exists("/config.json")))
+		if (!(SPIFFS.exists("/awtrix.json")))
 		{
-			SPIFFS.open("/config.json", "w+");
+			SPIFFS.open("/awtrix.json", "w+");
 			if(!USBConnection){
 				Serial.println("make File...");
 			}
 		}
 
-		File configFile = SPIFFS.open("/config.json", "r");
+		File configFile = SPIFFS.open("/awtrix.json", "r");
 		if (configFile)
 		{
 			size_t size = configFile.size();
@@ -1008,8 +1008,8 @@ void setup()
 		if (SPIFFS.begin())
 		{
 			delay(1000);
-			SPIFFS.remove("/config.json");
-			Serial.println("/config.json removed");
+			SPIFFS.remove("/awtrix.json");
+			Serial.println("/awtrix.json removed");
 			SPIFFS.end();
 			delay(1000);
 		}else{
