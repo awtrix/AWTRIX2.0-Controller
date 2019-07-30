@@ -1004,13 +1004,20 @@ void setup()
 		matrix->setCursor(6, 6);
 		matrix->print("RESET!");
 		matrix->show();
-		delay(3000);
-		wifiManager.resetSettings();
+		delay(1000);
+		
 		if (SPIFFS.begin())
 		{
+			delay(1000);
 			SPIFFS.remove("/config.json");
+			Serial.println("/config.json removed");
 			SPIFFS.end();
+			delay(1000);
+			ESP.reset();
+		}else{
+			Serial.println("Could not begin SPIFFS");
 		}
+		wifiManager.resetSettings();
 	}
 
 	/*
