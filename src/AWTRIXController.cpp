@@ -67,7 +67,7 @@ int myTime2; //need for loop
 int myTime3; //need for loop3
 int myCounter;
 int myCounter2;
-unsigned long TIME_FOR_SEARCHING_WIFI = 1000;
+unsigned long TIME_FOR_SEARCHING_WIFI = 10000;
 boolean getLength = true;
 int prefix = -5;
 boolean awtrixFound = false;
@@ -1091,10 +1091,7 @@ void setup()
 		}
 	}
 
-
-	
 	Udp.begin(localUdpPort);
-	
 	server.on("/", HTTP_GET, []() {
 		server.sendHeader("Connection", "close");
 		server.send(200, "text/html", serverIndex);
@@ -1404,8 +1401,6 @@ void loop()
 				//read and fill in ringbuffer
 				myBytes[bufferpointer] = Serial.read();
 				messageLength--;
-				
-				
 				for(int i = 0 ; i<14 ; i++){
 					if((bufferpointer-i)<0){
 						myPointer[i] = 1000+bufferpointer-i;
