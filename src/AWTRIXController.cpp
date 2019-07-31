@@ -24,7 +24,6 @@
 #include <Wire.h>
 #include <BME280_t.h>
 #include "Adafruit_HTU21DF.h"
-#include <WiFiUdp.h>
 
 // instantiate temp sensor
 BME280<> BMESensor;
@@ -46,10 +45,6 @@ WiFiClient espClient;
 PubSubClient client(espClient);
 
 WiFiManager wifiManager;
-//UDP
-WiFiUDP Udp;
-unsigned int localUdpPort = 4210;
-char incomingPacket[20];
 
 //update
 ESP8266WebServer server(80);
@@ -66,7 +61,6 @@ int myTime2; //need for loop
 int myTime3; //need for loop3
 int myCounter;
 int myCounter2;
-unsigned long TIME_FOR_SEARCHING_WIFI = 10000;
 boolean getLength = true;
 int prefix = -5;
 boolean awtrixFound = false;
@@ -1057,7 +1051,6 @@ void setup()
 	  
       if (upload.status == UPLOAD_FILE_START) {
         Serial.setDebugOutput(true);
-        WiFiUDP::stopAll();
         Serial.printf("Update: %s\n", upload.filename.c_str());
         uint32_t maxSketchSpace = (ESP.getFreeSketchSpace() - 0x1000) & 0xFFFFF000;
         if (!Update.begin(maxSketchSpace)) { //start with max available size
