@@ -37,7 +37,7 @@ int USBConnection = false; // true = usb...
 int MatrixType = 1;
 int matrixTempCorrection = 0;
 
-String version = "0.12";
+String version = "0.13";
 char awtrix_server[16];
 
 IPAddress Server;
