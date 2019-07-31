@@ -235,6 +235,10 @@ void hardwareAnimatedUncheck(int typ, int x, int y)
 				matrix->print("Temp");
 				break;
 			}
+			case 4:
+				matrix->setCursor(3, 6);
+				matrix->print("Gest.");
+				break;
 
 			switch (wifiCheckPoints)
 			{
