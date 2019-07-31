@@ -33,7 +33,7 @@ Adafruit_HTU21DF htu = Adafruit_HTU21DF();
 int tempState = false;	 // 0 = None ; 1 = BME280 ; 2 = htu21d
 int audioState = false;	// 0 = false ; 1 = true
 int gestureState = false;  // 0 = false ; 1 = true
-int ldrState = 0;	  // 0 = None
+int ldrState = 0;		   // 0 = None
 int USBConnection = false; // true = usb...
 int MatrixType = 1;
 int matrixTempCorrection = 0;
@@ -73,7 +73,6 @@ boolean awtrixFound = false;
 int myPointer[14];
 uint32_t messageLength = 0;
 uint32_t SavemMessageLength = 0;
-
 
 //USB Connection:
 byte myBytes[1000];
@@ -155,14 +154,16 @@ bool saveConfig()
 	File configFile = SPIFFS.open("/awtrix.json", "w");
 	if (!configFile)
 	{
-		if(!USBConnection){
+		if (!USBConnection)
+		{
 			Serial.println("failed to open config file for writing");
 		}
-		
+
 		return false;
 	}
 
-	if(!USBConnection){
+	if (!USBConnection)
+	{
 		json.printTo(Serial);
 	}
 	json.printTo(configFile);
@@ -184,7 +185,7 @@ void sendToServer(String s)
 	if (USBConnection)
 	{
 		uint32_t laenge = s.length();
-		Serial.printf("%c%c%c%c%s",(laenge & 0xFF000000)>>24,(laenge & 0x00FF0000)>>16,(laenge & 0x0000FF00)>>8,(laenge & 0x000000FF),s.c_str());
+		Serial.printf("%c%c%c%c%s", (laenge & 0xFF000000) >> 24, (laenge & 0x00FF0000) >> 16, (laenge & 0x0000FF00) >> 8, (laenge & 0x000000FF), s.c_str());
 	}
 	else
 	{
@@ -195,14 +196,13 @@ void sendToServer(String s)
 void logToServer(String s)
 {
 	StaticJsonBuffer<400> jsonBuffer;
-		JsonObject &root = jsonBuffer.createObject();
-		root["type"] = "log";
-		root["msg"] = s;
-		String JS;
-		root.printTo(JS);
-		sendToServer(JS);
+	JsonObject &root = jsonBuffer.createObject();
+	root["type"] = "log";
+	root["msg"] = s;
+	String JS;
+	root.printTo(JS);
+	sendToServer(JS);
 }
-
 
 String utf8ascii(String s)
 {
@@ -334,7 +334,7 @@ void hardwareAnimatedCheck(int typ, int x, int y)
 		}
 	}
 }
- 
+
 void serverSearch(int rounds, int typ, int x, int y)
 {
 	matrix->clear();
@@ -342,7 +342,8 @@ void serverSearch(int rounds, int typ, int x, int y)
 	matrix->setCursor(1, 6);
 	matrix->print("Server");
 
-	if(typ ==0){
+	if (typ == 0)
+	{
 		switch (rounds)
 		{
 		case 3:
@@ -362,44 +363,46 @@ void serverSearch(int rounds, int typ, int x, int y)
 		case 0:
 			break;
 		}
-	} else if(typ ==1){
-		
+	}
+	else if (typ == 1)
+	{
+
 		switch (rounds)
 		{
 		case 12:
 			//matrix->drawPixel(x+3, y+2, 0x22ff);
-			matrix->drawPixel(x+3, y+3, 0x22ff);
+			matrix->drawPixel(x + 3, y + 3, 0x22ff);
 			//matrix->drawPixel(x+3, y+4, 0x22ff);
-			matrix->drawPixel(x+3, y+5, 0x22ff);
+			matrix->drawPixel(x + 3, y + 5, 0x22ff);
 			//matrix->drawPixel(x+3, y+6, 0x22ff);
 		case 11:
-			matrix->drawPixel(x+2, y+2, 0x22ff);
-			matrix->drawPixel(x+2, y+3, 0x22ff);
-			matrix->drawPixel(x+2, y+4, 0x22ff);
-			matrix->drawPixel(x+2, y+5, 0x22ff);
-			matrix->drawPixel(x+2, y+6, 0x22ff);
+			matrix->drawPixel(x + 2, y + 2, 0x22ff);
+			matrix->drawPixel(x + 2, y + 3, 0x22ff);
+			matrix->drawPixel(x + 2, y + 4, 0x22ff);
+			matrix->drawPixel(x + 2, y + 5, 0x22ff);
+			matrix->drawPixel(x + 2, y + 6, 0x22ff);
 		case 10:
-			matrix->drawPixel(x+1, y+3, 0x22ff);
-			matrix->drawPixel(x+1, y+4, 0x22ff);
-			matrix->drawPixel(x+1, y+5, 0x22ff);
+			matrix->drawPixel(x + 1, y + 3, 0x22ff);
+			matrix->drawPixel(x + 1, y + 4, 0x22ff);
+			matrix->drawPixel(x + 1, y + 5, 0x22ff);
 		case 9:
-			matrix->drawPixel(x, y+4, 0x22ff);
+			matrix->drawPixel(x, y + 4, 0x22ff);
 		case 8:
-			matrix->drawPixel(x-1, y+4, 0x22ff);
+			matrix->drawPixel(x - 1, y + 4, 0x22ff);
 		case 7:
-			matrix->drawPixel(x - 2, y+4, 0x22ff);
+			matrix->drawPixel(x - 2, y + 4, 0x22ff);
 		case 6:
-			matrix->drawPixel(x - 3, y+4, 0x22ff);
+			matrix->drawPixel(x - 3, y + 4, 0x22ff);
 		case 5:
-			matrix->drawPixel(x - 3, y+5, 0x22ff);
+			matrix->drawPixel(x - 3, y + 5, 0x22ff);
 		case 4:
-			matrix->drawPixel(x - 3, y+6, 0x22ff);
+			matrix->drawPixel(x - 3, y + 6, 0x22ff);
 		case 3:
-			matrix->drawPixel(x - 3, y+7, 0x22ff);
+			matrix->drawPixel(x - 3, y + 7, 0x22ff);
 		case 2:
-			matrix->drawPixel(x - 4, y+7, 0x22ff);
+			matrix->drawPixel(x - 4, y + 7, 0x22ff);
 		case 1:
-			matrix->drawPixel(x - 5, y+7, 0x22ff);
+			matrix->drawPixel(x - 5, y + 7, 0x22ff);
 		case 0:
 			break;
 		}
@@ -648,12 +651,15 @@ void updateMatrix(byte payload[], int length)
 		root["wifiquality"] = GetRSSIasQuality(WiFi.RSSI());
 		root["wifissid"] = WiFi.SSID();
 		root["IP"] = WiFi.localIP().toString();
-		if(ldrState!=0){
+		if (ldrState != 0)
+		{
 			root["LUX"] = photocell.getCurrentLux();
-		} else {
+		}
+		else
+		{
 			root["LUX"] = NULL;
 		}
-		
+
 		BMESensor.refresh();
 		if (tempState == 1)
 		{
@@ -824,19 +830,26 @@ void flashProgress(unsigned int progress, unsigned int total)
 
 void saveConfigCallback()
 {
-	if(!USBConnection){
+	if (!USBConnection)
+	{
 		Serial.println("Should save config");
 	}
 	shouldSaveConfig = true;
 }
 
 void configModeCallback(WiFiManager *myWiFiManager)
-{	
-	if(!USBConnection){
+{
+	if (!USBConnection)
+	{
 		Serial.println("Entered config mode");
 		Serial.println(WiFi.softAPIP());
 		Serial.println(myWiFiManager->getConfigPortalSSID());
 	}
+	matrix->clear();
+	matrix->setCursor(3, 6);
+	matrix->setTextColor(matrix->Color(0, 255, 50));
+	matrix->print("Hotspot");
+	matrix->show();
 }
 
 void setup()
@@ -844,7 +857,8 @@ void setup()
 	delay(2000);
 	Serial.setRxBufferSize(1024);
 	Serial.begin(115200);
-	if(!USBConnection){
+	if (!USBConnection)
+	{
 		Serial.println("");
 		Serial.println(version);
 	}
@@ -855,7 +869,8 @@ void setup()
 		if (!(SPIFFS.exists("/awtrix.json")))
 		{
 			SPIFFS.open("/awtrix.json", "w+");
-			if(!USBConnection){
+			if (!USBConnection)
+			{
 				Serial.println("make File...");
 			}
 		}
@@ -869,13 +884,15 @@ void setup()
 			configFile.readBytes(buf.get(), size);
 			DynamicJsonBuffer jsonBuffer;
 			JsonObject &json = jsonBuffer.parseObject(buf.get());
-			if(!USBConnection){
+			if (!USBConnection)
+			{
 				json.printTo(Serial);
 			}
-			
+
 			if (json.success())
 			{
-				if(!USBConnection){
+				if (!USBConnection)
+				{
 					Serial.println("\nparsed json");
 				}
 				strcpy(awtrix_server, json["awtrix_server"]);
@@ -892,7 +909,8 @@ void setup()
 	}
 	else
 	{
-		if(!USBConnection){
+		if (!USBConnection)
+		{
 			Serial.println("mounting not possible");
 		}
 	}
@@ -972,11 +990,9 @@ void setup()
 		break;
 	default:
 		FastLED.addLeds<NEOPIXEL, D2>(leds, 256).setCorrection(TypicalLEDStrip);
-		break; 
-	
+		break;
 	}
 	photocell.updateResistor(ldrState);
-
 
 	matrix->begin();
 	matrix->setTextWrap(false);
@@ -999,7 +1015,9 @@ void setup()
 			Serial.println("/awtrix.json removed");
 			SPIFFS.end();
 			delay(1000);
-		}else{
+		}
+		else
+		{
 			Serial.println("Could not begin SPIFFS");
 		}
 		wifiManager.resetSettings();
@@ -1009,27 +1027,18 @@ void setup()
 	wifiManager.setAPStaticIPConfig(IPAddress(172, 217, 28, 1), IPAddress(172, 217, 28, 1), IPAddress(255, 255, 255, 0));
 	WiFiManagerParameter custom_awtrix_server("server", "AWTRIX Server", awtrix_server, 16);
 	wifiManager.setSaveConfigCallback(saveConfigCallback);
-  	wifiManager.addParameter(&custom_awtrix_server);
+	wifiManager.setAPCallback(configModeCallback);
+	wifiManager.addParameter(&custom_awtrix_server);
 
+	hardwareAnimatedSearch(0, 24, 0);
 
-	unsigned long wifiTimeout = millis();
-
-	while (WiFi.status() != WL_CONNECTED)
+	if (!wifiManager.autoConnect("AWTRIX Controller", "awtrixxx"))
 	{
-		hardwareAnimatedSearch(0, 24, 0);
-
-		if (millis() - wifiTimeout > TIME_FOR_SEARCHING_WIFI)
-		{
-			matrix->clear();
-			matrix->setCursor(3, 6);
-			matrix->setTextColor(matrix->Color(0, 255, 50));
-			matrix->print("Hotspot");
-			matrix->show();
-			while (WiFi.status() != WL_CONNECTED)
-			{
-				wifiManager.autoConnect("AWTRIX Controller", "awtrixxx");
-			}
-		}
+		Serial.println("failed to connect and hit timeout");
+		delay(3000);
+		//reset and try again, or maybe put it to deep sleep
+		ESP.reset();
+		delay(5000);
 	}
 
 	Serial.println("connected...yeey :)");
@@ -1070,13 +1079,13 @@ void setup()
         Serial.setDebugOutput(false);
       }
       yield(); });
-	  
+
 	server.begin();
-	
 
 	if (shouldSaveConfig)
 	{
-		if(!USBConnection){
+		if (!USBConnection)
+		{
 			Serial.println("saving config");
 		}
 		saveConfig();
@@ -1168,13 +1177,13 @@ void loop()
 	server.handleClient();
 	ArduinoOTA.handle();
 
-
 	if (firstStart)
 	{
-		if(!USBConnection){
+		if (!USBConnection)
+		{
 			if (millis() - myTime > 500)
 			{
-				serverSearch(myCounter,0, 28, 0);
+				serverSearch(myCounter, 0, 28, 0);
 				myCounter++;
 				if (myCounter == 4)
 				{
@@ -1203,15 +1212,20 @@ void loop()
 		if (USBConnection)
 		{
 			//third try
-			if(Serial.available()>0){
+			if (Serial.available() > 0)
+			{
 				//read and fill in ringbuffer
 				myBytes[bufferpointer] = Serial.read();
 				messageLength--;
-				for(int i = 0 ; i<14 ; i++){
-					if((bufferpointer-i)<0){
-						myPointer[i] = 1000+bufferpointer-i;
-					} else {
-						myPointer[i] = bufferpointer-i;
+				for (int i = 0; i < 14; i++)
+				{
+					if ((bufferpointer - i) < 0)
+					{
+						myPointer[i] = 1000 + bufferpointer - i;
+					}
+					else
+					{
+						myPointer[i] = bufferpointer - i;
 					}
 				}
 				//prefix from "awtrix" == 6?
@@ -1220,7 +1234,7 @@ void loop()
 					//"awtrix" ?
 					if (myBytes[myPointer[9]] == 97 && myBytes[myPointer[8]] == 119 && myBytes[myPointer[7]] == 116 && myBytes[myPointer[6]] == 114 && myBytes[myPointer[5]] == 105 && myBytes[myPointer[4]] == 120)
 					{
-						messageLength = (int(myBytes[myPointer[3]])<<24) + (int(myBytes[myPointer[2]])<<16) + (int(myBytes[myPointer[1]])<<8) + int(myBytes[myPointer[0]]);
+						messageLength = (int(myBytes[myPointer[3]]) << 24) + (int(myBytes[myPointer[2]]) << 16) + (int(myBytes[myPointer[1]]) << 8) + int(myBytes[myPointer[0]]);
 						SavemMessageLength = messageLength;
 						awtrixFound = true;
 					}
@@ -1230,9 +1244,9 @@ void loop()
 				{
 					byte tempData[SavemMessageLength];
 					int up = 0;
-					for (int i = SavemMessageLength-1; i >= 0; i--)
+					for (int i = SavemMessageLength - 1; i >= 0; i--)
 					{
-						if ((bufferpointer -i ) >= 0)
+						if ((bufferpointer - i) >= 0)
 						{
 							tempData[up] = myBytes[bufferpointer - i];
 						}
