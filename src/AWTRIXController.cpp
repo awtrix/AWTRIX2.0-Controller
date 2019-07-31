@@ -1124,9 +1124,14 @@ void setup()
 	{
 		pinMode(APDS9960_INT, INPUT);
 		attachInterrupt(APDS9960_INT, interruptRoutine, FALLING);
-		apds.init();
+		if(apds.init()){
+			hardwareAnimatedCheck(4, 29, 2);
+		}
+		else
+		{
+			hardwareAnimatedUncheck(4, 27, 1);
+		}	
 		apds.enableGestureSensor(true);
-		hardwareAnimatedCheck(4, 29, 2);
 	}
 	if (ldrState)
 	{
