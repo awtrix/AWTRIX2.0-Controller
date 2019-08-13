@@ -711,7 +711,7 @@ void updateMatrix(byte payload[], int length)
 		logToServer("MatrixType: " + (int)payload[7]);
 		logToServer("TempCorrection: " + (int)payload[8]);
 
-		if(USBConnection){
+		if(!USBConnection){
 			Serial.println("USBMatrix: " + (int)payload[1]);
 			Serial.println("Temp: " + (int)payload[2]);
 			Serial.println("Audio: " + (int)payload[3]);
@@ -944,7 +944,7 @@ void setup()
 		}
 	}
 
-	if (MatrixType)
+	if (MatrixType==1)
 	{
 		matrix = new FastLED_NeoMatrix(leds, 32, 8, NEO_MATRIX_TOP + NEO_MATRIX_LEFT + NEO_MATRIX_COLUMNS + NEO_MATRIX_ZIGZAG);
 	}
@@ -1149,13 +1149,13 @@ void setup()
 		}
 	}
 
-	if (audioState)
+	if (audioState==1)
 	{
 		mySoftwareSerial.begin(9600);
 		myMP3.begin(mySoftwareSerial);
 		hardwareAnimatedCheck(3, 29, 2);
 	}
-	if (gestureState)
+	if (gestureState==1)
 	{
 		pinMode(APDS9960_INT, INPUT);
 		attachInterrupt(APDS9960_INT, interruptRoutine, FALLING);
@@ -1168,7 +1168,7 @@ void setup()
 		}	
 		apds.enableGestureSensor(true);
 	}
-	if (ldrState)
+	if (ldrState==1)
 	{
 		photocell.setPhotocellPositionOnGround(false);
 		hardwareAnimatedCheck(5, 29, 2);
