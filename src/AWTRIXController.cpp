@@ -697,8 +697,30 @@ void updateMatrix(byte payload[], int length)
 		root["state"] = "OK";
 		String JS;
 		root.printTo(JS);
+		if(USBConnection){
+			Serial.println(JS);
+		}
+		
 		sendToServer(JS);
 
+		logToServer("USBMatrix: " + (int)payload[1]);
+		logToServer("Temp: " + (int)payload[2]);
+		logToServer("Audio: " + (int)payload[3]);
+		logToServer("Gesture: " + (int)payload[4]);
+		logToServer("Resistor: " + int(payload[5] << 8) + int(payload[6]));
+		logToServer("MatrixType: " + (int)payload[7]);
+		logToServer("TempCorrection: " + (int)payload[8]);
+
+		if(USBConnection){
+			Serial.println("USBMatrix: " + (int)payload[1]);
+			Serial.println("Temp: " + (int)payload[2]);
+			Serial.println("Audio: " + (int)payload[3]);
+			Serial.println("Gesture: " + (int)payload[4]);
+			Serial.println("Resistor: " + int(payload[5] << 8) + int(payload[6]));
+			Serial.println("MatrixType: " + (int)payload[7]);
+			Serial.println("TempCorrection: " + (int)payload[8]);
+		}
+		
 		USBConnection = (int)payload[1];
 		tempState = (int)payload[2];
 		audioState = (int)payload[3];
@@ -706,24 +728,16 @@ void updateMatrix(byte payload[], int length)
 		ldrState = int(payload[5] << 8) + int(payload[6]);
 		MatrixType = (int)payload[7];
 		matrixTempCorrection = (int)payload[8];
-	
-		logToServer("USBMatrix: " + USBConnection);
-		logToServer("Temp: " + tempState);
-		logToServer("Audio: " + audioState);
-		logToServer("Gesture: " + gestureState);
-		logToServer("Resistor: " + ldrState);
-		logToServer("MatrixType: " + MatrixType);
-		logToServer("TempCorrection: " + matrixTempCorrection);
 
 		matrix->clear();
 		matrix->setCursor(6, 6);
 		matrix->setTextColor(matrix->Color(0, 255, 50));
 		matrix->print("SAVED!");
 		matrix->show();
-		delay(2000);
+		delay(4000);
 		if (saveConfig())
 		{
-			ESP.reset();
+			//ESP.reset();
 		}
 		break;
 	}
