@@ -29,11 +29,11 @@
 BME280<> BMESensor;
 Adafruit_HTU21DF htu = Adafruit_HTU21DF();
 
-int tempState = false;	 // 0 = None ; 1 = BME280 ; 2 = htu21d
-int audioState = false;	// 0 = false ; 1 = true
-int gestureState = false;  // 0 = false ; 1 = true
+int tempState = 0;	 // 0 = None ; 1 = BME280 ; 2 = htu21d
+int audioState = 0;	// 0 = false ; 1 = true
+int gestureState = 0;  // 0 = false ; 1 = true
 int ldrState = 0;		   // 0 = None
-int USBConnection = false; // true = usb...
+int USBConnection = 0; // true = usb...
 int MatrixType = 1;
 int matrixTempCorrection = 0;
 
@@ -690,6 +690,15 @@ void updateMatrix(byte payload[], int length)
 	}
 	case 14:
 	{
+		//Answer to Server
+		StaticJsonBuffer<400> jsonBuffer;
+		JsonObject &root = jsonBuffer.createObject();
+		root["type"] = "MatrixSaved";
+		root["state"] = "OK";
+		String JS;
+		root.printTo(JS);
+		sendToServer(JS);
+
 		USBConnection = (int)payload[1];
 		tempState = (int)payload[2];
 		audioState = (int)payload[3];
@@ -697,6 +706,14 @@ void updateMatrix(byte payload[], int length)
 		ldrState = int(payload[5] << 8) + int(payload[6]);
 		MatrixType = (int)payload[7];
 		matrixTempCorrection = (int)payload[8];
+	
+		logToServer("USBMatrix: " + USBConnection);
+		logToServer("Temp: " + tempState);
+		logToServer("Audio: " + audioState);
+		logToServer("Gesture: " + gestureState);
+		logToServer("Resistor: " + ldrState);
+		logToServer("MatrixType: " + MatrixType);
+		logToServer("TempCorrection: " + matrixTempCorrection);
 
 		matrix->clear();
 		matrix->setCursor(6, 6);
