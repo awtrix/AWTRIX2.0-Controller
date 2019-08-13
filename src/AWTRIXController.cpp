@@ -697,28 +697,58 @@ void updateMatrix(byte payload[], int length)
 		root["state"] = "OK";
 		String JS;
 		root.printTo(JS);
-		if(USBConnection){
+		if(!USBConnection){
 			Serial.println(JS);
 		}
 		
 		sendToServer(JS);
 
-		logToServer("USBMatrix: " + (int)payload[1]);
-		logToServer("Temp: " + (int)payload[2]);
-		logToServer("Audio: " + (int)payload[3]);
-		logToServer("Gesture: " + (int)payload[4]);
-		logToServer("Resistor: " + int(payload[5] << 8) + int(payload[6]));
-		logToServer("MatrixType: " + (int)payload[7]);
-		logToServer("TempCorrection: " + (int)payload[8]);
+		if ((int)payload[1] == 0)
+		{
+			logToServer("USBMatrix: false (wifi)");
+		}
+		else
+		{
+			logToServer("USBMatrix: true (usb)");
+		}
+		if ((int)payload[2] == 0)
+		{
+			logToServer("Temp: none");
+		}
+		else if ((int)payload[2] == 0)
+		{
+			logToServer("Temp: BME280");
+		}
+		else
+		{
+			logToServer("Temp: HTU21");
+		}
+		if ((int)payload[3] == 0)
+		{
+			logToServer("Audio: false");
+		}
+		else
+		{
+			logToServer("Audio: true");
+		}
+		if ((int)payload[4] == 0)
+		{
+			logToServer("Gesture: false");
+		}
+		else
+		{
+			logToServer("Gesture: true");
+		}
 
-		if(!USBConnection){
-			Serial.println("USBMatrix: " + (int)payload[1]);
-			Serial.println("Temp: " + (int)payload[2]);
-			Serial.println("Audio: " + (int)payload[3]);
-			Serial.println("Gesture: " + (int)payload[4]);
-			Serial.println("Resistor: " + int(payload[5] << 8) + int(payload[6]));
-			Serial.println("MatrixType: " + (int)payload[7]);
-			Serial.println("TempCorrection: " + (int)payload[8]);
+		logToServer("Resistor: OK");
+
+		if ((int)payload[7] == 1)
+		{
+			logToServer("MatrixType: 1");
+		}
+		else
+		{
+			logToServer("MatrixType: 2");
 		}
 		
 		USBConnection = (int)payload[1];
@@ -737,7 +767,7 @@ void updateMatrix(byte payload[], int length)
 		delay(4000);
 		if (saveConfig())
 		{
-			//ESP.reset();
+			ESP.reset();
 		}
 		break;
 	}
@@ -944,13 +974,14 @@ void setup()
 		}
 	}
 
-	if (MatrixType==1)
+	if (MatrixType==2)
 	{
-		matrix = new FastLED_NeoMatrix(leds, 32, 8, NEO_MATRIX_TOP + NEO_MATRIX_LEFT + NEO_MATRIX_COLUMNS + NEO_MATRIX_ZIGZAG);
+		matrix = new FastLED_NeoMatrix(leds, 32, 8, NEO_MATRIX_TOP + NEO_MATRIX_LEFT + NEO_MATRIX_ROWS + NEO_MATRIX_ZIGZAG);
+		
 	}
 	else
 	{
-		matrix = new FastLED_NeoMatrix(leds, 32, 8, NEO_MATRIX_TOP + NEO_MATRIX_LEFT + NEO_MATRIX_ROWS + NEO_MATRIX_ZIGZAG);
+		matrix = new FastLED_NeoMatrix(leds, 32, 8, NEO_MATRIX_TOP + NEO_MATRIX_LEFT + NEO_MATRIX_COLUMNS + NEO_MATRIX_ZIGZAG);
 	}
 	switch (matrixTempCorrection)
 	{
