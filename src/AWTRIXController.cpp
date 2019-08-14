@@ -29,15 +29,15 @@
 BME280<> BMESensor;
 Adafruit_HTU21DF htu = Adafruit_HTU21DF();
 
-int tempState = 0;	 // 0 = None ; 1 = BME280 ; 2 = htu21d
-int audioState = 0;	// 0 = false ; 1 = true
-int gestureState = 0;  // 0 = false ; 1 = true
+int tempState = false;	 // 0 = None ; 1 = BME280 ; 2 = htu21d
+int audioState = false;	// 0 = false ; 1 = true
+int gestureState = false;  // 0 = false ; 1 = true
 int ldrState = 0;		   // 0 = None
-int USBConnection = 0; // true = usb...
-int MatrixType = 1;
+int USBConnection = false; // true = usb...
+bool MatrixType2  = false;
 int matrixTempCorrection = 0;
 
-String version = "0.13";
+String version = "0.15";
 char awtrix_server[16];
 
 IPAddress Server;
@@ -136,13 +136,12 @@ bool saveConfig()
 	DynamicJsonBuffer jsonBuffer;
 	JsonObject &json = jsonBuffer.createObject();
 	json["awtrix_server"] = awtrix_server;
-
+	json["MatrixType"] = MatrixType2;
 	json["temp"] = tempState;
 	json["usbWifi"] = USBConnection;
 	json["ldr"] = ldrState;
 	json["gesture"] = gestureState;
 	json["audio"] = audioState;
-	json["MatrixType"] = MatrixType;
 	json["matrixCorrection"] = matrixTempCorrection;
 
 	File configFile = SPIFFS.open("/awtrix.json", "w");
@@ -156,10 +155,6 @@ bool saveConfig()
 		return false;
 	}
 
-	if (!USBConnection)
-	{
-		json.printTo(Serial);
-	}
 	json.printTo(configFile);
 	configFile.close();
 	//end save
@@ -444,7 +439,7 @@ void hardwareAnimatedSearch(int typ, int x, int y)
 			break;
 		}
 		matrix->show();
-		delay(500);
+		delay(100);
 	}
 }
 
@@ -690,81 +685,29 @@ void updateMatrix(byte payload[], int length)
 	}
 	case 14:
 	{
-		//Answer to Server
-		StaticJsonBuffer<400> jsonBuffer;
-		JsonObject &root = jsonBuffer.createObject();
-		root["type"] = "MatrixSaved";
-		root["state"] = "OK";
-		String JS;
-		root.printTo(JS);
-		if(!USBConnection){
-			Serial.println(JS);
-		}
-		
-		sendToServer(JS);
 
-		if ((int)payload[1] == 0)
-		{
-			logToServer("USBMatrix: false (wifi)");
-		}
-		else
-		{
-			logToServer("USBMatrix: true (usb)");
-		}
-		if ((int)payload[2] == 0)
-		{
-			logToServer("Temp: none");
-		}
-		else if ((int)payload[2] == 0)
-		{
-			logToServer("Temp: BME280");
-		}
-		else
-		{
-			logToServer("Temp: HTU21");
-		}
-		if ((int)payload[3] == 0)
-		{
-			logToServer("Audio: false");
-		}
-		else
-		{
-			logToServer("Audio: true");
-		}
-		if ((int)payload[4] == 0)
-		{
-			logToServer("Gesture: false");
-		}
-		else
-		{
-			logToServer("Gesture: true");
-		}
+		//StaticJsonBuffer<50> jsonBuffer;
+		//JsonObject &root = jsonBuffer.createObject();
+		//root["type"] = "MatrixSaved";
+		//String JS;
+		//root.printTo(JS);
+		//sendToServer(JS);
 
-		logToServer("Resistor: OK");
 
-		if ((int)payload[7] == 1)
-		{
-			logToServer("MatrixType: 1");
-		}
-		else
-		{
-			logToServer("MatrixType: 2");
-		}
-		
 		USBConnection = (int)payload[1];
 		tempState = (int)payload[2];
 		audioState = (int)payload[3];
 		gestureState = (int)payload[4];
 		ldrState = int(payload[5] << 8) + int(payload[6]);
-		MatrixType = (int)payload[7];
-		matrixTempCorrection = (int)payload[8];
+
+		matrixTempCorrection = (int)payload[7];
 
 		matrix->clear();
 		matrix->setCursor(6, 6);
 		matrix->setTextColor(matrix->Color(0, 255, 50));
 		matrix->print("SAVED!");
 		matrix->show();
-		delay(4000);
+		delay(2000);
 		if (saveConfig())
 		{
 			ESP.reset();
@@ -794,13 +737,18 @@ void reconnect()
 {
 	if (!USBConnection)
 	{
+		
+	
+
 		while (!client.connected())
 		{
+			Serial.println("reconnecting");
 			String clientId = "AWTRIXController-";
 			clientId += String(random(0xffff), HEX);
 			hardwareAnimatedSearch(1, 28, 0);
 			if (client.connect(clientId.c_str()))
 			{
+				Serial.println("connected to server!");
 				client.subscribe("awtrixmatrix/#");
 				client.publish("matrixClient", "connected");
 			}
@@ -887,6 +835,8 @@ void flashProgress(unsigned int progress, unsigned int total)
 	matrix->show();
 }
 
+
+
 void saveConfigCallback()
 {
 	if (!USBConnection)
@@ -922,6 +872,8 @@ void setup()
 		Serial.println(version);
 	}
 
+
+
 	if (SPIFFS.begin())
 	{
 		//if file not exists
@@ -943,11 +895,6 @@ void setup()
 			configFile.readBytes(buf.get(), size);
 			DynamicJsonBuffer jsonBuffer;
 			JsonObject &json = jsonBuffer.parseObject(buf.get());
-			if (!USBConnection)
-			{
-				json.printTo(Serial);
-			}
-
 			if (json.success())
 			{
 				if (!USBConnection)
@@ -960,7 +907,7 @@ void setup()
 				gestureState = json["gesture"].as<int>();
 				ldrState = json["ldr"].as<int>();
 				tempState = json["temp"].as<int>();
-				MatrixType = json["MatrixType"].as<int>();
+				MatrixType2 = json["MatrixType"].as<bool>();
 				matrixTempCorrection = json["matrixCorrection"].as<int>();
 			}
 			configFile.close();
@@ -973,15 +920,15 @@ void setup()
 			Serial.println("mounting not possible");
 		}
 	}
+	Serial.println("Matrix Type");
 
-	if (MatrixType==2)
+	if(!MatrixType2)
 	{
-		matrix = new FastLED_NeoMatrix(leds, 32, 8, NEO_MATRIX_TOP + NEO_MATRIX_LEFT + NEO_MATRIX_ROWS + NEO_MATRIX_ZIGZAG);
-		
+		matrix = new FastLED_NeoMatrix(leds, 32, 8, NEO_MATRIX_TOP + NEO_MATRIX_LEFT + NEO_MATRIX_COLUMNS + NEO_MATRIX_ZIGZAG);
 	}
 	else
 	{
-		matrix = new FastLED_NeoMatrix(leds, 32, 8, NEO_MATRIX_TOP + NEO_MATRIX_LEFT + NEO_MATRIX_COLUMNS + NEO_MATRIX_ZIGZAG);
+		matrix = new FastLED_NeoMatrix(leds, 32, 8, NEO_MATRIX_TOP + NEO_MATRIX_LEFT + NEO_MATRIX_ROWS + NEO_MATRIX_ZIGZAG);
 	}
 	switch (matrixTempCorrection)
 	{
@@ -1086,10 +1033,18 @@ void setup()
 
 	wifiManager.setAPStaticIPConfig(IPAddress(172, 217, 28, 1), IPAddress(172, 217, 28, 1), IPAddress(255, 255, 255, 0));
 	WiFiManagerParameter custom_awtrix_server("server", "AWTRIX Server", awtrix_server, 16);
+    WiFiManagerParameter p_MatrixType2("MatrixType2", "MatrixType 2", "T", 2, "type=\"checkbox\" ", WFM_LABEL_BEFORE);
+// Just a quick hint
+    WiFiManagerParameter p_hint("<small>Please configure your AWTRIX Server IP (without Port), and check MatrixType 2 if you cant read anything on the Matrix<br></small><br><br>");
+    WiFiManagerParameter p_lineBreak_notext("<p></p>");
+
 	wifiManager.setSaveConfigCallback(saveConfigCallback);
 	wifiManager.setAPCallback(configModeCallback);
+	wifiManager.addParameter(&p_hint);
 	wifiManager.addParameter(&custom_awtrix_server);
-
+	wifiManager.addParameter(&p_lineBreak_notext);
+    wifiManager.addParameter(&p_MatrixType2);
+	wifiManager.addParameter(&p_lineBreak_notext);
 	hardwareAnimatedSearch(0, 24, 0);
 
 	if (!wifiManager.autoConnect("AWTRIX Controller", "awtrixxx"))
@@ -1102,7 +1057,7 @@ void setup()
 	}
 
 	Serial.println("connected...yeey :)");
-	strcpy(awtrix_server, custom_awtrix_server.getValue());
+
 	Serial.println(awtrix_server);
 
 	server.on("/", HTTP_GET, []() {
@@ -1145,8 +1100,10 @@ void setup()
 	{
 		if (!USBConnection)
 		{
-			Serial.println("saving config");
+		 Serial.println("saving config");
 		}
+		strcpy(awtrix_server, custom_awtrix_server.getValue());
+  		MatrixType2 = (strncmp(p_MatrixType2.getValue(), "T", 1) == 0);
 		saveConfig();
 		ESP.reset();
 	}
@@ -1180,13 +1137,13 @@ void setup()
 		}
 	}
 
-	if (audioState==1)
+	if (audioState)
 	{
 		mySoftwareSerial.begin(9600);
 		myMP3.begin(mySoftwareSerial);
 		hardwareAnimatedCheck(3, 29, 2);
 	}
-	if (gestureState==1)
+	if (gestureState)
 	{
 		pinMode(APDS9960_INT, INPUT);
 		attachInterrupt(APDS9960_INT, interruptRoutine, FALLING);
@@ -1199,7 +1156,7 @@ void setup()
 		}	
 		apds.enableGestureSensor(true);
 	}
-	if (ldrState==1)
+	if (ldrState)
 	{
 		photocell.setPhotocellPositionOnGround(false);
 		hardwareAnimatedCheck(5, 29, 2);
