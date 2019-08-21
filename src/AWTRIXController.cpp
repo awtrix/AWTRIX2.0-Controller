@@ -33,11 +33,11 @@ int tempState = false;	 // 0 = None ; 1 = BME280 ; 2 = htu21d
 int audioState = false;	// 0 = false ; 1 = true
 int gestureState = false;  // 0 = false ; 1 = true
 int ldrState = 0;		   // 0 = None
-int USBConnection = false; // true = usb...
+bool USBConnection = false; // true = usb...
 bool MatrixType2  = false;
 int matrixTempCorrection = 0;
 
-String version = "0.15";
+String version = "0.16";
 char awtrix_server[16];
 
 IPAddress Server;
@@ -685,23 +685,11 @@ void updateMatrix(byte payload[], int length)
 	}
 	case 14:
 	{
-
-		//StaticJsonBuffer<50> jsonBuffer;
-		//JsonObject &root = jsonBuffer.createObject();
-		//root["type"] = "MatrixSaved";
-		//String JS;
-		//root.printTo(JS);
-		//sendToServer(JS);
-
-
-		USBConnection = (int)payload[1];
-		tempState = (int)payload[2];
-		audioState = (int)payload[3];
-		gestureState = (int)payload[4];
-		ldrState = int(payload[5] << 8) + int(payload[6]);
-
-		matrixTempCorrection = (int)payload[7];
-
+		tempState = (int)payload[1];
+		audioState = (int)payload[2];
+		gestureState = (int)payload[3];
+		ldrState = int(payload[4] << 8) + int(payload[5]);
+		matrixTempCorrection = (int)payload[6];
 		matrix->clear();
 		matrix->setCursor(6, 6);
 		matrix->setTextColor(matrix->Color(0, 255, 50));
@@ -742,7 +730,7 @@ void reconnect()
 
 		while (!client.connected())
 		{
-			Serial.println("reconnecting");
+			Serial.println("reconnecting to " + String(awtrix_server));
 			String clientId = "AWTRIXController-";
 			clientId += String(random(0xffff), HEX);
 			hardwareAnimatedSearch(1, 28, 0);
@@ -902,7 +890,7 @@ void setup()
 					Serial.println("\nparsed json");
 				}
 				strcpy(awtrix_server, json["awtrix_server"]);
-				USBConnection = json["usbWifi"].as<int>();
+				USBConnection = json["usbWifi"].as<bool>();
 				audioState = json["audio"].as<int>();
 				gestureState = json["gesture"].as<int>();
 				ldrState = json["ldr"].as<int>();
@@ -1034,6 +1022,7 @@ void setup()
 	wifiManager.setAPStaticIPConfig(IPAddress(172, 217, 28, 1), IPAddress(172, 217, 28, 1), IPAddress(255, 255, 255, 0));
 	WiFiManagerParameter custom_awtrix_server("server", "AWTRIX Server", awtrix_server, 16);
     WiFiManagerParameter p_MatrixType2("MatrixType2", "MatrixType 2", "T", 2, "type=\"checkbox\" ", WFM_LABEL_BEFORE);
+	WiFiManagerParameter p_USBConnection("USBConnection", "Serial Connection", "T", 2, "type=\"checkbox\" ", WFM_LABEL_BEFORE);
 // Just a quick hint
     WiFiManagerParameter p_hint("<small>Please configure your AWTRIX Server IP (without Port), and check MatrixType 2 if you cant read anything on the Matrix<br></small><br><br>");
     WiFiManagerParameter p_lineBreak_notext("<p></p>");
@@ -1044,6 +1033,7 @@ void setup()
 	wifiManager.addParameter(&custom_awtrix_server);
 	wifiManager.addParameter(&p_lineBreak_notext);
     wifiManager.addParameter(&p_MatrixType2);
+	wifiManager.addParameter(&p_USBConnection);
 	wifiManager.addParameter(&p_lineBreak_notext);
 	hardwareAnimatedSearch(0, 24, 0);
 
@@ -1060,6 +1050,11 @@ void setup()
 
 	Serial.println(awtrix_server);
 
+
+
+
+
+Serial.println("connected...yeey :)");
 	server.on("/", HTTP_GET, []() {
 		server.sendHeader("Connection", "close");
 		server.send(200, "text/html", serverIndex);
@@ -1104,6 +1099,7 @@ void setup()
 		}
 		strcpy(awtrix_server, custom_awtrix_server.getValue());
   		MatrixType2 = (strncmp(p_MatrixType2.getValue(), "T", 1) == 0);
+		USBConnection = (strncmp(p_USBConnection.getValue(), "T", 1) == 0);
 		saveConfig();
 		ESP.reset();
 	}
@@ -1185,6 +1181,15 @@ void setup()
 
 	getLength = true;
 	prefix = -5;
+	
+	 for(int x=32; x>=-90; x--) {
+        matrix->clear();
+        matrix->setCursor(x, 6);
+        matrix->print("SIP: " + String(awtrix_server));
+		matrix->setTextColor(matrix->Color(0, 255, 50));
+	    matrix->show();
+        delay(65);
+    }
 
 	if (!USBConnection)
 	{
