@@ -622,9 +622,9 @@ void updateMatrix(byte payload[], int length)
 	case 10:
 	{
 		//Command 10: Play
-		myMP3.volume(payload[3]);
+		myMP3.volume(payload[2]);
 		delay(10);
-		myMP3.playFolder(payload[1], payload[2]);
+		myMP3.play(payload[1]);
 		break;
 	}
 	case 11:
