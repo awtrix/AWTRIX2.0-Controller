@@ -901,7 +901,7 @@ void updateMatrix(byte payload[], int length)
 		case 18:
 		{
 			//Command 18: Play
-			myMP3.play(payload[1]);
+			myMP3.playMp3Folder(payload[1]);
 			break;
 		}
 		case 19:
