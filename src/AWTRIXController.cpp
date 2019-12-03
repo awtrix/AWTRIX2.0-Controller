@@ -456,7 +456,7 @@ void hardwareAnimatedCheck(int typ, int x, int y)
 				matrix->print("WiFi");
 				break;
 			case 1:
-				matrix->setCursor(7, 6);
+				matrix->setCursor(5, 6);
 				matrix->print("Host");
 				break;
 			case 2:
@@ -590,7 +590,7 @@ void hardwareAnimatedSearch(int typ, int x, int y)
 		}
 		else if (typ == 1)
 		{
-			matrix->setCursor(4, 6);
+			matrix->setCursor(5, 6);
 			matrix->print("Host");
 		}
 		switch (i)
