@@ -37,7 +37,7 @@ bool USBConnection = false; // true = usb...
 bool MatrixType2  = false;
 int matrixTempCorrection = 0;
 
-String version = "0.17";
+String version = "0.18";
 char awtrix_server[16];
 
 IPAddress Server;
@@ -854,13 +854,15 @@ void setup()
 	delay(2000);
 	Serial.setRxBufferSize(1024);
 	Serial.begin(115200);
+
+	//is needed for only one hotpsot!
+	WiFi.mode(WIFI_STA);
+
 	if (!USBConnection)
 	{
 		Serial.println("");
 		Serial.println(version);
 	}
-
-
 
 	if (SPIFFS.begin())
 	{
