@@ -1086,7 +1086,7 @@ bool WiFiManager::WiFi_scanNetworks(bool force,bool async){
 
 String WiFiManager::WiFiManager::getScanItemOut(){
     String page;
-
+    page += "<div><b>Please configure your Wifi AND the AWTRIX Host IP (without Port), optionally check MatrixType 2 If the arrangement of the pixels is different</b></div><br>";
     if(!_numNetworks) WiFi_scanNetworks(); // scan in case this gets called before any scans
 
     int n = _numNetworks;
