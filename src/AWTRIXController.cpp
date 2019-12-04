@@ -1330,7 +1330,7 @@ void setup()
 		Serial.println(awtrix_server);
 	}
 
-	/*
+	
 	server.on("/", HTTP_GET, []() {
 		server.sendHeader("Connection", "close");
 		server.send(200, "text/html", serverIndex);
@@ -1371,7 +1371,7 @@ void setup()
       yield(); });
 
 	server.begin();
-	*/
+	
 	
 	
 	
