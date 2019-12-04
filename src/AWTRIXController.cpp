@@ -2,10 +2,7 @@
 // Copyright (C) 2019
 // by Blueforcer & Mazze2000
 
-//#include <FS.h>
-
-#include <EEPROM.h>
-
+#include <FS.h>
 #include <ArduinoOTA.h>
 #include <ESP8266WiFi.h>
 #include <ESP8266WebServer.h>
@@ -103,14 +100,6 @@ int cfgStart = 0;
 //flag for saving data
 bool shouldSaveConfig = false;
 
-typedef struct {
-  char hostIP[16]; 
-  boolean matrixTyp;
-  int matrixTempCorrection;
-} save_t;
-
-save_t mySave;
-
 /// LDR Config
 #define LDR_RESISTOR 1000 //ohms
 #define LDR_PIN A0
@@ -166,58 +155,21 @@ byte utf8ascii(byte ascii)
 	return (0);
 }
 
-void EEPROM_delete(){
-	// Reset EEPROM bytes to '0' for the length of the data structure
-	EEPROM.begin(4095);
-	for (int i = cfgStart ; i < sizeof(mySave) ; i++) {
-		EEPROM.write(i, 0);
-	}
-	delay(200);
-	EEPROM.commit();
-	EEPROM.end();
-}
-
-void EEPROM_save() {
-
-	for(int i=0;i<16;i++){
-		mySave.hostIP[i] = awtrix_server[i];
-	}
-	mySave.matrixTempCorrection = matrixTempCorrection;
-	mySave.matrixTyp = MatrixType2;
-	
-	EEPROM.begin(4095);
-	EEPROM.put(cfgStart, mySave);
-	delay(200);
-	EEPROM.commit(); 
-	EEPROM.end();
-}
-
-void EEPROM_load() {
-
-	EEPROM.begin(4095);
-	EEPROM.get(cfgStart, mySave);
-	delay(200);
-	EEPROM.commit(); 
-	EEPROM.end();
-
-	for(int i=0;i<16;i++){
-		awtrix_server[i] = mySave.hostIP[i];
-	}
-	matrixTempCorrection = mySave.matrixTempCorrection;
-	MatrixType2 = mySave.matrixTyp;
-}
-
 
 bool saveConfig()
 {
-	EEPROM_save();
-	/*
 	DynamicJsonBuffer jsonBuffer;
 	JsonObject &json = jsonBuffer.createObject();
-	json["hostIP"] = awtrix_server;
-	json["Mtype"] = MatrixType2;
-	json["Mcorr"] = matrixTempCorrection;
+	json["awtrix_server"] = awtrix_server;
+	json["MatrixType"] = MatrixType2;
+	json["matrixCorrection"] = matrixTempCorrection;
 
+	//json["temp"] = tempState;
+	//json["usbWifi"] = USBConnection;
+	//json["ldr"] = ldrState;
+	//json["gesture"] = gestureState;
+	//json["audio"] = audioState;
+	
 	File configFile = SPIFFS.open("/awtrix.json", "w");
 	if (!configFile)
 	{
@@ -232,7 +184,6 @@ bool saveConfig()
 	json.printTo(configFile);
 	configFile.close();
 	//end save
-	*/
 	return true;
 }
 
@@ -1113,9 +1064,7 @@ void setup()
 		Serial.println(version);
 	}
 
-	EEPROM_load();
 
-	/*
 	if (SPIFFS.begin())
 	{
 		//if file not exists
@@ -1143,9 +1092,14 @@ void setup()
 				{
 					Serial.println("\nparsed json");
 				}
-				strcpy(awtrix_server, json["hostIP"]);
-				MatrixType2 = json["Mtype"].as<bool>();
-				matrixTempCorrection = json["Mcorr"].as<int>();
+				strcpy(awtrix_server, json["awtrix_server"]);
+				//USBConnection = json["usbWifi"].as<bool>();
+				//audioState = json["audio"].as<int>();
+				//gestureState = json["gesture"].as<int>();
+				//ldrState = json["ldr"].as<int>();
+				//tempState = json["temp"].as<int>();
+				MatrixType2 = json["MatrixType"].as<bool>();
+				matrixTempCorrection = json["matrixCorrection"].as<int>();
 			}
 			configFile.close();
 		}
@@ -1157,27 +1111,16 @@ void setup()
 			Serial.println("mounting not possible");
 		}
 	}
-	*/
 
-	if (!USBConnection)
-	{
-		Serial.print("Matrix Type ");
-	}
+	
+	Serial.println("Matrix Type");
 
 	if (!MatrixType2)
 	{
-		if (!USBConnection)
-		{
-			Serial.println("1");
-		}
 		matrix = new FastLED_NeoMatrix(leds, 32, 8, NEO_MATRIX_TOP + NEO_MATRIX_LEFT + NEO_MATRIX_COLUMNS + NEO_MATRIX_ZIGZAG);
 	}
 	else
 	{
-		if (!USBConnection)
-		{
-			Serial.println("2");
-		}
 		matrix = new FastLED_NeoMatrix(leds, 32, 8, NEO_MATRIX_TOP + NEO_MATRIX_LEFT + NEO_MATRIX_ROWS + NEO_MATRIX_ZIGZAG);
 	}
 
@@ -1265,7 +1208,6 @@ void setup()
 		matrix->print("RESET!");
 		matrix->show();
 		delay(1000);
-		/*
 		if (SPIFFS.begin())
 		{
 			delay(1000);
@@ -1284,8 +1226,6 @@ void setup()
 				Serial.println("Could not begin SPIFFS");
 			}
 		}
-		*/
-		EEPROM_delete();
 		wifiManager.resetSettings();
 		ESP.reset();
 	}
