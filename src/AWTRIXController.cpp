@@ -1057,24 +1057,12 @@ void setup()
 	//is needed for only one hotpsot!
 	WiFi.mode(WIFI_STA);
 
-
-	if (!USBConnection)
-	{
-		Serial.println("");
-		Serial.println(version);
-	}
-
-
 	if (SPIFFS.begin())
 	{
 		//if file not exists
 		if (!(SPIFFS.exists("/awtrix.json")))
 		{
 			SPIFFS.open("/awtrix.json", "w+");
-			if (!USBConnection)
-			{
-				Serial.println("make File...");
-			}
 		}
 
 		File configFile = SPIFFS.open("/awtrix.json", "r");
@@ -1088,10 +1076,7 @@ void setup()
 			JsonObject &json = jsonBuffer.parseObject(buf.get());
 			if (json.success())
 			{
-				if (!USBConnection)
-				{
-					Serial.println("\nparsed json");
-				}
+				
 				strcpy(awtrix_server, json["awtrix_server"]);
 				//USBConnection = json["usbWifi"].as<bool>();
 				//audioState = json["audio"].as<int>();
@@ -1106,10 +1091,7 @@ void setup()
 	}
 	else
 	{
-		if (!USBConnection)
-		{
-			Serial.println("mounting not possible");
-		}
+		//error
 	}
 
 	
@@ -1212,19 +1194,9 @@ void setup()
 		{
 			delay(1000);
 			SPIFFS.remove("/awtrix.json");
-			if (!USBConnection)
-			{
-				Serial.println("/awtrix.json removed");
-			}
+			
 			SPIFFS.end();
 			delay(1000);
-		}
-		else
-		{
-			if (!USBConnection)
-			{
-				Serial.println("Could not begin SPIFFS");
-			}
 		}
 		wifiManager.resetSettings();
 		ESP.reset();
@@ -1254,22 +1226,11 @@ void setup()
 	
 	if (!wifiManager.autoConnect("AWTRIX Controller", "awtrixxx"))
 	{
-		if (!USBConnection)
-		{
-			Serial.println("failed to connect and hit timeout");
-		}
-		delay(3000);
 		//reset and try again, or maybe put it to deep sleep
 		ESP.reset();
 		delay(5000);
 	}
 	
-	if (!USBConnection)
-	{
-		Serial.println("connected...yeey :)");
-		Serial.println(awtrix_server);
-	}
-
 	
 	server.on("/", HTTP_GET, []() {
 		server.sendHeader("Connection", "close");
@@ -1283,9 +1244,7 @@ void setup()
 	  
       if (upload.status == UPLOAD_FILE_START) {
         Serial.setDebugOutput(true);
-		if(!USBConnection){
-			Serial.printf("Update: %s\n", upload.filename.c_str());	
-		}
+		
         uint32_t maxSketchSpace = (ESP.getFreeSketchSpace() - 0x1000) & 0xFFFFF000;
         if (!Update.begin(maxSketchSpace)) { //start with max available size
           Update.printError(Serial);
@@ -1299,9 +1258,7 @@ void setup()
       } else if (upload.status == UPLOAD_FILE_END) {
         if (Update.end(true)) { //true to set the size to the current progress
 		  server.send(200, "text/plain", (Update.hasError()) ? "FAIL" : "OK");
-		  if(!USBConnection){
-			Serial.printf("Update Success: %u\nRebooting...\n", upload.totalSize);
-			}
+		  
           
         } else {
           Update.printError(Serial);
@@ -1317,10 +1274,7 @@ void setup()
 	
 	if (shouldSaveConfig)
 	{
-		if (!USBConnection)
-		{
-			Serial.println("saving config");
-		}
+		
 		strcpy(awtrix_server, custom_awtrix_server.getValue());
 		MatrixType2 = (strncmp(p_MatrixType2.getValue(), "T", 1) == 0);
 		//USBConnection = (strncmp(p_USBConnection.getValue(), "T", 1) == 0);
