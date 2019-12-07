@@ -42,7 +42,7 @@ int connectionTimout;
 bool MatrixType2 = false;
 int matrixTempCorrection = 0;
 
-String version = "0.20";
+String version = "0.21";
 char awtrix_server[16];
 
 IPAddress Server;
