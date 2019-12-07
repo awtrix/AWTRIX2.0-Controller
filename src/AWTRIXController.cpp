@@ -1054,8 +1054,7 @@ void setup()
 	Serial.begin(115200);
 	mySoftwareSerial.begin(9600);
 
-	//is needed for only one hotpsot!
-	WiFi.mode(WIFI_STA);
+	
 
 	if (SPIFFS.begin())
 	{
@@ -1231,6 +1230,8 @@ void setup()
 		delay(5000);
 	}
 	
+	//is needed for only one hotpsot!
+	WiFi.mode(WIFI_STA);
 	
 	server.on("/", HTTP_GET, []() {
 		server.sendHeader("Connection", "close");
@@ -1290,7 +1291,7 @@ void setup()
 	//Checking periphery
 	Wire.begin(I2C_SDA, I2C_SCL);
 	if (BMESensor.begin())
-	{
+	{	
 		//temp OK
 		tempState = 1;
 		hardwareAnimatedCheck(2, 29, 2);
@@ -1320,8 +1321,6 @@ void setup()
 		hardwareAnimatedCheck(5, 29, 2);
 	}
 
-	
-
 	ArduinoOTA.onStart([&]() {
 		updating = true;
 		matrix->clear();
@@ -1332,8 +1331,6 @@ void setup()
 	});
 
 	ArduinoOTA.begin();
-
-	
 	
 	matrix->clear();
 	matrix->setCursor(7, 6);
