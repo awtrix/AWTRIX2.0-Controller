@@ -1,5 +1,5 @@
 // AWTRIX Controller
-// Copyright (C) 2019
+// Copyright (C) 2020
 // by Blueforcer & Mazze2000
 
 #include <FS.h>
@@ -18,15 +18,12 @@
 #include <Wire.h>
 #include <SparkFun_APDS9960.h>
 #include "SoftwareSerial.h"
-//#include <DFPlayerMini_Fast.h>
 #include <WiFiManager.h>
 #include <DoubleResetDetect.h>
 #include <Wire.h>
 #include <BME280_t.h>
 #include "Adafruit_HTU21DF.h"
-
 #include "DFRobotDFPlayerMini.h"
-
 #include "MenueControl/MenueControl.h"
 
 // instantiate temp sensor
