@@ -18,12 +18,15 @@
 #include <Wire.h>
 #include <SparkFun_APDS9960.h>
 #include "SoftwareSerial.h"
+
 #include <WiFiManager.h>
 #include <DoubleResetDetect.h>
 #include <Wire.h>
 #include <BME280_t.h>
 #include "Adafruit_HTU21DF.h"
+
 #include "DFRobotDFPlayerMini.h"
+
 #include "MenueControl/MenueControl.h"
 
 // instantiate temp sensor
@@ -39,9 +42,9 @@ int connectionTimout;
 bool MatrixType2 = false;
 int matrixTempCorrection = 0;
 
-String version = "0.21";
-char awtrix_server[16];
-
+String version = "0.21 Custom";
+char awtrix_server[16] = "0.0.0.0";
+char Port[5] = "7001";          // AWTRIX Host Port, default = 7001
 IPAddress Server;
 WiFiClient espClient;
 PubSubClient client(espClient);
@@ -160,13 +163,14 @@ bool saveConfig()
 	json["awtrix_server"] = awtrix_server;
 	json["MatrixType"] = MatrixType2;
 	json["matrixCorrection"] = matrixTempCorrection;
+	json["Port"] = Port;
 
 	//json["temp"] = tempState;
 	//json["usbWifi"] = USBConnection;
 	//json["ldr"] = ldrState;
 	//json["gesture"] = gestureState;
 	//json["audio"] = audioState;
-	
+
 	File configFile = SPIFFS.open("/awtrix.json", "w");
 	if (!configFile)
 	{
@@ -892,7 +896,7 @@ void updateMatrix(byte payload[], int length)
 		{
 			//Command 17: Volume
 			myMP3.volume(payload[1]);
-			
+
 			break;
 		}
 		case 18:
@@ -1029,7 +1033,7 @@ void saveConfigCallback()
 
 void configModeCallback(WiFiManager *myWiFiManager)
 {
-	
+
 	if (!USBConnection)
 	{
 		Serial.println("Entered config mode");
@@ -1041,7 +1045,7 @@ void configModeCallback(WiFiManager *myWiFiManager)
 	matrix->setTextColor(matrix->Color(0, 255, 50));
 	matrix->print("Hotspot");
 	matrix->show();
-	
+
 }
 
 void setup()
@@ -1051,7 +1055,7 @@ void setup()
 	Serial.begin(115200);
 	mySoftwareSerial.begin(9600);
 
-	
+
 
 	if (SPIFFS.begin())
 	{
@@ -1072,7 +1076,7 @@ void setup()
 			JsonObject &json = jsonBuffer.parseObject(buf.get());
 			if (json.success())
 			{
-				
+
 				strcpy(awtrix_server, json["awtrix_server"]);
 				//USBConnection = json["usbWifi"].as<bool>();
 				//audioState = json["audio"].as<int>();
@@ -1081,6 +1085,7 @@ void setup()
 				//tempState = json["temp"].as<int>();
 				MatrixType2 = json["MatrixType"].as<bool>();
 				matrixTempCorrection = json["matrixCorrection"].as<int>();
+				strcpy(Port, json["Port"]);
 			}
 			configFile.close();
 		}
@@ -1090,7 +1095,7 @@ void setup()
 		//error
 	}
 
-	
+
 	Serial.println("Matrix Type");
 
 	if (!MatrixType2)
@@ -1190,7 +1195,7 @@ void setup()
 		{
 			delay(1000);
 			SPIFFS.remove("/awtrix.json");
-			
+
 			SPIFFS.end();
 			delay(1000);
 		}
@@ -1198,13 +1203,13 @@ void setup()
 		ESP.reset();
 	}
 
-	
+
 	wifiManager.setAPStaticIPConfig(IPAddress(172, 217, 28, 1), IPAddress(172, 217, 28, 1), IPAddress(255, 255, 255, 0));
 	WiFiManagerParameter custom_awtrix_server("server", "AWTRIX Host", awtrix_server, 16);
+	WiFiManagerParameter custom_port("Port", "Port", Port, 5);
 	WiFiManagerParameter p_MatrixType2("MatrixType2", "MatrixType 2", "T", 2, "type=\"checkbox\" ", WFM_LABEL_BEFORE);
-	
 	// Just a quick hint
-	WiFiManagerParameter p_hint("<small>Please configure your AWTRIX Host IP (without Port), and check MatrixType 2 If the arrangement of the pixels is different<br></small><br><br>");
+	WiFiManagerParameter p_hint("<small>Please configure your AWTRIX Host IP (without Port), and check MatrixType 2 if the arrangement of the pixels is different<br></small><br><br>");
 	WiFiManagerParameter p_lineBreak_notext("<p></p>");
 
 	wifiManager.setSaveConfigCallback(saveConfigCallback);
@@ -1213,23 +1218,24 @@ void setup()
 	wifiManager.addParameter(&custom_awtrix_server);
 	wifiManager.addParameter(&p_lineBreak_notext);
 	wifiManager.addParameter(&p_MatrixType2);
+	wifiManager.addParameter(&custom_port);
 
 	wifiManager.addParameter(&p_lineBreak_notext);
  	//wifiManager.setCustomHeadElement("<style>html{ background-color: #607D8B;}</style>");
-	
+
 	hardwareAnimatedSearch(0, 24, 0);
 
-	
+
 	if (!wifiManager.autoConnect("AWTRIX Controller", "awtrixxx"))
 	{
 		//reset and try again, or maybe put it to deep sleep
 		ESP.reset();
 		delay(5000);
 	}
-	
+
 	//is needed for only one hotpsot!
 	WiFi.mode(WIFI_STA);
-	
+
 	server.on("/", HTTP_GET, []() {
 		server.sendHeader("Connection", "close");
 		server.send(200, "text/html", serverIndex);
@@ -1239,10 +1245,10 @@ void setup()
       server.send(200, "text/plain", (Update.hasError()) ? "FAIL" : "OK");
       ESP.restart(); }, []() {
       HTTPUpload& upload = server.upload();
-	  
+
       if (upload.status == UPLOAD_FILE_START) {
         Serial.setDebugOutput(true);
-		
+
         uint32_t maxSketchSpace = (ESP.getFreeSketchSpace() - 0x1000) & 0xFFFFF000;
         if (!Update.begin(maxSketchSpace)) { //start with max available size
           Update.printError(Serial);
@@ -1256,8 +1262,8 @@ void setup()
       } else if (upload.status == UPLOAD_FILE_END) {
         if (Update.end(true)) { //true to set the size to the current progress
 		  server.send(200, "text/plain", (Update.hasError()) ? "FAIL" : "OK");
-		  
-          
+
+
         } else {
           Update.printError(Serial);
         }
@@ -1266,20 +1272,21 @@ void setup()
       yield(); });
 
 	server.begin();
-	
-	
-	
-	
+
+
+
+
 	if (shouldSaveConfig)
 	{
-		
+
 		strcpy(awtrix_server, custom_awtrix_server.getValue());
 		MatrixType2 = (strncmp(p_MatrixType2.getValue(), "T", 1) == 0);
+		strcpy(Port, custom_port.getValue());
 		//USBConnection = (strncmp(p_USBConnection.getValue(), "T", 1) == 0);
 		saveConfig();
 		ESP.reset();
 	}
-	
+
 
 	hardwareAnimatedCheck(0, 27, 2);
 
@@ -1288,7 +1295,7 @@ void setup()
 	//Checking periphery
 	Wire.begin(I2C_SDA, I2C_SCL);
 	if (BMESensor.begin())
-	{	
+	{
 		//temp OK
 		tempState = 1;
 		hardwareAnimatedCheck(2, 29, 2);
@@ -1328,7 +1335,7 @@ void setup()
 	});
 
 	ArduinoOTA.begin();
-	
+
 	matrix->clear();
 	matrix->setCursor(7, 6);
 
@@ -1344,13 +1351,13 @@ void setup()
 	{
 		matrix->clear();
 		matrix->setCursor(x, 6);
-		matrix->print("Host-IP: " + String(awtrix_server));
+		matrix->print("Host-IP: " + String(awtrix_server) + ":" + String(Port));
 		matrix->setTextColor(matrix->Color(0, 255, 50));
 		matrix->show();
 		delay(40);
 	}
 
-	client.setServer(awtrix_server, 7001);
+	client.setServer(awtrix_server, atoi(Port));
 	client.setCallback(callback);
 
 	pinMode(D0, INPUT);
