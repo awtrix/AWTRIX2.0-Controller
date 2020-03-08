@@ -1,7 +1,6 @@
 # AWTRIX2.0-Controller
-Current version 0.20
+Current version 0.22
 
-Please note: This is a Beta Version!
 
 
 Features:
