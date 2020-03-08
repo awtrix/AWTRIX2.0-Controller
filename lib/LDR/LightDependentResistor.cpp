@@ -58,6 +58,11 @@ void LightDependentResistor::updatePhotocellParameters(float mult_value, float p
   _pow_value = pow_value;
 }
 
+void LightDependentResistor::updateResistor(unsigned long other_resistor)
+{
+  _other_resistor = other_resistor;
+}
+
 float LightDependentResistor::luxToFootCandles(float intensity_in_lux)
 {
   return 10.764*intensity_in_lux;
