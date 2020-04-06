@@ -934,33 +934,33 @@ void updateMatrix(byte payload[], int length)
 
 			String myJSON = "";
 			for(int i=5;i<length;i++){
-				myJSON += payload[i];
+				myJSON += (char)payload[i];
 			}
-			Serial.println("myJSON: " + myJSON);
+			//Serial.println("myJSON: " + myJSON + " ENDE");
 			DynamicJsonBuffer jsonBuffer;
 			JsonArray& array = jsonBuffer.parseArray(myJSON);
 			if (array.success()){
+				//Serial.println("Array erfolgreich geöffnet... =)");
 				for(int i=0;i<(int)array.size();i++){
 						String tempString = array[i]["t"];
 						String colorString = array[i]["c"];
 						JsonArray& color = jsonBuffer.parseArray(colorString);
 						if (color.success()){
+							//Serial.println("Color erfolgreich geöffnet... =)");
 							String myText = "";
 							int r = color[0];
 							int g = color[1];
 							int b = color[2];
-							Serial.println("Test: " + tempString + " / Color: " + r + "/" + g + "/" + b);
+							//Serial.println("Test: " + tempString + " / Color: " + r + "/" + g + "/" + b);
 							matrix->setTextColor(matrix->Color(r, g, b));
 							for (int y = 0; y < (int)tempString.length(); y++)
 							{
-								char c = tempString[y];
-								myText += c;
+								myText += (char)tempString[y];
 							}
 							matrix->print(utf8ascii(myText));
 						}
 					}
 			}
-
 			break;
 		}
 	}
