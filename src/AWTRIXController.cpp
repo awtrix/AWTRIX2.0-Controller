@@ -42,7 +42,7 @@ int connectionTimout;
 bool MatrixType2 = false;
 int matrixTempCorrection = 0;
 
-String version = "0.22";
+String version = "0.23";
 char awtrix_server[16] = "0.0.0.0";
 char Port[5] = "7001";          // AWTRIX Host Port, default = 7001
 IPAddress Server;
@@ -70,6 +70,10 @@ int myCounter;
 int myCounter2;
 //boolean getLength = true;
 //int prefix = -5;
+
+//Reset time (Touch Taster)
+int resetTime = 6000;		//in milliseconds
+
 
 bool ignoreServer = false;
 int menuePointer;
@@ -226,7 +230,7 @@ int checkTaster(int nr)
 	tasterState[1] = digitalRead(tasterPin[1]);
 	tasterState[2] = !digitalRead(tasterPin[2]);
 
-	switch (nr)
+	switch (nr)  
 	{
 	case 0:
 		if (tasterState[0] == LOW && !pushed[nr] && !blockTaster2[nr] && tasterState[1] && tasterState[2])
@@ -576,6 +580,42 @@ void serverSearch(int rounds, int typ, int x, int y)
 		}
 	}
 	matrix->show();
+}
+
+void checkReset(){
+	int resetTimeShow = 0;
+	int resetStartTime = millis();
+	while(digitalRead(tasterPin[0]) && digitalRead(tasterPin[2])){
+		
+		int showTime = (resetTime + (resetStartTime - millis()))/1000;
+
+		if(resetTimeShow != showTime){
+			resetTimeShow = showTime;
+			matrix->clear();
+			matrix->setTextColor(matrix->Color(255, 0, 0));
+			matrix->setCursor(3, 6);
+			matrix->print("RESET! " + (String)showTime);
+			matrix->show();
+			if(showTime<1){
+				matrix->clear();
+				matrix->setCursor(6, 6);
+				matrix->setTextColor(matrix->Color(255, 0, 0));
+				matrix->print("RESET!");
+				matrix->show();
+				delay(1000);
+				if (SPIFFS.begin())
+				{
+					delay(1000);
+					SPIFFS.remove("/awtrix.json");
+
+					SPIFFS.end();
+					delay(1000);
+				}
+				wifiManager.resetSettings();
+				ESP.reset();
+			}
+		}
+	}
 }
 
 void hardwareAnimatedSearch(int typ, int x, int y)
@@ -1045,7 +1085,6 @@ void configModeCallback(WiFiManager *myWiFiManager)
 	matrix->setTextColor(matrix->Color(0, 255, 50));
 	matrix->print("Hotspot");
 	matrix->show();
-
 }
 
 void setup()
@@ -1055,7 +1094,14 @@ void setup()
 	Serial.begin(115200);
 	mySoftwareSerial.begin(9600);
 
+	//Pinconfiguration touch-buttons
+	pinMode(D0, INPUT);
+	pinMode(D0, INPUT_PULLUP);
 
+	pinMode(D4, INPUT);
+	pinMode(D4, INPUT_PULLUP);
+
+	pinMode(D8, INPUT);
 
 	if (SPIFFS.begin())
 	{
@@ -1203,6 +1249,7 @@ void setup()
 		ESP.reset();
 	}
 
+	checkReset();
 
 	wifiManager.setAPStaticIPConfig(IPAddress(172, 217, 28, 1), IPAddress(172, 217, 28, 1), IPAddress(255, 255, 255, 0));
 	WiFiManagerParameter custom_awtrix_server("server", "AWTRIX Host", awtrix_server, 16);
@@ -1360,13 +1407,7 @@ void setup()
 	client.setServer(awtrix_server, atoi(Port));
 	client.setCallback(callback);
 
-	pinMode(D0, INPUT);
-	pinMode(D0, INPUT_PULLUP);
-
-	pinMode(D4, INPUT);
-	pinMode(D4, INPUT_PULLUP);
-
-	pinMode(D8, INPUT);
+	
 
 	ignoreServer = false;
 
@@ -1494,7 +1535,6 @@ void loop()
 			WIFIConnection = false;
 			firstStart = true;
 		}
-
 	}
 
 	checkTaster(0);
