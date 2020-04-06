@@ -883,6 +883,14 @@ void updateMatrix(byte payload[], int length)
 		}
 		case 15:
 		{
+			if (SPIFFS.begin())
+				{
+					delay(1000);
+					SPIFFS.remove("/awtrix.json");
+
+					SPIFFS.end();
+					delay(1000);
+				}
 			wifiManager.resetSettings();
 			ESP.reset();
 			break;
@@ -919,6 +927,41 @@ void updateMatrix(byte payload[], int length)
 			firstStart = true;
 			break;
 		}
+		case 21:
+			uint16_t x_coordinate = int(payload[1] << 8) + int(payload[2]);
+			uint16_t y_coordinate = int(payload[3] << 8) + int(payload[4]);
+			matrix->setCursor(x_coordinate + 1, y_coordinate + y_offset);
+
+			String myJSON = "";
+			for(int i=5;i<length;i++){
+				myJSON += payload[i];
+			}
+			Serial.println("myJSON: " + myJSON);
+			DynamicJsonBuffer jsonBuffer;
+			JsonArray& array = jsonBuffer.parseArray(myJSON);
+			if (array.success()){
+				for(int i=0;i<(int)array.size();i++){
+						String tempString = array[i]["t"];
+						String colorString = array[i]["c"];
+						JsonArray& color = jsonBuffer.parseArray(colorString);
+						if (color.success()){
+							String myText = "";
+							int r = color[0];
+							int g = color[1];
+							int b = color[2];
+							Serial.println("Test: " + tempString + " / Color: " + r + "/" + g + "/" + b);
+							matrix->setTextColor(matrix->Color(r, g, b));
+							for (int y = 0; y < (int)tempString.length(); y++)
+							{
+								char c = tempString[y];
+								myText += c;
+							}
+							matrix->print(utf8ascii(myText));
+						}
+					}
+			}
+
+			break;
 		}
 	}
 }
