@@ -42,7 +42,7 @@ int connectionTimout;
 bool MatrixType2 = false;
 int matrixTempCorrection = 0;
 
-String version = "0.24";
+String version = "0.25";
 char awtrix_server[16] = "0.0.0.0";
 char Port[5] = "7001"; // AWTRIX Host Port, default = 7001
 IPAddress Server;
@@ -955,35 +955,33 @@ void updateMatrix(byte payload[], int length)
 			matrix->setCursor(x_coordinate + 1, y_coordinate + y_offset);
 
 			String myJSON = "";
-			for (int i = 5; i < length; i++)
-			{
+			for(int i=5;i<length;i++){
 				myJSON += (char)payload[i];
 			}
 			//Serial.println("myJSON: " + myJSON + " ENDE");
 			DynamicJsonBuffer jsonBuffer;
-			JsonArray &array = jsonBuffer.parseArray(myJSON);
-			if (array.success())
-			{
+			JsonArray& array = jsonBuffer.parseArray(myJSON);
+			if (array.success()){
 				//Serial.println("Array erfolgreich geöffnet... =)");
-			for (int i = 0; i < (int)array.size(); i++)
-				{
-					String tempString = array[i]["t"];
-					String colorString = array[i]["c"];
-					colorString.toUpperCase();
-					char c[7];
-					colorString.toCharArray(c, 8);
-					int red = hexcolorToInt(c[1], c[2]);
-					int green = hexcolorToInt(c[3], c[4]);
-					int blue = hexcolorToInt(c[5], c[6]);
-					String myText = "";
-					//Serial.println("Test: " + tempString + " / Color: " + r + "/" + g + "/" + b);
-					matrix->setTextColor(matrix->Color(red, green, blue));
-					for (int y = 0; y < (int)tempString.length(); y++)
-					{
-						myText += (char)tempString[y];
+				for(int i=0;i<(int)array.size();i++){
+						String tempString = array[i]["t"];
+						String colorString = array[i]["c"];
+						JsonArray& color = jsonBuffer.parseArray(colorString);
+						if (color.success()){
+							//Serial.println("Color erfolgreich geöffnet... =)");
+							String myText = "";
+							int r = color[0];
+							int g = color[1];
+							int b = color[2];
+							//Serial.println("Test: " + tempString + " / Color: " + r + "/" + g + "/" + b);
+							matrix->setTextColor(matrix->Color(r, g, b));
+							for (int y = 0; y < (int)tempString.length(); y++)
+							{
+								myText += (char)tempString[y];
+							}
+							matrix->print(utf8ascii(myText));
+						}
 					}
-					matrix->print(utf8ascii(myText));
-				}
 			}
 			break;
 			}
