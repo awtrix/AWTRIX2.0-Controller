@@ -42,7 +42,7 @@ int connectionTimout;
 bool MatrixType2 = false;
 int matrixTempCorrection = 0;
 
-String version = "0.22";
+String version = "0.24";
 char awtrix_server[16] = "0.0.0.0";
 char Port[5] = "7001";          // AWTRIX Host Port, default = 7001
 IPAddress Server;
@@ -1121,14 +1121,13 @@ void setup()
 			{
 
 				strcpy(awtrix_server, json["awtrix_server"]);
-				//USBConnection = json["usbWifi"].as<bool>();
-				//audioState = json["audio"].as<int>();
-				//gestureState = json["gesture"].as<int>();
-				//ldrState = json["ldr"].as<int>();
-				//tempState = json["temp"].as<int>();
 				MatrixType2 = json["MatrixType"].as<bool>();
 				matrixTempCorrection = json["matrixCorrection"].as<int>();
-				strcpy(Port, json["Port"]);
+
+				if (json.containsKey("Port")){
+					strcpy(Port, json["Port"]);
+				}
+				
 			}
 			configFile.close();
 		}
@@ -1249,7 +1248,7 @@ void setup()
 
 	wifiManager.setAPStaticIPConfig(IPAddress(172, 217, 28, 1), IPAddress(172, 217, 28, 1), IPAddress(255, 255, 255, 0));
 	WiFiManagerParameter custom_awtrix_server("server", "AWTRIX Host", awtrix_server, 16);
-	WiFiManagerParameter custom_port("Port", "Port", Port, 5);
+	WiFiManagerParameter custom_port("Port", "Matrix Port", Port, 5);
 	WiFiManagerParameter p_MatrixType2("MatrixType2", "MatrixType 2", "T", 2, "type=\"checkbox\" ", WFM_LABEL_BEFORE);
 	// Just a quick hint
 	WiFiManagerParameter p_hint("<small>Please configure your AWTRIX Host IP (without Port), and check MatrixType 2 if the arrangement of the pixels is different<br></small><br><br>");
@@ -1259,10 +1258,9 @@ void setup()
 	wifiManager.setAPCallback(configModeCallback);
 
 	wifiManager.addParameter(&custom_awtrix_server);
+	wifiManager.addParameter(&custom_port);
 	wifiManager.addParameter(&p_lineBreak_notext);
 	wifiManager.addParameter(&p_MatrixType2);
-	wifiManager.addParameter(&custom_port);
-
 	wifiManager.addParameter(&p_lineBreak_notext);
  	//wifiManager.setCustomHeadElement("<style>html{ background-color: #607D8B;}</style>");
 
