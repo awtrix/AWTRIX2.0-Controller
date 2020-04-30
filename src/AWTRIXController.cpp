@@ -928,6 +928,8 @@ void updateMatrix(byte payload[], int length)
 			break;
 		}
 		case 21:
+		{
+			//multicolor...
 			uint16_t x_coordinate = int(payload[1] << 8) + int(payload[2]);
 			uint16_t y_coordinate = int(payload[3] << 8) + int(payload[4]);
 			matrix->setCursor(x_coordinate + 1, y_coordinate + y_offset);
@@ -962,6 +964,69 @@ void updateMatrix(byte payload[], int length)
 					}
 			}
 			break;
+		}
+		case 22:
+		{
+				//Text
+				//scrollSpeed
+				//icon
+				//color
+				//multicolor (textData?)
+				//moveIcon
+				//repeatIcon
+				//duration
+				//repeat
+				//rainbow
+				//progress
+				//progresscolor
+				//progressBackgroundColor
+				//soundfile
+				
+				
+
+				String myJSON = "";
+				for(int i=1;i<length;i++){
+					myJSON += (char)payload[i];
+				}
+				DynamicJsonBuffer jsonBuffer;
+				JsonObject &json = jsonBuffer.parseObject(myJSON);
+
+				String tempString = json["text"];
+				String colorString = json["color"];
+
+				JsonArray& color = jsonBuffer.parseArray(colorString);
+				int r = color[0];
+				int g = color[1];
+				int b = color[2];
+				int scrollSpeed = (int)json["scrollSpeed"];
+
+				Serial.println("Scrollspeed: " + (String)(scrollSpeed));
+
+				int textlaenge;
+				while(true){
+					matrix->setCursor(32, 6);
+					matrix->print(utf8ascii(tempString));
+					textlaenge = (int)matrix->getCursorX()-32;
+					for(int i=31;i>(-textlaenge);i--){
+						int starzeit = millis();
+						matrix->clear();
+						matrix->setCursor(i, 6);
+						matrix->setTextColor(matrix->Color(r, g, b));
+						matrix->print(utf8ascii(tempString));
+						matrix->show();
+						client.loop();
+						int endzeit = millis();
+						if((scrollSpeed + starzeit - endzeit)>0){
+							delay(scrollSpeed + starzeit - endzeit);
+						} 
+					}
+					connectionTimout = millis();
+					break;
+				}
+				Serial.println("Textlänge auf Matrix: " + (String)(textlaenge));
+				Serial.println("Test: " + tempString + " / Color: " + r + "/" + g + "/" + b);
+			break;
+		}
 		}
 	}
 }
@@ -1529,12 +1594,14 @@ void loop()
 			isr_flag = 0;
 			attachInterrupt(APDS9960_INT, interruptRoutine, FALLING);
 		}
+		
 		if(millis()-connectionTimout>20000)
 		{
 			USBConnection = false;
 			WIFIConnection = false;
 			firstStart = true;
 		}
+		
 
 	}
 
