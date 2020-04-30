@@ -44,7 +44,7 @@ int matrixTempCorrection = 0;
 
 String version = "0.24";
 char awtrix_server[16] = "0.0.0.0";
-char Port[5] = "7001";          // AWTRIX Host Port, default = 7001
+char Port[5] = "7001"; // AWTRIX Host Port, default = 7001
 IPAddress Server;
 WiFiClient espClient;
 PubSubClient client(espClient);
@@ -63,7 +63,7 @@ const char *serverIndex = "<form method='POST' action='/update' enctype='multipa
 DoubleResetDetect drd(DRD_TIMEOUT, DRD_ADDRESS);
 
 bool firstStart = true;
-int myTime;  //need for loop
+int myTime;	 //need for loop
 int myTime2; //need for loop
 int myTime3; //need for loop3
 int myCounter;
@@ -140,7 +140,7 @@ byte utf8ascii(byte ascii)
 	// get previous input
 	byte last = c1; // get last char
 	c1 = ascii;		// remember actual character
-	switch (last)   // conversion depending on first UTF8-character
+	switch (last)	// conversion depending on first UTF8-character
 	{
 	case 0xC2:
 		return (ascii)-34;
@@ -154,7 +154,6 @@ byte utf8ascii(byte ascii)
 	}
 	return (0);
 }
-
 
 bool saveConfig()
 {
@@ -636,6 +635,17 @@ String GetChipID()
 	return String(ESP.getChipId());
 }
 
+int hexcolorToInt(char upper, char lower)
+{
+	int uVal = (int)upper;
+	int lVal = (int)lower;
+	uVal = uVal > 64 ? uVal - 55 : uVal - 48;
+	uVal = uVal << 4;
+	lVal = lVal > 64 ? lVal - 55 : lVal - 48;
+	//  Serial.println(uVal+lVal);
+	return uVal + lVal;
+}
+
 int GetRSSIasQuality(int rssi)
 {
 	int quality = 0;
@@ -883,14 +893,20 @@ void updateMatrix(byte payload[], int length)
 		}
 		case 15:
 		{
+			matrix->clear();
+			matrix->setTextColor(matrix->Color(255, 0, 0));
+			matrix->setCursor(6, 6);
+			matrix->print("RESET!");
+			matrix->show();
+			delay(1000);
 			if (SPIFFS.begin())
-				{
-					delay(1000);
-					SPIFFS.remove("/awtrix.json");
+			{
+				delay(1000);
+				SPIFFS.remove("/awtrix.json");
 
-					SPIFFS.end();
-					delay(1000);
-				}
+				SPIFFS.end();
+				delay(1000);
+			}
 			wifiManager.resetSettings();
 			ESP.reset();
 			break;
@@ -935,96 +951,100 @@ void updateMatrix(byte payload[], int length)
 			matrix->setCursor(x_coordinate + 1, y_coordinate + y_offset);
 
 			String myJSON = "";
-			for(int i=5;i<length;i++){
+			for (int i = 5; i < length; i++)
+			{
 				myJSON += (char)payload[i];
 			}
 			//Serial.println("myJSON: " + myJSON + " ENDE");
 			DynamicJsonBuffer jsonBuffer;
-			JsonArray& array = jsonBuffer.parseArray(myJSON);
-			if (array.success()){
+			JsonArray &array = jsonBuffer.parseArray(myJSON);
+			if (array.success())
+			{
 				//Serial.println("Array erfolgreich geöffnet... =)");
-				for(int i=0;i<(int)array.size();i++){
-						String tempString = array[i]["t"];
-						String colorString = array[i]["c"];
-						JsonArray& color = jsonBuffer.parseArray(colorString);
-						if (color.success()){
-							//Serial.println("Color erfolgreich geöffnet... =)");
-							String myText = "";
-							int r = color[0];
-							int g = color[1];
-							int b = color[2];
-							//Serial.println("Test: " + tempString + " / Color: " + r + "/" + g + "/" + b);
-							matrix->setTextColor(matrix->Color(r, g, b));
-							for (int y = 0; y < (int)tempString.length(); y++)
-							{
-								myText += (char)tempString[y];
-							}
-							matrix->print(utf8ascii(myText));
-						}
+				for (int i = 0; i < (int)array.size(); i++)
+				{
+					String tempString = array[i]["t"];
+					String colorString = array[i]["c"];
+					colorString.toUpperCase();
+					char c[7];
+					colorString.toCharArray(c, 8);
+					int red = hexcolorToInt(c[1], c[2]);
+					int green = hexcolorToInt(c[3], c[4]);
+					int blue = hexcolorToInt(c[5], c[6]);
+					String myText = "";
+					//Serial.println("Test: " + tempString + " / Color: " + r + "/" + g + "/" + b);
+					matrix->setTextColor(matrix->Color(red, green, blue));
+					for (int y = 0; y < (int)tempString.length(); y++)
+					{
+						myText += (char)tempString[y];
 					}
+					matrix->print(utf8ascii(myText));
+				}
 			}
 			break;
 		}
 		case 22:
 		{
-				//Text
-				//scrollSpeed
-				//icon
-				//color
-				//multicolor (textData?)
-				//moveIcon
-				//repeatIcon
-				//duration
-				//repeat
-				//rainbow
-				//progress
-				//progresscolor
-				//progressBackgroundColor
-				//soundfile
-				
-				
+			//Text
+			//scrollSpeed
+			//icon
+			//color
+			//multicolor (textData?)
+			//moveIcon
+			//repeatIcon
+			//duration
+			//repeat
+			//rainbow
+			//progress
+			//progresscolor
+			//progressBackgroundColor
+			//soundfile
 
-				String myJSON = "";
-				for(int i=1;i<length;i++){
-					myJSON += (char)payload[i];
-				}
-				DynamicJsonBuffer jsonBuffer;
-				JsonObject &json = jsonBuffer.parseObject(myJSON);
+			String myJSON = "";
+			for (int i = 1; i < length; i++)
+			{
+				myJSON += (char)payload[i];
+			}
+			DynamicJsonBuffer jsonBuffer;
+			JsonObject &json = jsonBuffer.parseObject(myJSON);
 
-				String tempString = json["text"];
-				String colorString = json["color"];
+			String tempString = json["text"];
+			String colorString = json["color"];
 
-				JsonArray& color = jsonBuffer.parseArray(colorString);
-				int r = color[0];
-				int g = color[1];
-				int b = color[2];
-				int scrollSpeed = (int)json["scrollSpeed"];
+			JsonArray &color = jsonBuffer.parseArray(colorString);
+			int r = color[0];
+			int g = color[1];
+			int b = color[2];
+			int scrollSpeed = (int)json["scrollSpeed"];
 
-				Serial.println("Scrollspeed: " + (String)(scrollSpeed));
+			Serial.println("Scrollspeed: " + (String)(scrollSpeed));
 
-				int textlaenge;
-				while(true){
-					matrix->setCursor(32, 6);
+			int textlaenge;
+			while (true)
+			{
+				matrix->setCursor(32, 6);
+				matrix->print(utf8ascii(tempString));
+				textlaenge = (int)matrix->getCursorX() - 32;
+				for (int i = 31; i > (-textlaenge); i--)
+				{
+					int starzeit = millis();
+					matrix->clear();
+					matrix->setCursor(i, 6);
+					matrix->setTextColor(matrix->Color(r, g, b));
 					matrix->print(utf8ascii(tempString));
-					textlaenge = (int)matrix->getCursorX()-32;
-					for(int i=31;i>(-textlaenge);i--){
-						int starzeit = millis();
-						matrix->clear();
-						matrix->setCursor(i, 6);
-						matrix->setTextColor(matrix->Color(r, g, b));
-						matrix->print(utf8ascii(tempString));
-						matrix->show();
-						client.loop();
-						int endzeit = millis();
-						if((scrollSpeed + starzeit - endzeit)>0){
-							delay(scrollSpeed + starzeit - endzeit);
-						} 
+					matrix->show();
+					client.loop();
+					int endzeit = millis();
+					if ((scrollSpeed + starzeit - endzeit) > 0)
+					{
+						delay(scrollSpeed + starzeit - endzeit);
 					}
-					connectionTimout = millis();
-					break;
 				}
-				Serial.println("Textlänge auf Matrix: " + (String)(textlaenge));
-				Serial.println("Test: " + tempString + " / Color: " + r + "/" + g + "/" + b);
+				connectionTimout = millis();
+				break;
+			}
+			Serial.println("Textlänge auf Matrix: " + (String)(textlaenge));
+			Serial.println("Test: " + tempString + " / Color: " + r + "/" + g + "/" + b);
 			break;
 		}
 		}
@@ -1153,7 +1173,6 @@ void configModeCallback(WiFiManager *myWiFiManager)
 	matrix->setTextColor(matrix->Color(0, 255, 50));
 	matrix->print("Hotspot");
 	matrix->show();
-
 }
 
 void setup()
@@ -1162,8 +1181,6 @@ void setup()
 	Serial.setRxBufferSize(1024);
 	Serial.begin(115200);
 	mySoftwareSerial.begin(9600);
-
-
 
 	if (SPIFFS.begin())
 	{
@@ -1189,10 +1206,10 @@ void setup()
 				MatrixType2 = json["MatrixType"].as<bool>();
 				matrixTempCorrection = json["matrixCorrection"].as<int>();
 
-				if (json.containsKey("Port")){
+				if (json.containsKey("Port"))
+				{
 					strcpy(Port, json["Port"]);
 				}
-				
 			}
 			configFile.close();
 		}
@@ -1201,7 +1218,6 @@ void setup()
 	{
 		//error
 	}
-
 
 	Serial.println("Matrix Type");
 
@@ -1310,7 +1326,6 @@ void setup()
 		ESP.reset();
 	}
 
-
 	wifiManager.setAPStaticIPConfig(IPAddress(172, 217, 28, 1), IPAddress(172, 217, 28, 1), IPAddress(255, 255, 255, 0));
 	WiFiManagerParameter custom_awtrix_server("server", "AWTRIX Host", awtrix_server, 16);
 	WiFiManagerParameter custom_port("Port", "Matrix Port", Port, 5);
@@ -1327,10 +1342,9 @@ void setup()
 	wifiManager.addParameter(&p_lineBreak_notext);
 	wifiManager.addParameter(&p_MatrixType2);
 	wifiManager.addParameter(&p_lineBreak_notext);
- 	//wifiManager.setCustomHeadElement("<style>html{ background-color: #607D8B;}</style>");
+	//wifiManager.setCustomHeadElement("<style>html{ background-color: #607D8B;}</style>");
 
 	hardwareAnimatedSearch(0, 24, 0);
-
 
 	if (!wifiManager.autoConnect("AWTRIX Controller", "awtrixxx"))
 	{
@@ -1346,7 +1360,8 @@ void setup()
 		server.sendHeader("Connection", "close");
 		server.send(200, "text/html", serverIndex);
 	});
-	server.on("/update", HTTP_POST, []() {
+	server.on(
+		"/update", HTTP_POST, []() {
       server.sendHeader("Connection", "close");
       server.send(200, "text/plain", (Update.hasError()) ? "FAIL" : "OK");
       ESP.restart(); }, []() {
@@ -1379,9 +1394,6 @@ void setup()
 
 	server.begin();
 
-
-
-
 	if (shouldSaveConfig)
 	{
 
@@ -1392,7 +1404,6 @@ void setup()
 		saveConfig();
 		ESP.reset();
 	}
-
 
 	hardwareAnimatedCheck(0, 27, 2);
 
@@ -1505,7 +1516,8 @@ void loop()
 		if (USBConnection || firstStart)
 		{
 			int x = 100;
-			while(x>=0){
+			while (x >= 0)
+			{
 				x--;
 				//USB
 				if (Serial.available() > 0)
@@ -1562,7 +1574,8 @@ void loop()
 						bufferpointer = 0;
 					}
 				}
-				else{
+				else
+				{
 					break;
 				}
 			}
@@ -1575,7 +1588,8 @@ void loop()
 			{
 				//Serial.println("nicht verbunden...");
 				reconnect();
-				if(WIFIConnection){
+				if (WIFIConnection)
+				{
 					USBConnection = false;
 					WIFIConnection = false;
 					firstStart = true;
@@ -1594,15 +1608,13 @@ void loop()
 			isr_flag = 0;
 			attachInterrupt(APDS9960_INT, interruptRoutine, FALLING);
 		}
-		
-		if(millis()-connectionTimout>20000)
+
+		if (millis() - connectionTimout > 20000)
 		{
 			USBConnection = false;
 			WIFIConnection = false;
 			firstStart = true;
 		}
-		
-
 	}
 
 	checkTaster(0);
