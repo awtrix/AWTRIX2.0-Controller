@@ -47,6 +47,13 @@ char awtrix_server[16] = "0.0.0.0";
 char Port[5] = "7001"; // AWTRIX Host Port, default = 7001
 IPAddress Server;
 WiFiClient espClient;
+
+//default custom static IP
+char static_ip[16] = "0.0.0.0";
+char static_gw[16] = "0.0.0.0";
+char static_sn[16] = "0.0.0.0";
+char static_dns[16] = "0.0.0.0";
+
 PubSubClient client(espClient);
 
 WiFiManager wifiManager;
@@ -55,7 +62,35 @@ MenueControl myMenue;
 
 //update
 ESP8266WebServer server(80);
-const char *serverIndex = "<form method='POST' action='/update' enctype='multipart/form-data'><input type='file' name='update'><input type='submit' value='Update'></form>";
+String HTMLCode()
+{
+	String code = "<!DOCTYPE html> <html>\n";
+
+	code += "<!DOCTYPE html>\n";
+	code += "<html>\n";
+	code += "<title>AWTRIX LED Matrix</title>\n";
+	code += "<style>\n";
+	code += "a {text-decoration: none}\n";
+	code += ".titleline {text-align: center;}\n";
+	code += ".update { margin: auto; width: 90%; border: 2px solid black; padding: 10px;}\n";
+	code += ".button {display: block; width: 90%; background-color: green border: none;color: black;padding: 13px 30px;text-decoration: none;font-size: 25px;margin: 0px auto 35px;cursor: pointer;border-radius: 4px;}\n";
+	code += "</style>\n";
+	code += "<body>\n";
+	code += "<h1 class=\"titleline\">AWTRIX Matrix Configuration</h1>\n";
+	code += "<div class=\"update\">\n";
+	code += "Firmware Upload:<p>\n";
+	code += "<form method='POST' action='/update' enctype='multipart/form-data'>\n";
+	code += "<input type='file' name='update'><input type='submit' value='Update'>\n";
+	code += "</form>\n";
+	code += "</div>\n";
+	code += "<p>\n";
+	code += "<div style=\"margin: auto; width: 90%; text-align: center\">\n";
+	code += "<a href=\"config\"><button class=\"button\">Reset NetworkConfig</button></a>\n";
+	code += "</div>\n";
+	code += "</body>\n";
+	code += "</html>\n";
+	return code;
+}
 
 //resetdetector
 #define DRD_TIMEOUT 5.0
@@ -70,6 +105,9 @@ int myCounter;
 int myCounter2;
 //boolean getLength = true;
 //int prefix = -5;
+
+//Reset time (Touch Taster)
+int resetTime = 6000;		//in milliseconds
 
 bool ignoreServer = false;
 int menuePointer;
@@ -163,7 +201,10 @@ bool saveConfig()
 	json["MatrixType"] = MatrixType2;
 	json["matrixCorrection"] = matrixTempCorrection;
 	json["Port"] = Port;
-
+	json["ip"] = WiFi.localIP().toString();
+	json["gateway"] = WiFi.gatewayIP().toString();
+	json["subnet"] = WiFi.subnetMask().toString();
+	json["dns"] = WiFi.dnsIP().toString();
 	//json["temp"] = tempState;
 	//json["usbWifi"] = USBConnection;
 	//json["ldr"] = ldrState;
@@ -185,6 +226,18 @@ bool saveConfig()
 	configFile.close();
 	//end save
 	return true;
+}
+
+// Added Webpage call with HTML Code and Netconfig
+void CallWebpage()
+{
+	server.send(200, "text/html", HTMLCode());
+}
+
+void NetConfig()
+{
+	wifiManager.resetSettings();
+	ESP.reset();
 }
 
 void debuggingWithMatrix(String text)
@@ -575,6 +628,46 @@ void serverSearch(int rounds, int typ, int x, int y)
 		}
 	}
 	matrix->show();
+}
+
+void checkReset()
+{
+	int resetTimeShow = 0;
+	int resetStartTime = millis();
+	while (digitalRead(tasterPin[0]) && digitalRead(tasterPin[2]))
+	{
+
+		int showTime = (resetTime + (resetStartTime - millis())) / 1000;
+
+		if (resetTimeShow != showTime)
+		{
+			resetTimeShow = showTime;
+			matrix->clear();
+			matrix->setTextColor(matrix->Color(255, 0, 0));
+			matrix->setCursor(3, 6);
+			matrix->print("RESET! " + (String)showTime);
+			matrix->show();
+			if (showTime < 1)
+			{
+				matrix->clear();
+				matrix->setCursor(6, 6);
+				matrix->setTextColor(matrix->Color(255, 0, 0));
+				matrix->print("RESET!");
+				matrix->show();
+				delay(1000);
+				if (SPIFFS.begin())
+				{
+					delay(1000);
+					SPIFFS.remove("/awtrix.json");
+
+					SPIFFS.end();
+					delay(1000);
+				}
+				wifiManager.resetSettings();
+				ESP.reset();
+			}
+		}
+	}
 }
 
 void hardwareAnimatedSearch(int typ, int x, int y)
@@ -1211,6 +1304,19 @@ void setup()
 					strcpy(Port, json["Port"]);
 				}
 			}
+
+			if (json["ip"])
+			{
+				strcpy(static_ip, json["ip"]);
+				strcpy(static_gw, json["gateway"]);
+				strcpy(static_sn, json["subnet"]);
+				strcpy(static_dns, json["dns"]);
+			}
+			else
+			{
+				Serial.println("No Ip in Configfile!");
+			}
+
 			configFile.close();
 		}
 	}
@@ -1326,6 +1432,8 @@ void setup()
 		ESP.reset();
 	}
 
+	checkReset();
+
 	wifiManager.setAPStaticIPConfig(IPAddress(172, 217, 28, 1), IPAddress(172, 217, 28, 1), IPAddress(255, 255, 255, 0));
 	WiFiManagerParameter custom_awtrix_server("server", "AWTRIX Host", awtrix_server, 16);
 	WiFiManagerParameter custom_port("Port", "Matrix Port", Port, 5);
@@ -1336,6 +1444,16 @@ void setup()
 
 	wifiManager.setSaveConfigCallback(saveConfigCallback);
 	wifiManager.setAPCallback(configModeCallback);
+
+	IPAddress _ip,_gw,_sn,_dns;
+	_ip.fromString(static_ip);
+	_gw.fromString(static_gw);
+	_sn.fromString(static_sn);
+	_dns.fromString(static_dns);
+	char STAcompareIP[16] = "0.0.0.0";
+	if(static_ip != STAcompareIP){
+	wifiManager.setSTAStaticIPConfig(_ip, _gw, _sn, _dns);
+	}
 
 	wifiManager.addParameter(&custom_awtrix_server);
 	wifiManager.addParameter(&custom_port);
@@ -1356,10 +1474,7 @@ void setup()
 	//is needed for only one hotpsot!
 	WiFi.mode(WIFI_STA);
 
-	server.on("/", HTTP_GET, []() {
-		server.sendHeader("Connection", "close");
-		server.send(200, "text/html", serverIndex);
-	});
+	server.on("/", CallWebpage);
 	server.on(
 		"/update", HTTP_POST, []() {
       server.sendHeader("Connection", "close");
@@ -1391,6 +1506,8 @@ void setup()
         Serial.setDebugOutput(false);
       }
       yield(); });
+
+	server.on("/config", NetConfig);
 
 	server.begin();
 
