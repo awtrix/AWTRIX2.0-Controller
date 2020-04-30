@@ -107,7 +107,7 @@ int myCounter2;
 //int prefix = -5;
 
 //Reset time (Touch Taster)
-int resetTime = 6000;		//in milliseconds
+int resetTime = 6000; //in milliseconds
 
 bool ignoreServer = false;
 int menuePointer;
@@ -1445,14 +1445,15 @@ void setup()
 	wifiManager.setSaveConfigCallback(saveConfigCallback);
 	wifiManager.setAPCallback(configModeCallback);
 
-	IPAddress _ip,_gw,_sn,_dns;
+	IPAddress _ip, _gw, _sn, _dns;
 	_ip.fromString(static_ip);
 	_gw.fromString(static_gw);
 	_sn.fromString(static_sn);
 	_dns.fromString(static_dns);
 	char STAcompareIP[16] = "0.0.0.0";
-	if(static_ip != STAcompareIP){
-	wifiManager.setSTAStaticIPConfig(_ip, _gw, _sn, _dns);
+	if (static_ip != STAcompareIP)
+	{
+		wifiManager.setSTAStaticIPConfig(_ip, _gw, _sn, _dns);
 	}
 
 	wifiManager.addParameter(&custom_awtrix_server);
