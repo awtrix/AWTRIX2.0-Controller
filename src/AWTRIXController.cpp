@@ -42,7 +42,7 @@ int connectionTimout;
 bool MatrixType2 = false;
 int matrixTempCorrection = 0;
 
-String version = "0.25";
+String version = "0.26";
 char awtrix_server[16] = "0.0.0.0";
 char Port[5] = "7001"; // AWTRIX Host Port, default = 7001
 IPAddress Server;
@@ -773,7 +773,6 @@ void updateMatrix(byte payload[], int length)
 			uint16_t y0_coordinate = int(payload[3] << 8) + int(payload[4]);
 			int16_t width = payload[5];
 			int16_t height = payload[6];
-
 			matrix->drawRect(x0_coordinate, y0_coordinate, width, height, matrix->Color(payload[7], payload[8], payload[9]));
 			break;
 		}
@@ -1047,6 +1046,18 @@ void updateMatrix(byte payload[], int length)
 			}
 			Serial.println("Textlänge auf Matrix: " + (String)(textlaenge));
 			Serial.println("Test: " + tempString + " / Color: " + r + "/" + g + "/" + b);
+			break;
+		}
+		case 23:
+		{
+			//Command 23: DrawFilledRect
+
+			//Prepare the coordinates
+			uint16_t x0_coordinate = int(payload[1] << 8) + int(payload[2]);
+			uint16_t y0_coordinate = int(payload[3] << 8) + int(payload[4]);
+			int16_t width = payload[5];
+			int16_t height = payload[6];
+			matrix->fillRect(x0_coordinate, y0_coordinate, width, height, matrix->Color(payload[7], payload[8], payload[9]));
 			break;
 		}
 		}
