@@ -42,7 +42,7 @@ int connectionTimout;
 bool MatrixType2 = false;
 int matrixTempCorrection = 0;
 
-String version = "0.26";
+String version = "0.3";
 char awtrix_server[16] = "0.0.0.0";
 char Port[5] = "7001"; // AWTRIX Host Port, default = 7001
 IPAddress Server;
@@ -620,6 +620,8 @@ void hardwareAnimatedSearch(int typ, int x, int y)
 	}
 }
 
+
+
 void utf8ascii(char *s)
 {
 	int k = 0;
@@ -631,6 +633,46 @@ void utf8ascii(char *s)
 			s[k++] = c;
 	}
 	s[k] = 0;
+}
+
+void checkReset()
+{
+	int resetTimeShow = 0;
+	int resetStartTime = millis();
+	while (digitalRead(tasterPin[0]) && digitalRead(tasterPin[2]))
+	{
+
+		int showTime = (resetTime + (resetStartTime - millis())) / 1000;
+
+		if (resetTimeShow != showTime)
+		{
+			resetTimeShow = showTime;
+			matrix->clear();
+			matrix->setTextColor(matrix->Color(255, 0, 0));
+			matrix->setCursor(3, 6);
+			matrix->print("RESET! " + (String)showTime);
+			matrix->show();
+			if (showTime < 1)
+			{
+				matrix->clear();
+				matrix->setCursor(6, 6);
+				matrix->setTextColor(matrix->Color(255, 0, 0));
+				matrix->print("RESET!");
+				matrix->show();
+				delay(1000);
+				if (SPIFFS.begin())
+				{
+					delay(1000);
+					SPIFFS.remove("/awtrix.json");
+
+					SPIFFS.end();
+					delay(1000);
+				}
+				wifiManager.resetSettings();
+				ESP.reset();
+			}
+		}
+	}
 }
 
 String GetChipID()
@@ -1338,6 +1380,8 @@ void updateMatrix(byte payload[], int length)
 			wifiManager.resetSettings();
 			ESP.reset();
 		}
+
+		checkReset();
 
 		wifiManager.setAPStaticIPConfig(IPAddress(172, 217, 28, 1), IPAddress(172, 217, 28, 1), IPAddress(255, 255, 255, 0));
 		WiFiManagerParameter custom_awtrix_server("server", "AWTRIX Host", awtrix_server, 16);
