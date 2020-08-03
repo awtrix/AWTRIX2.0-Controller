@@ -1191,6 +1191,15 @@ void updateMatrix(byte payload[], int length)
 	void setup()
 	{
 		delay(2000);
+
+		pinMode(D0, INPUT);
+		pinMode(D0, INPUT_PULLUP);
+
+		pinMode(D4, INPUT);
+		pinMode(D4, INPUT_PULLUP);
+
+		pinMode(D8, INPUT);
+
 		Serial.setRxBufferSize(1024);
 		Serial.begin(115200);
 		mySoftwareSerial.begin(9600);
@@ -1318,6 +1327,42 @@ void updateMatrix(byte payload[], int length)
 		matrix->setBrightness(80);
 		matrix->setFont(&TomThumb);
 
+		//Reset with Tasters...
+		int zeit = millis();
+		boolean tasterReset = false;
+		int zahl = 5;
+		int zahlAlt = 6;
+		while(digitalRead(D0) && digitalRead(D8)){
+			if(zahl!=zahlAlt){
+				matrix->clear();
+				matrix->setTextColor(matrix->Color(255, 0, 0));
+				matrix->setCursor(6, 6);
+				matrix->print("RESET ");
+				matrix->print(zahl);
+				matrix->show();
+				zahlAlt = zahl;
+			}
+			zahl = 5-((millis()-zeit)/1000);
+			if(zahl==0){
+				matrix->clear();
+				matrix->setTextColor(matrix->Color(255, 0, 0));
+				matrix->setCursor(6, 6);
+				matrix->print("RESET!");
+				matrix->show();
+				delay(1000);
+				if (SPIFFS.begin())
+				{
+					delay(1000);
+					SPIFFS.remove("/awtrix.json");
+
+					SPIFFS.end();
+					delay(1000);
+				}
+				wifiManager.resetSettings();
+				ESP.reset();
+			}
+		}
+		/*
 		if (drd.detect())
 		{
 			//Serial.println("** Double reset boot **");
@@ -1338,6 +1383,7 @@ void updateMatrix(byte payload[], int length)
 			wifiManager.resetSettings();
 			ESP.reset();
 		}
+		*/
 
 		wifiManager.setAPStaticIPConfig(IPAddress(172, 217, 28, 1), IPAddress(172, 217, 28, 1), IPAddress(255, 255, 255, 0));
 		WiFiManagerParameter custom_awtrix_server("server", "AWTRIX Host", awtrix_server, 16);
@@ -1489,14 +1535,6 @@ void updateMatrix(byte payload[], int length)
 
 		client.setServer(awtrix_server, atoi(Port));
 		client.setCallback(callback);
-
-		pinMode(D0, INPUT);
-		pinMode(D0, INPUT_PULLUP);
-
-		pinMode(D4, INPUT);
-		pinMode(D4, INPUT_PULLUP);
-
-		pinMode(D8, INPUT);
 
 		ignoreServer = false;
 
