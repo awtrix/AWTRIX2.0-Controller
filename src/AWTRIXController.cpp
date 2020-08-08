@@ -1060,6 +1060,16 @@ void updateMatrix(byte payload[], int length)
 			matrix->fillRect(x0_coordinate, y0_coordinate, width, height, matrix->Color(payload[7], payload[8], payload[9]));
 			break;
 		}
+				case 24:
+		{
+			myMP3.loop(payload[1]);
+			break;
+		}
+		case 25:
+		{
+			myMP3.advertise(payload[1]);
+			break;
+		}		
 		}
 		}
 	}
