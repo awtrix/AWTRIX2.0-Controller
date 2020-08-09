@@ -42,7 +42,7 @@ int connectionTimout;
 bool MatrixType2 = false;
 int matrixTempCorrection = 0;
 
-String version = "0.3";
+String version = "0.35";
 char awtrix_server[16] = "0.0.0.0";
 char Port[5] = "7001"; // AWTRIX Host Port, default = 7001
 IPAddress Server;
@@ -620,8 +620,6 @@ void hardwareAnimatedSearch(int typ, int x, int y)
 	}
 }
 
-
-
 void utf8ascii(char *s)
 {
 	int k = 0;
@@ -633,46 +631,6 @@ void utf8ascii(char *s)
 			s[k++] = c;
 	}
 	s[k] = 0;
-}
-
-void checkReset()
-{
-	int resetTimeShow = 0;
-	int resetStartTime = millis();
-	while (digitalRead(tasterPin[0]) && digitalRead(tasterPin[2]))
-	{
-
-		int showTime = (resetTime + (resetStartTime - millis())) / 1000;
-
-		if (resetTimeShow != showTime)
-		{
-			resetTimeShow = showTime;
-			matrix->clear();
-			matrix->setTextColor(matrix->Color(255, 0, 0));
-			matrix->setCursor(3, 6);
-			matrix->print("RESET! " + (String)showTime);
-			matrix->show();
-			if (showTime < 1)
-			{
-				matrix->clear();
-				matrix->setCursor(6, 6);
-				matrix->setTextColor(matrix->Color(255, 0, 0));
-				matrix->print("RESET!");
-				matrix->show();
-				delay(1000);
-				if (SPIFFS.begin())
-				{
-					delay(1000);
-					SPIFFS.remove("/awtrix.json");
-
-					SPIFFS.end();
-					delay(1000);
-				}
-				wifiManager.resetSettings();
-				ESP.reset();
-			}
-		}
-	}
 }
 
 String GetChipID()
@@ -977,6 +935,8 @@ void updateMatrix(byte payload[], int length)
 		case 19:
 		{
 			//Command 18: Stop
+			myMP3.stopAdvertise();
+			delay(50);
 			myMP3.stop();
 			break;
 		}
@@ -1102,6 +1062,16 @@ void updateMatrix(byte payload[], int length)
 			matrix->fillRect(x0_coordinate, y0_coordinate, width, height, matrix->Color(payload[7], payload[8], payload[9]));
 			break;
 		}
+		case 24:
+		{
+			myMP3.loop(payload[1]);
+			break;
+		}
+		case 25:
+		{
+			myMP3.advertise(payload[1]);
+			break;
+		}		
 		}
 		}
 	}
@@ -1233,6 +1203,15 @@ void updateMatrix(byte payload[], int length)
 	void setup()
 	{
 		delay(2000);
+
+		pinMode(D0, INPUT);
+		pinMode(D0, INPUT_PULLUP);
+
+		pinMode(D4, INPUT);
+		pinMode(D4, INPUT_PULLUP);
+
+		pinMode(D8, INPUT);
+
 		Serial.setRxBufferSize(1024);
 		Serial.begin(115200);
 		mySoftwareSerial.begin(9600);
@@ -1360,6 +1339,42 @@ void updateMatrix(byte payload[], int length)
 		matrix->setBrightness(80);
 		matrix->setFont(&TomThumb);
 
+		//Reset with Tasters...
+		int zeit = millis();
+		boolean tasterReset = false;
+		int zahl = 5;
+		int zahlAlt = 6;
+		while(digitalRead(D0) && digitalRead(D8)){
+			if(zahl!=zahlAlt){
+				matrix->clear();
+				matrix->setTextColor(matrix->Color(255, 0, 0));
+				matrix->setCursor(6, 6);
+				matrix->print("RESET ");
+				matrix->print(zahl);
+				matrix->show();
+				zahlAlt = zahl;
+			}
+			zahl = 5-((millis()-zeit)/1000);
+			if(zahl==0){
+				matrix->clear();
+				matrix->setTextColor(matrix->Color(255, 0, 0));
+				matrix->setCursor(6, 6);
+				matrix->print("RESET!");
+				matrix->show();
+				delay(1000);
+				if (SPIFFS.begin())
+				{
+					delay(1000);
+					SPIFFS.remove("/awtrix.json");
+
+					SPIFFS.end();
+					delay(1000);
+				}
+				wifiManager.resetSettings();
+				ESP.reset();
+			}
+		}
+		/*
 		if (drd.detect())
 		{
 			//Serial.println("** Double reset boot **");
@@ -1380,8 +1395,7 @@ void updateMatrix(byte payload[], int length)
 			wifiManager.resetSettings();
 			ESP.reset();
 		}
-
-		checkReset();
+		*/
 
 		wifiManager.setAPStaticIPConfig(IPAddress(172, 217, 28, 1), IPAddress(172, 217, 28, 1), IPAddress(255, 255, 255, 0));
 		WiFiManagerParameter custom_awtrix_server("server", "AWTRIX Host", awtrix_server, 16);
@@ -1533,14 +1547,6 @@ void updateMatrix(byte payload[], int length)
 
 		client.setServer(awtrix_server, atoi(Port));
 		client.setCallback(callback);
-
-		pinMode(D0, INPUT);
-		pinMode(D0, INPUT_PULLUP);
-
-		pinMode(D4, INPUT);
-		pinMode(D4, INPUT_PULLUP);
-
-		pinMode(D8, INPUT);
 
 		ignoreServer = false;
 
