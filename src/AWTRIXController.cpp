@@ -42,7 +42,7 @@ int connectionTimout;
 bool MatrixType2 = false;
 int matrixTempCorrection = 0;
 
-String version = "0.26";
+String version = "0.34";
 char awtrix_server[16] = "0.0.0.0";
 char Port[5] = "7001"; // AWTRIX Host Port, default = 7001
 IPAddress Server;
@@ -935,6 +935,8 @@ void updateMatrix(byte payload[], int length)
 		case 19:
 		{
 			//Command 18: Stop
+			myMP3.stopAdvertise();
+			delay(50);
 			myMP3.stop();
 			break;
 		}
