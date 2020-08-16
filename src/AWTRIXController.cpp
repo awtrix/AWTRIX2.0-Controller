@@ -33,7 +33,11 @@
 BME280<> BMESensor;
 Adafruit_HTU21DF htu = Adafruit_HTU21DF();
 
-int tempState = false;		// 0 = None ; 1 = BME280 ; 2 = htu21d
+enum MsgType {MsgType_Wifi, MsgType_Host, MsgType_Temp, MsgType_Audio, MsgType_Gest, MsgType_LDR, MsgType_Other};
+enum TempSensor {TempSensor_None, TempSensor_BME280, TempSensor_HTU21D}; // None = 0
+
+TempSensor tempState = TempSensor_None;
+
 int ldrState = 1000;		// 0 = None
 bool USBConnection = false; // true = usb...
 bool WIFIConnection = false;
@@ -445,7 +449,7 @@ void hardwareAnimatedUncheck(int typ, int x, int y)
 	}
 }
 
-void hardwareAnimatedCheck(int typ, int x, int y)
+void hardwareAnimatedCheck(MsgType typ, int x, int y)
 {
 	int wifiCheckTime = millis();
 	int wifiCheckPoints = 0;
@@ -456,27 +460,27 @@ void hardwareAnimatedCheck(int typ, int x, int y)
 			matrix->clear();
 			switch (typ)
 			{
-			case 0:
+			case MsgType_Wifi:
 				matrix->setCursor(7, 6);
 				matrix->print("WiFi");
 				break;
-			case 1:
+			case MsgType_Host:
 				matrix->setCursor(5, 6);
 				matrix->print("Host");
 				break;
-			case 2:
+			case MsgType_Temp:
 				matrix->setCursor(7, 6);
 				matrix->print("Temp");
 				break;
-			case 3:
+			case MsgType_Audio:
 				matrix->setCursor(3, 6);
 				matrix->print("Audio");
 				break;
-			case 4:
+			case MsgType_Gest:
 				matrix->setCursor(3, 6);
 				matrix->print("Gest.");
 				break;
-			case 5:
+			case MsgType_LDR:
 				matrix->setCursor(7, 6);
 				matrix->print("LDR");
 				break;
@@ -846,24 +850,24 @@ void updateMatrix(byte payload[], int length)
 				root["LUX"] = NULL;
 			}
 
-			BMESensor.refresh();
-			if (tempState == 1)
+			switch (tempState)
 			{
+			case TempSensor_BME280:
+				BMESensor.refresh();
 				root["Temp"] = BMESensor.temperature;
 				root["Hum"] = BMESensor.humidity;
 				root["hPa"] = BMESensor.pressure;
-			}
-			else if (tempState == 2)
-			{
+				break;
+			case TempSensor_HTU21D:
 				root["Temp"] = htu.readTemperature();
 				root["Hum"] = htu.readHumidity();
 				root["hPa"] = 0;
-			}
-			else
-			{
+				break;
+			default:
 				root["Temp"] = 0;
 				root["Hum"] = 0;
 				root["hPa"] = 0;
+				break;
 			}
 
 			String JS;
@@ -1474,7 +1478,7 @@ void updateMatrix(byte payload[], int length)
 			ESP.reset();
 		}
 
-		hardwareAnimatedCheck(0, 27, 2);
+		hardwareAnimatedCheck(MsgType_Wifi, 27, 2);
 
 		delay(1000); //is needed for the dfplayer to startup
 
@@ -1483,32 +1487,32 @@ void updateMatrix(byte payload[], int length)
 		if (BMESensor.begin())
 		{
 			//temp OK
-			tempState = 1;
-			hardwareAnimatedCheck(2, 29, 2);
+			tempState = TempSensor_BME280;
+			hardwareAnimatedCheck(MsgType_Temp, 29, 2);
 		}
-		if (htu.begin())
+		else if (htu.begin())
 		{
-			tempState = 2;
-			hardwareAnimatedCheck(2, 29, 2);
+			tempState = TempSensor_HTU21D;
+			hardwareAnimatedCheck(MsgType_Temp, 29, 2);
 		}
 
 		if (myMP3.begin(mySoftwareSerial))
 		{ //Use softwareSerial to communicate with mp3.
-			hardwareAnimatedCheck(3, 29, 2);
+			hardwareAnimatedCheck(MsgType_Audio, 29, 2);
 		}
 
 		attachInterrupt(APDS9960_INT, interruptRoutine, FALLING);
 		apds.enableGestureSensor(true);
 		if (apds.init())
 		{
-			hardwareAnimatedCheck(4, 29, 2);
+			hardwareAnimatedCheck(MsgType_Gest, 29, 2);
 			pinMode(APDS9960_INT, INPUT);
 		}
 
 		photocell.setPhotocellPositionOnGround(false);
 		if (photocell.getCurrentLux() > 1)
 		{
-			hardwareAnimatedCheck(5, 29, 2);
+			hardwareAnimatedCheck(MsgType_LDR, 29, 2);
 		}
 
 		ArduinoOTA.onStart([&]() {
