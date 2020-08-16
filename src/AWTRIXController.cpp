@@ -24,6 +24,7 @@
 #include <Wire.h>
 #include <BME280_t.h>
 #include "Adafruit_HTU21DF.h"
+#include <Adafruit_BMP280.h>
 
 #include "DFRobotDFPlayerMini.h"
 
@@ -31,10 +32,11 @@
 
 // instantiate temp sensor
 BME280<> BMESensor;
+Adafruit_BMP280 BMPSensor; // use I2C interface
 Adafruit_HTU21DF htu = Adafruit_HTU21DF();
 
 enum MsgType {MsgType_Wifi, MsgType_Host, MsgType_Temp, MsgType_Audio, MsgType_Gest, MsgType_LDR, MsgType_Other};
-enum TempSensor {TempSensor_None, TempSensor_BME280, TempSensor_HTU21D}; // None = 0
+enum TempSensor {TempSensor_None, TempSensor_BME280, TempSensor_HTU21D, TempSensor_BMP280}; // None = 0
 
 TempSensor tempState = TempSensor_None;
 
@@ -863,6 +865,15 @@ void updateMatrix(byte payload[], int length)
 				root["Hum"] = htu.readHumidity();
 				root["hPa"] = 0;
 				break;
+			case TempSensor_BMP280:
+				sensors_event_t temp_event, pressure_event;
+				BMPSensor.getTemperatureSensor()->getEvent(&temp_event);
+				BMPSensor.getPressureSensor()->getEvent(&pressure_event);
+
+				root["Temp"] = temp_event.temperature;
+				root["Hum"] = 0;
+				root["hPa"] = pressure_event.pressure;
+				break;
 			default:
 				root["Temp"] = 0;
 				root["Hum"] = 0;
@@ -1495,6 +1506,19 @@ void updateMatrix(byte payload[], int length)
 			tempState = TempSensor_HTU21D;
 			hardwareAnimatedCheck(MsgType_Temp, 29, 2);
 		}
+		else if (BMPSensor.begin(BMP280_ADDRESS_ALT) || BMPSensor.begin(BMP280_ADDRESS))
+		{
+
+			/* Default settings from datasheet. */
+			BMPSensor.setSampling(Adafruit_BMP280::MODE_NORMAL,     /* Operating Mode. */
+							Adafruit_BMP280::SAMPLING_X2,     /* Temp. oversampling */
+							Adafruit_BMP280::SAMPLING_X16,    /* Pressure oversampling */
+							Adafruit_BMP280::FILTER_X16,      /* Filtering. */
+							Adafruit_BMP280::STANDBY_MS_500); /* Standby time. */
+			tempState = TempSensor_BMP280;
+			hardwareAnimatedCheck(MsgType_Temp, 29, 2);
+		}
+
 
 		if (myMP3.begin(mySoftwareSerial))
 		{ //Use softwareSerial to communicate with mp3.
