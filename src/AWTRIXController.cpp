@@ -76,6 +76,8 @@ int menuePointer;
 
 //Taster_mid
 int tasterPin[] = {D0, D4, D8};
+int tasterCount = 3;
+
 int timeoutTaster[] = {0, 0, 0, 0};
 bool pushed[] = {false, false, false, false};
 int blockTimeTaster[] = {0, 0, 0, 0};
@@ -1204,13 +1206,9 @@ void updateMatrix(byte payload[], int length)
 	{
 		delay(2000);
 
-		pinMode(D0, INPUT);
-		pinMode(D0, INPUT_PULLUP);
-
-		pinMode(D4, INPUT);
-		pinMode(D4, INPUT_PULLUP);
-
-		pinMode(D8, INPUT);
+		for (int i = 0; i < tasterCount; i++) {
+			pinMode(tasterPin[i], INPUT_PULLUP);
+		}
 
 		Serial.setRxBufferSize(1024);
 		Serial.begin(115200);
