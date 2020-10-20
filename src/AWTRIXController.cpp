@@ -1681,6 +1681,7 @@ void loop()
 
 	if (millis() >= time_now + checkingperiod)
 	{
+		time_now += checkingperiod;
 		Input = temperature.readTemperatureC();
 		if (Input > fanStart)
 		{
