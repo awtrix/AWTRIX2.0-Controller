@@ -1240,13 +1240,9 @@ void setup()
 {
 	delay(2000);
 
-	pinMode(D0, INPUT);
-	pinMode(D0, INPUT_PULLUP);
-
-	pinMode(D4, INPUT);
-	pinMode(D4, INPUT_PULLUP);
-
-	pinMode(D8, INPUT);
+	for (int i = 0; i < tasterCount; i++) {
+			pinMode(tasterPin[i], INPUT_PULLUP);
+		}
 
 
 	Serial.setRxBufferSize(1024);
