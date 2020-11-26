@@ -50,7 +50,7 @@ int matrixTempCorrection = 0;
 
 String version = "0.37";
 char awtrix_server[16] = "0.0.0.0";
-char Port[5] = "7001"; // AWTRIX Host Port, default = 7001
+char Port[6] = "7001"; // AWTRIX Host Port, default = 7001
 IPAddress Server;
 WiFiClient espClient;
 PubSubClient client(espClient);
