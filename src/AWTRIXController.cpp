@@ -48,7 +48,7 @@ int connectionTimout;
 bool MatrixType2 = false;
 int matrixTempCorrection = 0;
 
-String version = "0.35";
+String version = "0.37";
 char awtrix_server[16] = "0.0.0.0";
 char Port[5] = "7001"; // AWTRIX Host Port, default = 7001
 IPAddress Server;
