@@ -18,6 +18,7 @@
 #include <Wire.h>
 #include <SparkFun_APDS9960.h>
 #include "SoftwareSerial.h"
+#include "DHT.h"
 
 #include <WiFiManager.h>
 #include <DoubleResetDetect.h>
@@ -34,6 +35,7 @@
 BME280<> BMESensor;
 Adafruit_BMP280 BMPSensor; // use I2C interface
 Adafruit_HTU21DF htu = Adafruit_HTU21DF();
+DHT dht(10, DHT11);
 
 enum MsgType
 {
@@ -50,7 +52,8 @@ enum TempSensor
 	TempSensor_None,
 	TempSensor_BME280,
 	TempSensor_HTU21D,
-	TempSensor_BMP280
+	TempSensor_BMP280,
+	TempSensor_DHT11
 }; // None = 0
 
 TempSensor tempState = TempSensor_None;
@@ -875,11 +878,6 @@ void updateMatrix(byte payload[], int length)
 				root["Hum"] = BMESensor.humidity;
 				root["hPa"] = BMESensor.pressure;
 				break;
-			case TempSensor_HTU21D:
-				root["Temp"] = htu.readTemperature();
-				root["Hum"] = htu.readHumidity();
-				root["hPa"] = 0;
-				break;
 			case TempSensor_BMP280:
 				sensors_event_t temp_event, pressure_event;
 				BMPSensor.getTemperatureSensor()->getEvent(&temp_event);
@@ -889,6 +887,16 @@ void updateMatrix(byte payload[], int length)
 				root["Hum"] = 0;
 				root["hPa"] = pressure_event.pressure;
 				break;
+			case TempSensor_HTU21D:
+				root["Temp"] = htu.readTemperature();
+				root["Hum"] = htu.readHumidity();
+				root["hPa"] = 0;
+				break;
+			case TempSensor_DHT11:
+				root["Temp"] = dht.readTemperature();
+				root["Hum"] = dht.readHumidity();
+				root["hPa"] = 0;
+				break;			
 			default:
 				root["Temp"] = 0;
 				root["Hum"] = 0;
@@ -1521,6 +1529,9 @@ void setup()
 
 	delay(1000); //is needed for the dfplayer to startup
 
+
+		
+
 	//Checking periphery
 	Wire.begin(I2C_SDA, I2C_SCL);
 	if (BMESensor.begin())
@@ -1546,7 +1557,12 @@ void setup()
 		tempState = TempSensor_BMP280;
 		hardwareAnimatedCheck(MsgType_Temp, 29, 2);
 	}
-
+    dht.begin();
+	if (dht.read())
+	{
+		tempState = TempSensor_DHT11;
+		hardwareAnimatedCheck(MsgType_Temp, 29, 2);
+	}
 	if (myMP3.begin(mySoftwareSerial))
 	{ //Use softwareSerial to communicate with mp3.
 		hardwareAnimatedCheck(MsgType_Audio, 29, 2);
