@@ -44,12 +44,8 @@ int matrixTempCorrection = 0;
 
 String version = "0.34";
 char awtrix_server[16] = "0.0.0.0";
-<<<<<<< Updated upstream
-char Port[5] = "7001"; // AWTRIX Host Port, default = 7001
-=======
 char awtrix_name[32];
 char Port[6] = "7001"; // AWTRIX Host Port, default = 7001
->>>>>>> Stashed changes
 IPAddress Server;
 WiFiClient espClient;
 PubSubClient client(espClient);
@@ -1086,12 +1082,6 @@ void updateMatrix(byte payload[], int length)
 		}
 	}
 
-<<<<<<< Updated upstream
-	void callback(char *topic, byte *payload, unsigned int length)
-	{
-		WIFIConnection = true;
-		updateMatrix(payload, length);
-=======
 void callback(char *topic, byte *payload, unsigned int length)
 {
 	WIFIConnection = true;
@@ -1108,7 +1098,6 @@ void reconnect()
 		//Serial.println("connected to server!");
 		client.subscribe((clientId + F("/#")).c_str());
 		client.publish("matrixClient", "connected");
->>>>>>> Stashed changes
 	}
 
 	void reconnect()
@@ -1186,13 +1175,6 @@ void reconnect()
 		}
 	}
 
-<<<<<<< Updated upstream
-	void flashProgress(unsigned int progress, unsigned int total)
-	{
-		matrix->setBrightness(80);
-		long num = 32 * 8 * progress / total;
-		for (unsigned char y = 0; y < 8; y++)
-=======
 void flashProgress(unsigned int progress, unsigned int total)
 {
 	matrix->setBrightness(80);
@@ -1200,7 +1182,6 @@ void flashProgress(unsigned int progress, unsigned int total)
 	for (unsigned char y = 0; y < 8; y++)
 	{
 		for (unsigned char x = 0; x < matrixWidth; x++)
->>>>>>> Stashed changes
 		{
 			for (unsigned char x = 0; x < 32; x++)
 			{
@@ -1243,18 +1224,10 @@ void flashProgress(unsigned int progress, unsigned int total)
 	{
 		delay(2000);
 
-<<<<<<< Updated upstream
-		pinMode(D0, INPUT);
-		pinMode(D0, INPUT_PULLUP);
-
-		pinMode(D4, INPUT);
-		pinMode(D4, INPUT_PULLUP);
-=======
 	for (int i = 0; i < tasterCount; i++)
 	{
 		pinMode(tasterPin[i], INPUT_PULLUP);
 	}
->>>>>>> Stashed changes
 
 		pinMode(D8, INPUT);
 
@@ -1294,16 +1267,6 @@ void flashProgress(unsigned int progress, unsigned int total)
 				configFile.close();
 			}
 		}
-<<<<<<< Updated upstream
-		else
-		{
-			//error
-		}
-
-		Serial.println("Matrix Type");
-
-		if (!MatrixType2)
-=======
 	}
 	else
 	{
@@ -1412,7 +1375,6 @@ void flashProgress(unsigned int progress, unsigned int total)
 	while (!digitalRead(D4))
 	{
 		if (zahl != zahlAlt)
->>>>>>> Stashed changes
 		{
 			matrix = new FastLED_NeoMatrix(leds, 32, 8, NEO_MATRIX_TOP + NEO_MATRIX_LEFT + NEO_MATRIX_COLUMNS + NEO_MATRIX_ZIGZAG);
 		}
@@ -1554,25 +1516,6 @@ void flashProgress(unsigned int progress, unsigned int total)
 		}
 		*/
 
-<<<<<<< Updated upstream
-		wifiManager.setAPStaticIPConfig(IPAddress(172, 217, 28, 1), IPAddress(172, 217, 28, 1), IPAddress(255, 255, 255, 0));
-		WiFiManagerParameter custom_awtrix_server("server", "AWTRIX Host", awtrix_server, 16);
-		WiFiManagerParameter custom_port("Port", "Matrix Port", Port, 5);
-		WiFiManagerParameter p_MatrixType2("MatrixType2", "MatrixType 2", "T", 2, "type=\"checkbox\" ", WFM_LABEL_BEFORE);
-		// Just a quick hint
-		WiFiManagerParameter p_hint("<small>Please configure your AWTRIX Host IP (without Port), and check MatrixType 2 if the arrangement of the pixels is different<br></small><br><br>");
-		WiFiManagerParameter p_lineBreak_notext("<p></p>");
-
-		wifiManager.setSaveConfigCallback(saveConfigCallback);
-		wifiManager.setAPCallback(configModeCallback);
-
-		wifiManager.addParameter(&custom_awtrix_server);
-		wifiManager.addParameter(&custom_port);
-		wifiManager.addParameter(&p_lineBreak_notext);
-		wifiManager.addParameter(&p_MatrixType2);
-		wifiManager.addParameter(&p_lineBreak_notext);
-		//wifiManager.setCustomHeadElement("<style>html{ background-color: #607D8B;}</style>");
-=======
 	wifiManager.setAPStaticIPConfig(IPAddress(172, 217, 28, 1), IPAddress(172, 217, 28, 1), IPAddress(255, 255, 255, 0));
 	WiFiManagerParameter custom_awtrix_name("name", "Individial name", awtrix_name, 16);
 	WiFiManagerParameter custom_awtrix_server("server", "Host IP", awtrix_server, 16);
@@ -1594,7 +1537,6 @@ void flashProgress(unsigned int progress, unsigned int total)
 	wifiManager.addParameter(&p_MatrixType2);
 	wifiManager.addParameter(&p_lineBreak_notext);
 	//wifiManager.setCustomHeadElement("<style>html{ background-color: #607D8B;}</style>");
->>>>>>> Stashed changes
 
 		hardwareAnimatedSearch(0, 24, 0);
 
@@ -1710,13 +1652,6 @@ void flashProgress(unsigned int progress, unsigned int total)
 
 		bufferpointer = 0;
 
-<<<<<<< Updated upstream
-		myTime = millis() - 500;
-		myTime2 = millis() - 1000;
-		myTime3 = millis() - 500;
-		myCounter = 0;
-		myCounter2 = 0;
-=======
 	for (int x = matrixWidth; x >= -90; x--)
 	{
 		matrix->clear();
@@ -1726,7 +1661,6 @@ void flashProgress(unsigned int progress, unsigned int total)
 		matrix->show();
 		delay(40);
 	}
->>>>>>> Stashed changes
 
 		for (int x = 32; x >= -90; x--)
 		{
