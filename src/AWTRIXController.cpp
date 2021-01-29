@@ -44,7 +44,12 @@ int matrixTempCorrection = 0;
 
 String version = "0.34";
 char awtrix_server[16] = "0.0.0.0";
+<<<<<<< Updated upstream
 char Port[5] = "7001"; // AWTRIX Host Port, default = 7001
+=======
+char awtrix_name[32];
+char Port[6] = "7001"; // AWTRIX Host Port, default = 7001
+>>>>>>> Stashed changes
 IPAddress Server;
 WiFiClient espClient;
 PubSubClient client(espClient);
@@ -129,8 +134,12 @@ DFRobotDFPlayerMini myMP3;
 SoftwareSerial mySoftwareSerial(D7, D5); // RX, TX
 
 // Matrix Settings
-CRGB leds[256];
+int matrixWidth = 32;
+#define ledCount 256
+CRGB leds[ledCount];
 FastLED_NeoMatrix *matrix;
+
+
 
 static byte c1; // Last character buffer
 byte utf8ascii(byte ascii)
@@ -834,14 +843,15 @@ void updateMatrix(byte payload[], int length)
 			root["wifirssi"] = String(WiFi.RSSI());
 			root["wifiquality"] = GetRSSIasQuality(WiFi.RSSI());
 			root["wifissid"] = WiFi.SSID();
-			root["IP"] = WiFi.localIP().toString();
+			root["name"] = awtrix_name;
+			root["ip"] = WiFi.localIP().toString();
 			if (ldrState != 0)
 			{
-				root["LUX"] = photocell.getCurrentLux();
+				root["lux"] = photocell.getCurrentLux();
 			}
 			else
 			{
-				root["LUX"] = NULL;
+				root["lux"] = NULL;
 			}
 
 			BMESensor.refresh();
@@ -1025,10 +1035,10 @@ void updateMatrix(byte payload[], int length)
 			int textlaenge;
 			while (true)
 			{
-				matrix->setCursor(32, 6);
+				matrix->setCursor(matrixWidth, 6);
 				matrix->print(utf8ascii(tempString));
-				textlaenge = (int)matrix->getCursorX() - 32;
-				for (int i = 31; i > (-textlaenge); i--)
+				textlaenge = (int)matrix->getCursorX() - matrixWidth;
+				for (int i = matrixWidth-1; i > (-textlaenge); i--)
 				{
 					int starzeit = millis();
 					matrix->clear();
@@ -1076,10 +1086,29 @@ void updateMatrix(byte payload[], int length)
 		}
 	}
 
+<<<<<<< Updated upstream
 	void callback(char *topic, byte *payload, unsigned int length)
 	{
 		WIFIConnection = true;
 		updateMatrix(payload, length);
+=======
+void callback(char *topic, byte *payload, unsigned int length)
+{
+	WIFIConnection = true;
+	updateMatrix(payload, length);
+}
+
+void reconnect()
+{
+	//Serial.println("reconnecting to " + String(awtrix_server));
+	String clientId = awtrix_name;
+	hardwareAnimatedSearch(1, 28, 0);
+	if (client.connect(clientId.c_str()))
+	{
+		//Serial.println("connected to server!");
+		client.subscribe((clientId + F("/#")).c_str());
+		client.publish("matrixClient", "connected");
+>>>>>>> Stashed changes
 	}
 
 	void reconnect()
@@ -1157,11 +1186,21 @@ void updateMatrix(byte payload[], int length)
 		}
 	}
 
+<<<<<<< Updated upstream
 	void flashProgress(unsigned int progress, unsigned int total)
 	{
 		matrix->setBrightness(80);
 		long num = 32 * 8 * progress / total;
 		for (unsigned char y = 0; y < 8; y++)
+=======
+void flashProgress(unsigned int progress, unsigned int total)
+{
+	matrix->setBrightness(80);
+	long num = matrixWidth * 8 * progress / total;
+	for (unsigned char y = 0; y < 8; y++)
+	{
+		for (unsigned char x = 0; x < matrixWidth; x++)
+>>>>>>> Stashed changes
 		{
 			for (unsigned char x = 0; x < 32; x++)
 			{
@@ -1204,11 +1243,18 @@ void updateMatrix(byte payload[], int length)
 	{
 		delay(2000);
 
+<<<<<<< Updated upstream
 		pinMode(D0, INPUT);
 		pinMode(D0, INPUT_PULLUP);
 
 		pinMode(D4, INPUT);
 		pinMode(D4, INPUT_PULLUP);
+=======
+	for (int i = 0; i < tasterCount; i++)
+	{
+		pinMode(tasterPin[i], INPUT_PULLUP);
+	}
+>>>>>>> Stashed changes
 
 		pinMode(D8, INPUT);
 
@@ -1248,6 +1294,7 @@ void updateMatrix(byte payload[], int length)
 				configFile.close();
 			}
 		}
+<<<<<<< Updated upstream
 		else
 		{
 			//error
@@ -1256,6 +1303,116 @@ void updateMatrix(byte payload[], int length)
 		Serial.println("Matrix Type");
 
 		if (!MatrixType2)
+=======
+	}
+	else
+	{
+		//error
+	}
+
+	Serial.println("Matrix Type");
+
+	if (!MatrixType2)
+	{
+		matrix = new FastLED_NeoMatrix(leds, matrixWidth, 8, NEO_MATRIX_TOP + NEO_MATRIX_LEFT + NEO_MATRIX_COLUMNS + NEO_MATRIX_ZIGZAG);
+	}
+	else
+	{
+		matrix = new FastLED_NeoMatrix(leds, matrixWidth, 8, NEO_MATRIX_TOP + NEO_MATRIX_LEFT + NEO_MATRIX_ROWS + NEO_MATRIX_ZIGZAG);
+	}
+
+	switch (matrixTempCorrection)
+	{
+	case 0:
+		FastLED.addLeds<NEOPIXEL, D2>(leds, ledCount).setCorrection(TypicalLEDStrip);
+		break;
+	case 1:
+		FastLED.addLeds<NEOPIXEL, D2>(leds, ledCount).setTemperature(Candle);
+		break;
+	case 2:
+		FastLED.addLeds<NEOPIXEL, D2>(leds, ledCount).setTemperature(Tungsten40W);
+		break;
+	case 3:
+		FastLED.addLeds<NEOPIXEL, D2>(leds, ledCount).setTemperature(Tungsten100W);
+		break;
+	case 4:
+		FastLED.addLeds<NEOPIXEL, D2>(leds, ledCount).setTemperature(Halogen);
+		break;
+	case 5:
+		FastLED.addLeds<NEOPIXEL, D2>(leds, ledCount).setTemperature(CarbonArc);
+		break;
+	case 6:
+		FastLED.addLeds<NEOPIXEL, D2>(leds, ledCount).setTemperature(HighNoonSun);
+		break;
+	case 7:
+		FastLED.addLeds<NEOPIXEL, D2>(leds, ledCount).setTemperature(DirectSunlight);
+		break;
+	case 8:
+		FastLED.addLeds<NEOPIXEL, D2>(leds, ledCount).setTemperature(OvercastSky);
+		break;
+	case 9:
+		FastLED.addLeds<NEOPIXEL, D2>(leds, ledCount).setTemperature(ClearBlueSky);
+		break;
+	case 10:
+		FastLED.addLeds<NEOPIXEL, D2>(leds, ledCount).setTemperature(WarmFluorescent);
+		break;
+	case 11:
+		FastLED.addLeds<NEOPIXEL, D2>(leds, ledCount).setTemperature(StandardFluorescent);
+		break;
+	case 12:
+		FastLED.addLeds<NEOPIXEL, D2>(leds, ledCount).setTemperature(CoolWhiteFluorescent);
+		break;
+	case 13:
+		FastLED.addLeds<NEOPIXEL, D2>(leds, ledCount).setTemperature(FullSpectrumFluorescent);
+		break;
+	case 14:
+		FastLED.addLeds<NEOPIXEL, D2>(leds, ledCount).setTemperature(GrowLightFluorescent);
+		break;
+	case 15:
+		FastLED.addLeds<NEOPIXEL, D2>(leds, ledCount).setTemperature(BlackLightFluorescent);
+		break;
+	case 16:
+		FastLED.addLeds<NEOPIXEL, D2>(leds, ledCount).setTemperature(MercuryVapor);
+		break;
+	case 17:
+		FastLED.addLeds<NEOPIXEL, D2>(leds, ledCount).setTemperature(SodiumVapor);
+		break;
+	case 18:
+		FastLED.addLeds<NEOPIXEL, D2>(leds, ledCount).setTemperature(MetalHalide);
+		break;
+	case 19:
+		FastLED.addLeds<NEOPIXEL, D2>(leds, ledCount).setTemperature(HighPressureSodium);
+		break;
+	case 20:
+		FastLED.addLeds<NEOPIXEL, D2>(leds, ledCount).setTemperature(UncorrectedTemperature);
+		break;
+	default:
+		FastLED.addLeds<NEOPIXEL, D2>(leds, ledCount).setCorrection(TypicalLEDStrip);
+		break;
+	}
+
+	matrix->begin();
+	matrix->clear();
+	matrix->setTextWrap(false);
+	matrix->setBrightness(30);
+	matrix->setFont(&TomThumb);
+
+	//Reset with Tasters...
+	int zeit = millis();
+	int zahl = 5;
+	int zahlAlt = 6;
+	matrix->clear();
+	matrix->setTextColor(matrix->Color(255, 0, 255));
+	matrix->setCursor(9, 6);
+	matrix->print("BOOT");
+	matrix->show();
+
+
+	delay(2000);
+	while (!digitalRead(D4))
+	{
+		if (zahl != zahlAlt)
+>>>>>>> Stashed changes
 		{
 			matrix = new FastLED_NeoMatrix(leds, 32, 8, NEO_MATRIX_TOP + NEO_MATRIX_LEFT + NEO_MATRIX_COLUMNS + NEO_MATRIX_ZIGZAG);
 		}
@@ -1397,6 +1554,7 @@ void updateMatrix(byte payload[], int length)
 		}
 		*/
 
+<<<<<<< Updated upstream
 		wifiManager.setAPStaticIPConfig(IPAddress(172, 217, 28, 1), IPAddress(172, 217, 28, 1), IPAddress(255, 255, 255, 0));
 		WiFiManagerParameter custom_awtrix_server("server", "AWTRIX Host", awtrix_server, 16);
 		WiFiManagerParameter custom_port("Port", "Matrix Port", Port, 5);
@@ -1414,6 +1572,29 @@ void updateMatrix(byte payload[], int length)
 		wifiManager.addParameter(&p_MatrixType2);
 		wifiManager.addParameter(&p_lineBreak_notext);
 		//wifiManager.setCustomHeadElement("<style>html{ background-color: #607D8B;}</style>");
+=======
+	wifiManager.setAPStaticIPConfig(IPAddress(172, 217, 28, 1), IPAddress(172, 217, 28, 1), IPAddress(255, 255, 255, 0));
+	WiFiManagerParameter custom_awtrix_name("name", "Individial name", awtrix_name, 16);
+	WiFiManagerParameter custom_awtrix_server("server", "Host IP", awtrix_server, 16);
+	WiFiManagerParameter custom_port("Port", "Matrix Port", Port, 6);
+	WiFiManagerParameter p_MatrixType2("MatrixType2", "MatrixType 2", "T", 2, "type=\"checkbox\" ", WFM_LABEL_BEFORE);
+	// Just a quick hint
+	WiFiManagerParameter host_hint("<small>Please configure your AWTRIX Host IP (without Port)</small><br><br>");
+	WiFiManagerParameter port_hint("<small>MatrixType 2 if the arrangement of the pixels is different</small><br><br>");
+	WiFiManagerParameter p_lineBreak_notext("<p></p>");
+
+	wifiManager.setSaveConfigCallback(saveConfigCallback);
+	wifiManager.setAPCallback(configModeCallback);
+	wifiManager.addParameter(&custom_awtrix_name);
+	wifiManager.addParameter(&custom_awtrix_server);
+	wifiManager.addParameter(&host_hint);
+	wifiManager.addParameter(&custom_port);
+	wifiManager.addParameter(&port_hint);
+	wifiManager.addParameter(&p_lineBreak_notext);
+	wifiManager.addParameter(&p_MatrixType2);
+	wifiManager.addParameter(&p_lineBreak_notext);
+	//wifiManager.setCustomHeadElement("<style>html{ background-color: #607D8B;}</style>");
+>>>>>>> Stashed changes
 
 		hardwareAnimatedSearch(0, 24, 0);
 
@@ -1529,11 +1710,23 @@ void updateMatrix(byte payload[], int length)
 
 		bufferpointer = 0;
 
+<<<<<<< Updated upstream
 		myTime = millis() - 500;
 		myTime2 = millis() - 1000;
 		myTime3 = millis() - 500;
 		myCounter = 0;
 		myCounter2 = 0;
+=======
+	for (int x = matrixWidth; x >= -90; x--)
+	{
+		matrix->clear();
+		matrix->setCursor(x, 6);
+		matrix->print("Host-IP: " + String(awtrix_server) + ":" + String(Port));
+		matrix->setTextColor(matrix->Color(0, 255, 50));
+		matrix->show();
+		delay(40);
+	}
+>>>>>>> Stashed changes
 
 		for (int x = 32; x >= -90; x--)
 		{
