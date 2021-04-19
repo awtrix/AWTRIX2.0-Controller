@@ -58,10 +58,11 @@ TempSensor tempState = TempSensor_None;
 int ldrState = 1000;		// 0 = None
 bool USBConnection = false; // true = usb...
 bool WIFIConnection = false;
+bool notify=false;
 int connectionTimout;
 int matrixTempCorrection = 0;
 
-String version = "0.4";
+String version = "0.42";
 char awtrix_server[16] = "0.0.0.0";
 char Port[6] = "7001"; // AWTRIX Host Port, default = 7001
 int matrixType = 0;
@@ -823,6 +824,9 @@ void updateMatrix(byte payload[], int length)
 		case 8:
 		{
 			//Command 8: Show
+			if (notify){
+				matrix->drawPixel(31, 0, matrix->Color(200,0, 0));
+			}
 			matrix->show();
 			break;
 		}
@@ -1108,6 +1112,11 @@ void updateMatrix(byte payload[], int length)
 			myMP3.advertise(payload[1]);
 			break;
 		}
+		case 26:
+		{
+			notify=payload[1];
+			break;
+		}
 		}
 	}
 }
@@ -1129,6 +1138,8 @@ void reconnect()
 		//Serial.println("connected to server!");
 		client.subscribe("awtrixmatrix/#");
 		client.publish("matrixClient", "connected");
+		matrix->fillScreen(matrix->Color(0, 0, 0));
+		matrix->show();
 	}
 }
 
@@ -1382,7 +1393,6 @@ void setup()
 	matrix->setTextWrap(false);
 	matrix->setBrightness(30);
 	matrix->setFont(&TomThumb);
-
 	//Reset with Tasters...
 	int zeit = millis();
 	int zahl = 5;
@@ -1456,7 +1466,7 @@ void setup()
 	// Just a quick hint
 	WiFiManagerParameter host_hint("<small>AWTRIX Host IP (without Port)<br></small><br><br>");
 	WiFiManagerParameter port_hint("<small>Communication Port (default: 7001)<br></small><br><br>");
-	WiFiManagerParameter matrix_hint("<small>Type 0: <br></small><br><br>");
+	WiFiManagerParameter matrix_hint("<small>0: Columns; 1: Tiles; 2: Rows <br></small><br><br>");
 	WiFiManagerParameter p_lineBreak_notext("<p></p>");
 
 	wifiManager.setSaveConfigCallback(saveConfigCallback);
@@ -1533,7 +1543,6 @@ void setup()
 	{
 
 		strcpy(awtrix_server, custom_awtrix_server.getValue());
-
 		matrixType =  atoi(custom_matrix_type.getValue());
 		strcpy(Port, custom_port.getValue());
 		saveConfig();
