@@ -89,12 +89,12 @@ int pressedTaster = 0;
 double Setpoint = 50;
 double fanStart = 35;
 double protectionHysteresis = 5;
-int protectionBrightness = 100;
+int protectionBrightness = 10;
 bool protection;
 double Input, Output;
 int fanPin = D6;
 Generic_LM75 temperature;
-PID myPID(&Input, &Output, &Setpoint, 2, 5, 1, P_ON_M, DIRECT);
+PID myPID(&Setpoint, &Output, &Input, 2, 5, 1, P_ON_M, DIRECT);
 int checkingperiod = 1000;
 unsigned long time_now = 0;
 
@@ -889,7 +889,15 @@ void updateMatrix(byte payload[], int length)
 		case 13:
 		{
 			int bri = payload[1];
-			matrix->setBrightness(min(bri, protectionBrightness));
+			if (protection)
+			{
+				matrix->setBrightness(min(bri, protectionBrightness));
+			}
+			else
+			{
+				matrix->setBrightness(bri);
+			}
+
 			break;
 		}
 		case 14:
@@ -1529,9 +1537,6 @@ void setup()
 
 	connectionTimout = millis();
 
-	Input = analogRead(0);
-	Setpoint = 100;
-
 	//turn the PID on
 	myPID.SetMode(AUTOMATIC);
 }
@@ -1683,14 +1688,31 @@ void loop()
 	{
 		time_now += checkingperiod;
 		Input = temperature.readTemperatureC();
+		Serial.println("Input " + String(Input));
+		//Serial.println("fanStart " + String(fanStart));
+		Serial.println("Setpoint" + String(Setpoint));
+		//Serial.println("protectionHysteresis " + String(protectionHysteresis));
 		if (Input > fanStart)
 		{
 			if (Input > Setpoint + protectionHysteresis)
 			{
 				protection = true;
 			}
-			myPID.SetMode(AUTOMATIC);
-			analogWrite(fanPin, Output);
+			else
+			{
+				protection = false;
+			}
+			myPID.Compute();
+			int val;
+
+			val = map(Output, 0, 30, 0, 1023);
+			analogWrite(fanPin, max(val, 1023));
+			//Serial.println("Analog " + String(val));
+			Serial.println(protection);
+		}
+		else
+		{
+			analogWrite(fanPin, 0);
 		}
 	}
 }
