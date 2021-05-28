@@ -26,7 +26,7 @@
 #include "Adafruit_HTU21DF.h"
 #include <Adafruit_BMP280.h>
 
-#include "DFRobotDFPlayerMini.h"
+#include <DFMiniMp3.h>
 
 #include "MenueControl/MenueControl.h"
 
@@ -62,7 +62,7 @@ bool notify=false;
 int connectionTimout;
 int matrixTempCorrection = 0;
 
-String version = "0.42";
+String version = "0.43";
 char awtrix_server[16] = "0.0.0.0";
 char Port[6] = "7001"; // AWTRIX Host Port, default = 7001
 int matrixType = 0;
@@ -148,9 +148,26 @@ bool updating = false;
 
 // Audio
 //DFPlayerMini_Fast myMP3;
-DFRobotDFPlayerMini myMP3;
+
+// forward declare the notify class, just the name
+//
+class Mp3Notify; 
+
+// define a handy type using serial and our notify class
+//
+
+
+// instance a DfMp3 object, 
+//
 
 SoftwareSerial mySoftwareSerial(D7, D5); // RX, TX
+typedef DFMiniMp3<SoftwareSerial, Mp3Notify> DfMp3; 
+DfMp3 dfmp3(mySoftwareSerial);
+
+class Mp3Notify
+{
+
+};
 
 // Matrix Settings
 CRGB leds[256];
@@ -840,9 +857,12 @@ void updateMatrix(byte payload[], int length)
 		{
 			//deprecated
 			//Command 10: Play
-			myMP3.volume(payload[2]);
+			
+  
+			dfmp3.setVolume(payload[2]);
 			delay(10);
-			myMP3.play(payload[1]);
+			dfmp3.playMp3FolderTrack(payload[1]);
+		
 			break;
 		}
 		case 11:
@@ -957,23 +977,24 @@ void updateMatrix(byte payload[], int length)
 		}
 		case 17:
 		{
+			
 			//Command 17: Volume
-			myMP3.volume(payload[1]);
-
+			dfmp3.setVolume(payload[1]);
 			break;
 		}
 		case 18:
 		{
 			//Command 18: Play
-			myMP3.playMp3Folder(payload[1]);
+			
+			dfmp3.playMp3FolderTrack(payload[1]);
 			break;
 		}
 		case 19:
 		{
 			//Command 18: Stop
-			myMP3.stopAdvertise();
+			dfmp3.stopAdvertisement();
 			delay(50);
-			myMP3.stop();
+			dfmp3.stop();
 			break;
 		}
 		case 20:
@@ -1104,12 +1125,13 @@ void updateMatrix(byte payload[], int length)
 		}
 		case 24:
 		{
-			myMP3.loop(payload[1]);
+			
+			dfmp3.loopGlobalTrack(payload[1]);
 			break;
 		}
 		case 25:
 		{
-			myMP3.advertise(payload[1]);
+			dfmp3.playAdvertisement(payload[1]);
 			break;
 		}
 		case 26:
@@ -1579,7 +1601,9 @@ void setup()
 		hardwareAnimatedCheck(MsgType_Temp, 29, 2);
 	}
 
-	if (myMP3.begin(mySoftwareSerial))
+	dfmp3.begin();
+
+	if (0)
 	{ //Use softwareSerial to communicate with mp3.
 		hardwareAnimatedCheck(MsgType_Audio, 29, 2);
 	}
