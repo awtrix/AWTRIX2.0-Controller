@@ -14,9 +14,7 @@
 #include <FastLED.h>
 #include <FastLED_NeoMatrix.h>
 #include <Fonts/TomThumb.h>
-#include <LightDependentResistor.h>
 #include <Wire.h>
-#include <SparkFun_APDS9960.h>
 #include "SoftwareSerial.h"
 
 #include <WiFiManager.h>
@@ -58,11 +56,11 @@ TempSensor tempState = TempSensor_None;
 int ldrState = 1000;		// 0 = None
 bool USBConnection = false; // true = usb...
 bool WIFIConnection = false;
-bool notify=false;
+bool notify = false;
 int connectionTimout;
 int matrixTempCorrection = 0;
 
-String version = "0.43";
+String version = "0.44";
 char awtrix_server[16] = "0.0.0.0";
 char Port[6] = "7001"; // AWTRIX Host Port, default = 7001
 int matrixType = 0;
@@ -128,17 +126,13 @@ int cfgStart = 0;
 bool shouldSaveConfig = false;
 
 /// LDR Config
-#define LDR_RESISTOR 1000 //ohms
 #define LDR_PIN A0
-#define LDR_PHOTOCELL LightDependentResistor::GL5516
-LightDependentResistor photocell(LDR_PIN, ldrState, LDR_PHOTOCELL);
+int LDRvalue = 0;
+static unsigned long lastTimeLDRCheck = 0;
+bool autoBrightness;
 
-// Gesture Sensor
-#define APDS9960_INT D6
 #define I2C_SDA D3
 #define I2C_SCL D1
-SparkFun_APDS9960 apds = SparkFun_APDS9960();
-volatile bool isr_flag = 0;
 
 #ifndef ICACHE_RAM_ATTR
 #define ICACHE_RAM_ATTR IRAM_ATTR
@@ -151,22 +145,20 @@ bool updating = false;
 
 // forward declare the notify class, just the name
 //
-class Mp3Notify; 
+class Mp3Notify;
 
 // define a handy type using serial and our notify class
 //
 
-
-// instance a DfMp3 object, 
+// instance a DfMp3 object,
 //
 
 SoftwareSerial mySoftwareSerial(D7, D5); // RX, TX
-typedef DFMiniMp3<SoftwareSerial, Mp3Notify> DfMp3; 
+typedef DFMiniMp3<SoftwareSerial, Mp3Notify> DfMp3;
 DfMp3 dfmp3(mySoftwareSerial);
 
 class Mp3Notify
 {
-
 };
 
 // Matrix Settings
@@ -210,7 +202,7 @@ bool saveConfig()
 
 	//json["temp"] = tempState;
 	//json["usbWifi"] = USBConnection;
-	//json["ldr"] = ldrState;
+	json["ldr"] = autoBrightness;
 	//json["gesture"] = gestureState;
 	//json["audio"] = audioState;
 
@@ -841,8 +833,9 @@ void updateMatrix(byte payload[], int length)
 		case 8:
 		{
 			//Command 8: Show
-			if (notify){
-				matrix->drawPixel(31, 0, matrix->Color(200,0, 0));
+			if (notify)
+			{
+				matrix->drawPixel(31, 0, matrix->Color(200, 0, 0));
 			}
 			matrix->show();
 			break;
@@ -857,12 +850,11 @@ void updateMatrix(byte payload[], int length)
 		{
 			//deprecated
 			//Command 10: Play
-			
-  
+
 			dfmp3.setVolume(payload[2]);
 			delay(10);
 			dfmp3.playMp3FolderTrack(payload[1]);
-		
+
 			break;
 		}
 		case 11:
@@ -881,16 +873,9 @@ void updateMatrix(byte payload[], int length)
 			root["wifirssi"] = String(WiFi.RSSI());
 			root["wifiquality"] = GetRSSIasQuality(WiFi.RSSI());
 			root["wifissid"] = WiFi.SSID();
+			root["serial"] = USBConnection;
 			root["IP"] = WiFi.localIP().toString();
-			if (ldrState != 0)
-			{
-				root["LUX"] = photocell.getCurrentLux();
-			}
-			else
-			{
-				root["LUX"] = NULL;
-			}
-
+			root["LDR"] = LDRvalue;
 			switch (tempState)
 			{
 			case TempSensor_BME280:
@@ -927,7 +912,16 @@ void updateMatrix(byte payload[], int length)
 		}
 		case 13:
 		{
-			matrix->setBrightness(payload[1]);
+			if (autoBrightness && LDRvalue > 7)
+			{
+				int bri = payload[1];
+				matrix->setBrightness(min(bri, LDRvalue / 4));
+			}
+			else
+			{
+				matrix->setBrightness(payload[1]);
+			}
+
 			break;
 		}
 		case 14:
@@ -935,7 +929,8 @@ void updateMatrix(byte payload[], int length)
 			//tempState = (int)payload[1];
 			//audioState = (int)payload[2];
 			//gestureState = (int)payload[3];
-			ldrState = int(payload[1] << 8) + int(payload[2]);
+			autoBrightness = int(payload[1]);
+			Serial.println(autoBrightness);
 			matrixTempCorrection = (int)payload[3];
 			matrix->clear();
 			matrix->setCursor(6, 6);
@@ -977,7 +972,7 @@ void updateMatrix(byte payload[], int length)
 		}
 		case 17:
 		{
-			
+
 			//Command 17: Volume
 			dfmp3.setVolume(payload[1]);
 			break;
@@ -985,7 +980,7 @@ void updateMatrix(byte payload[], int length)
 		case 18:
 		{
 			//Command 18: Play
-			
+
 			dfmp3.playMp3FolderTrack(payload[1]);
 			break;
 		}
@@ -1125,7 +1120,7 @@ void updateMatrix(byte payload[], int length)
 		}
 		case 24:
 		{
-			
+
 			dfmp3.loopGlobalTrack(payload[1]);
 			break;
 		}
@@ -1136,8 +1131,14 @@ void updateMatrix(byte payload[], int length)
 		}
 		case 26:
 		{
-			notify=payload[1];
+			notify = payload[1];
 			break;
+		}
+		case 27:
+		{
+			LDRvalue = analogRead(LDR_PIN);
+			int bri = payload[1];
+			matrix->setBrightness(min(bri, LDRvalue / 4));
 		}
 		}
 	}
@@ -1155,56 +1156,15 @@ void reconnect()
 	String clientId = "AWTRIXController-";
 	clientId += String(random(0xffff), HEX);
 	hardwareAnimatedSearch(1, 28, 0);
-	if (client.connect(clientId.c_str()))
+
+	if (client.connect(clientId.c_str(), "matrixDisconnect", 1, 0, WiFi.localIP().toString().c_str()))
 	{
 		//Serial.println("connected to server!");
 		client.subscribe("awtrixmatrix/#");
+
 		client.publish("matrixClient", "connected");
 		matrix->fillScreen(matrix->Color(0, 0, 0));
 		matrix->show();
-	}
-}
-
-void ICACHE_RAM_ATTR interruptRoutine()
-{
-	isr_flag = 1;
-}
-
-void handleGesture()
-{
-	String control;
-	if (apds.isGestureAvailable())
-	{
-		switch (apds.readGesture())
-		{
-		case DIR_UP:
-			control = "UP";
-			break;
-		case DIR_DOWN:
-			control = "DOWN";
-			break;
-		case DIR_LEFT:
-			control = "LEFT";
-			break;
-		case DIR_RIGHT:
-			control = "RIGHT";
-			break;
-		case DIR_NEAR:
-			control = "NEAR";
-			break;
-		case DIR_FAR:
-			control = "FAR";
-			break;
-		default:
-			control = "NONE";
-		}
-		StaticJsonBuffer<200> jsonBuffer;
-		JsonObject &root = jsonBuffer.createObject();
-		root["type"] = "gesture";
-		root["gesture"] = control;
-		String JS;
-		root.printTo(JS);
-		sendToServer(JS);
 	}
 }
 
@@ -1314,6 +1274,11 @@ void setup()
 				if (json.containsKey("Port"))
 				{
 					strcpy(Port, json["Port"]);
+				}
+
+				if (json.containsKey("ldr"))
+				{
+					autoBrightness = json["ldr"].as<int>();
 				}
 			}
 			configFile.close();
@@ -1517,47 +1482,62 @@ void setup()
 	//is needed for only one hotpsot!
 	WiFi.mode(WIFI_STA);
 
-	server.on("/", HTTP_GET, []() {
-		server.sendHeader("Connection", "close");
-		server.send(200, "text/html", serverIndex);
-	});
+	server.on("/", HTTP_GET, []()
+			  {
+				  server.sendHeader("Connection", "close");
+				  server.send(200, "text/html", serverIndex);
+			  });
 
-	server.on("/reset", HTTP_GET, []() {
-		wifiManager.resetSettings();
-		ESP.reset();
-		server.send(200, "text/html", serverIndex);
-	});
+	server.on("/reset", HTTP_GET, []()
+			  {
+				  wifiManager.resetSettings();
+				  ESP.reset();
+				  server.send(200, "text/html", serverIndex);
+			  });
 	server.on(
-		"/update", HTTP_POST, []() {
-      server.sendHeader("Connection", "close");
-      server.send(200, "text/plain", (Update.hasError()) ? "FAIL" : "OK");
-      ESP.restart(); }, []() {
-      HTTPUpload& upload = server.upload();
+		"/update", HTTP_POST, []()
+		{
+			server.sendHeader("Connection", "close");
+			server.send(200, "text/plain", (Update.hasError()) ? "FAIL" : "OK");
+			ESP.restart();
+		},
+		[]()
+		{
+			HTTPUpload &upload = server.upload();
 
-      if (upload.status == UPLOAD_FILE_START) {
-        Serial.setDebugOutput(true);
+			if (upload.status == UPLOAD_FILE_START)
+			{
+				Serial.setDebugOutput(true);
 
-        uint32_t maxSketchSpace = (ESP.getFreeSketchSpace() - 0x1000) & 0xFFFFF000;
-        if (!Update.begin(maxSketchSpace)) { //start with max available size
-          Update.printError(Serial);
-        }
-      } else if (upload.status == UPLOAD_FILE_WRITE) {
-		  matrix->clear();
-		  flashProgress((int)upload.currentSize,(int)upload.buf);
-        if (Update.write(upload.buf, upload.currentSize) != upload.currentSize) {
-          Update.printError(Serial);
-        }
-      } else if (upload.status == UPLOAD_FILE_END) {
-        if (Update.end(true)) { //true to set the size to the current progress
-		  server.send(200, "text/plain", (Update.hasError()) ? "FAIL" : "OK");
-
-
-        } else {
-          Update.printError(Serial);
-        }
-        Serial.setDebugOutput(false);
-      }
-      yield(); });
+				uint32_t maxSketchSpace = (ESP.getFreeSketchSpace() - 0x1000) & 0xFFFFF000;
+				if (!Update.begin(maxSketchSpace))
+				{ //start with max available size
+					Update.printError(Serial);
+				}
+			}
+			else if (upload.status == UPLOAD_FILE_WRITE)
+			{
+				matrix->clear();
+				flashProgress((int)upload.currentSize, (int)upload.buf);
+				if (Update.write(upload.buf, upload.currentSize) != upload.currentSize)
+				{
+					Update.printError(Serial);
+				}
+			}
+			else if (upload.status == UPLOAD_FILE_END)
+			{
+				if (Update.end(true))
+				{ //true to set the size to the current progress
+					server.send(200, "text/plain", (Update.hasError()) ? "FAIL" : "OK");
+				}
+				else
+				{
+					Update.printError(Serial);
+				}
+				Serial.setDebugOutput(false);
+			}
+			yield();
+		});
 
 	server.begin();
 
@@ -1565,7 +1545,7 @@ void setup()
 	{
 
 		strcpy(awtrix_server, custom_awtrix_server.getValue());
-		matrixType =  atoi(custom_matrix_type.getValue());
+		matrixType = atoi(custom_matrix_type.getValue());
 		strcpy(Port, custom_port.getValue());
 		saveConfig();
 		ESP.reset();
@@ -1608,28 +1588,19 @@ void setup()
 		hardwareAnimatedCheck(MsgType_Audio, 29, 2);
 	}
 
-	attachInterrupt(APDS9960_INT, interruptRoutine, FALLING);
-	apds.enableGestureSensor(true);
-	if (apds.init())
-	{
-		hardwareAnimatedCheck(MsgType_Gest, 29, 2);
-		pinMode(APDS9960_INT, INPUT);
-	}
-
-	photocell.setPhotocellPositionOnGround(false);
-	if (photocell.getCurrentLux() > 1)
+	if (analogRead(LDR_PIN) > 1)
 	{
 		hardwareAnimatedCheck(MsgType_LDR, 29, 2);
 	}
 
-	ArduinoOTA.onStart([&]() {
-		updating = true;
-		matrix->clear();
-	});
+	ArduinoOTA.onStart([&]()
+					   {
+						   updating = true;
+						   matrix->clear();
+					   });
 
-	ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
-		flashProgress(progress, total);
-	});
+	ArduinoOTA.onProgress([](unsigned int progress, unsigned int total)
+						  { flashProgress(progress, total); });
 
 	ArduinoOTA.begin();
 
@@ -1771,14 +1742,6 @@ void loop()
 			{
 				client.loop();
 			}
-		}
-		//check gesture sensor
-		if (isr_flag == 1)
-		{
-			detachInterrupt(APDS9960_INT);
-			handleGesture();
-			isr_flag = 0;
-			attachInterrupt(APDS9960_INT, interruptRoutine, FALLING);
 		}
 
 		if (millis() - connectionTimout > 20000)
