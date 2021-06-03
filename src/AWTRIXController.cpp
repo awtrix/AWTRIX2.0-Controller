@@ -60,7 +60,7 @@ bool notify = false;
 int connectionTimout;
 int matrixTempCorrection = 0;
 
-String version = "0.44";
+String version = "0.45";
 char awtrix_server[16] = "0.0.0.0";
 char Port[6] = "7001"; // AWTRIX Host Port, default = 7001
 int matrixType = 0;
@@ -128,6 +128,9 @@ bool shouldSaveConfig = false;
 /// LDR Config
 #define LDR_PIN A0
 int LDRvalue = 0;
+int minBrightness = 5;
+int maxBrightness = 100;
+int newBri;
 static unsigned long lastTimeLDRCheck = 0;
 bool autoBrightness;
 
@@ -141,18 +144,8 @@ bool autoBrightness;
 bool updating = false;
 
 // Audio
-//DFPlayerMini_Fast myMP3;
 
-// forward declare the notify class, just the name
-//
 class Mp3Notify;
-
-// define a handy type using serial and our notify class
-//
-
-// instance a DfMp3 object,
-//
-
 SoftwareSerial mySoftwareSerial(D7, D5); // RX, TX
 typedef DFMiniMp3<SoftwareSerial, Mp3Notify> DfMp3;
 DfMp3 dfmp3(mySoftwareSerial);
@@ -200,13 +193,12 @@ bool saveConfig()
 	json["matrixCorrection"] = matrixTempCorrection;
 	json["Port"] = Port;
 
-	//json["temp"] = tempState;
-	//json["usbWifi"] = USBConnection;
+	json["minBri"] = minBrightness;
+	json["maxBri"] = maxBrightness;
 	json["ldr"] = autoBrightness;
-	//json["gesture"] = gestureState;
-	//json["audio"] = audioState;
 
 	File configFile = LittleFS.open("/awtrix.json", "w");
+
 	if (!configFile)
 	{
 		if (!USBConnection)
@@ -219,7 +211,6 @@ bool saveConfig()
 
 	json.printTo(configFile);
 	configFile.close();
-	//end save
 	return true;
 }
 
@@ -912,10 +903,11 @@ void updateMatrix(byte payload[], int length)
 		}
 		case 13:
 		{
-			if (autoBrightness && LDRvalue > 7)
+			if (autoBrightness)
 			{
 				int bri = payload[1];
-				matrix->setBrightness(min(bri, LDRvalue / 4));
+				int d = min(bri, newBri);
+				matrix->setBrightness(d);
 			}
 			else
 			{
@@ -926,22 +918,28 @@ void updateMatrix(byte payload[], int length)
 		}
 		case 14:
 		{
-			//tempState = (int)payload[1];
-			//audioState = (int)payload[2];
-			//gestureState = (int)payload[3];
+			bool reset = false;
 			autoBrightness = int(payload[1]);
-			Serial.println(autoBrightness);
-			matrixTempCorrection = (int)payload[3];
-			matrix->clear();
-			matrix->setCursor(6, 6);
-			matrix->setTextColor(matrix->Color(0, 255, 50));
-			matrix->print("SAVED!");
-			matrix->show();
-			delay(2000);
-			if (saveConfig())
+			minBrightness = int(payload[2]);
+			maxBrightness = int(payload[3]);
+
+			if (matrixTempCorrection != (int)payload[4])
 			{
+				reset = true;
+				matrixTempCorrection = (int)payload[4];
+			}
+
+			if (reset)
+			{
+				matrix->clear();
+				matrix->setCursor(6, 6);
+				matrix->setTextColor(matrix->Color(0, 255, 50));
+				matrix->print("SAVED!");
+				matrix->show();
+				delay(2000);
 				ESP.reset();
 			}
+			saveConfig();
 			break;
 		}
 		case 15:
@@ -1044,21 +1042,6 @@ void updateMatrix(byte payload[], int length)
 		}
 		case 22:
 		{
-			//Text
-			//scrollSpeed
-			//icon
-			//color
-			//multicolor (textData?)
-			//moveIcon
-			//repeatIcon
-			//duration
-			//repeat
-			//rainbow
-			//progress
-			//progresscolor
-			//progressBackgroundColor
-			//soundfile
-
 			String myJSON = "";
 			for (int i = 1; i < length; i++)
 			{
@@ -1075,9 +1058,6 @@ void updateMatrix(byte payload[], int length)
 			int g = color[1];
 			int b = color[2];
 			int scrollSpeed = (int)json["scrollSpeed"];
-
-			Serial.println("Scrollspeed: " + (String)(scrollSpeed));
-
 			int textlaenge;
 			while (true)
 			{
@@ -1102,8 +1082,6 @@ void updateMatrix(byte payload[], int length)
 				connectionTimout = millis();
 				break;
 			}
-			Serial.println("Textlänge auf Matrix: " + (String)(textlaenge));
-			Serial.println("Test: " + tempString + " / Color: " + r + "/" + g + "/" + b);
 			break;
 		}
 		case 23:
@@ -1137,8 +1115,8 @@ void updateMatrix(byte payload[], int length)
 		case 27:
 		{
 			LDRvalue = analogRead(LDR_PIN);
-			int bri = payload[1];
-			matrix->setBrightness(min(bri, LDRvalue / 4));
+			newBri = map(LDRvalue, 0, 1023, minBrightness, maxBrightness);
+			matrix->setBrightness(newBri);
 		}
 		}
 	}
@@ -1264,12 +1242,12 @@ void setup()
 
 				strcpy(awtrix_server, json["awtrix_server"]);
 
+				matrixTempCorrection = json["matrixCorrection"].as<int>();
+
 				if (json.containsKey("matrixType"))
 				{
 					matrixType = json["matrixType"].as<int>();
 				}
-
-				matrixTempCorrection = json["matrixCorrection"].as<int>();
 
 				if (json.containsKey("Port"))
 				{
@@ -1279,6 +1257,16 @@ void setup()
 				if (json.containsKey("ldr"))
 				{
 					autoBrightness = json["ldr"].as<int>();
+				}
+
+				if (json.containsKey("minBri"))
+				{
+					minBrightness = json["minBri"].as<int>();
+				}
+
+				if (json.containsKey("maxBri"))
+				{
+					maxBrightness = json["maxBri"].as<int>();
 				}
 			}
 			configFile.close();
