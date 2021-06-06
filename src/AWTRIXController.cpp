@@ -53,14 +53,14 @@ enum TempSensor
 
 TempSensor tempState = TempSensor_None;
 
-int ldrState = 1000;		// 0 = None
+int ldrState = 0;		// 0 = None
 bool USBConnection = false; // true = usb...
 bool WIFIConnection = false;
 bool notify = false;
 int connectionTimout;
 int matrixTempCorrection = 0;
 
-String version = "0.45";
+String version = "0.46";
 char awtrix_server[16] = "0.0.0.0";
 char Port[6] = "7001"; // AWTRIX Host Port, default = 7001
 int matrixType = 0;
@@ -866,7 +866,9 @@ void updateMatrix(byte payload[], int length)
 			root["wifissid"] = WiFi.SSID();
 			root["serial"] = USBConnection;
 			root["IP"] = WiFi.localIP().toString();
+			LDRvalue = analogRead(LDR_PIN);
 			root["LDR"] = LDRvalue;
+			root["LUX"] = 0;
 			switch (tempState)
 			{
 			case TempSensor_BME280:
@@ -1114,7 +1116,7 @@ void updateMatrix(byte payload[], int length)
 		}
 		case 27:
 		{
-			LDRvalue = analogRead(LDR_PIN);
+			
 			newBri = map(LDRvalue, 0, 1023, minBrightness, maxBrightness);
 			matrix->setBrightness(newBri);
 		}
