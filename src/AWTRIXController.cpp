@@ -929,10 +929,12 @@ void updateMatrix(byte payload[], int length)
 			{
 				reset = true;
 				matrixTempCorrection = (int)payload[4];
+				Serial.println(matrixTempCorrection);
 			}
 
 			if (reset)
 			{
+			saveConfig();
 				matrix->clear();
 				matrix->setCursor(6, 6);
 				matrix->setTextColor(matrix->Color(0, 255, 50));
