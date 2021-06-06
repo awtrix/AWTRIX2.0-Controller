@@ -888,7 +888,7 @@ void updateMatrix(byte payload[], int length)
 			}
 			else
 			{
-				root["LUX"] = NULL;
+				root["LUX"] = 0;
 			}
 
 			switch (tempState)
@@ -1523,10 +1523,11 @@ void setup()
 	});
 
 	server.on("/reset", HTTP_GET, []() {
+		server.send(200, "text/html", serverIndex);
 		wifiManager.resetSettings();
 		ESP.reset();
-		server.send(200, "text/html", serverIndex);
 	});
+	
 	server.on(
 		"/update", HTTP_POST, []() {
       server.sendHeader("Connection", "close");
