@@ -1571,8 +1571,8 @@ void setup()
 
 	dfmp3.begin();
 
-	if (0)
-	{ //Use softwareSerial to communicate with mp3.
+	if (dfmp3.isOnline())
+	{
 		hardwareAnimatedCheck(MsgType_Audio, 29, 2);
 	}
 
@@ -1610,7 +1610,7 @@ void setup()
 		matrix->print("Host-IP: " + String(awtrix_server) + ":" + String(Port));
 		matrix->setTextColor(matrix->Color(0, 255, 50));
 		matrix->show();
-		delay(40);
+		delay(20);
 	}
 
 	client.setServer(awtrix_server, atoi(Port));
