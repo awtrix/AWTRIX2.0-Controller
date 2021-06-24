@@ -985,7 +985,6 @@ void updateMatrix(byte payload[], int length)
 		}
 		case 17:
 		{
-
 			//Command 17: Volume
 			dfmp3.setVolume(payload[1]);
 			break;
@@ -1535,7 +1534,6 @@ void setup()
 		wifiManager.resetSettings();
 		ESP.reset();
 	});
-
 	server.on(
 		"/update", HTTP_POST, []() {
       server.sendHeader("Connection", "close");
