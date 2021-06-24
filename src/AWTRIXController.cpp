@@ -2,7 +2,7 @@
 // Copyright (C) 2020
 // by Blueforcer & Mazze2000
 
-#include <FS.h>
+#include <LittleFS.h>
 #include <ArduinoOTA.h>
 #include <ESP8266WiFi.h>
 #include <ESP8266WebServer.h>
@@ -27,7 +27,7 @@
 #include "Adafruit_HTU21DF.h"
 #include <Adafruit_BMP280.h>
 
-#include "DFRobotDFPlayerMini.h"
+#include <DFMiniMp3.h>
 
 #include "MenueControl/MenueControl.h"
 
@@ -61,14 +61,15 @@ TempSensor tempState = TempSensor_None;
 int ldrState = 1000;		// 0 = None
 bool USBConnection = false; // true = usb...
 bool WIFIConnection = false;
+bool notify=false;
 int connectionTimout;
-
-bool MatrixType2 = false;
 int matrixTempCorrection = 0;
 
-String version = "0.37";
+String version = "0.43";
 char awtrix_server[16] = "0.0.0.0";
 char Port[6] = "7001"; // AWTRIX Host Port, default = 7001
+int matrixType = 0;
+
 IPAddress Server;
 WiFiClient espClient;
 PubSubClient client(espClient);
@@ -150,9 +151,26 @@ bool updating = false;
 
 // Audio
 //DFPlayerMini_Fast myMP3;
-DFRobotDFPlayerMini myMP3;
+
+// forward declare the notify class, just the name
+//
+class Mp3Notify; 
+
+// define a handy type using serial and our notify class
+//
+
+
+// instance a DfMp3 object, 
+//
 
 SoftwareSerial mySoftwareSerial(D7, D5); // RX, TX
+typedef DFMiniMp3<SoftwareSerial, Mp3Notify> DfMp3; 
+DfMp3 dfmp3(mySoftwareSerial);
+
+class Mp3Notify
+{
+
+};
 
 // Matrix Settings
 CRGB leds[256];
@@ -189,7 +207,7 @@ bool saveConfig()
 	DynamicJsonBuffer jsonBuffer;
 	JsonObject &json = jsonBuffer.createObject();
 	json["awtrix_server"] = awtrix_server;
-	json["MatrixType"] = MatrixType2;
+	json["matrixType"] = matrixType;
 	json["matrixCorrection"] = matrixTempCorrection;
 	json["Port"] = Port;
 
@@ -199,7 +217,7 @@ bool saveConfig()
 	//json["gesture"] = gestureState;
 	//json["audio"] = audioState;
 
-	File configFile = SPIFFS.open("/awtrix.json", "w");
+	File configFile = LittleFS.open("/awtrix.json", "w");
 	if (!configFile)
 	{
 		if (!USBConnection)
@@ -826,6 +844,9 @@ void updateMatrix(byte payload[], int length)
 		case 8:
 		{
 			//Command 8: Show
+			if (notify){
+				matrix->drawPixel(31, 0, matrix->Color(200,0, 0));
+			}
 			matrix->show();
 			break;
 		}
@@ -839,9 +860,12 @@ void updateMatrix(byte payload[], int length)
 		{
 			//deprecated
 			//Command 10: Play
-			myMP3.volume(payload[2]);
+			
+  
+			dfmp3.setVolume(payload[2]);
 			delay(10);
-			myMP3.play(payload[1]);
+			dfmp3.playMp3FolderTrack(payload[1]);
+		
 			break;
 		}
 		case 11:
@@ -867,7 +891,7 @@ void updateMatrix(byte payload[], int length)
 			}
 			else
 			{
-				root["LUX"] = NULL;
+				root["LUX"] = 0;
 			}
 
 			switch (tempState)
@@ -878,6 +902,11 @@ void updateMatrix(byte payload[], int length)
 				root["Hum"] = BMESensor.humidity;
 				root["hPa"] = BMESensor.pressure;
 				break;
+			case TempSensor_HTU21D:
+				root["Temp"] = htu.readTemperature();
+				root["Hum"] = htu.readHumidity();
+				root["hPa"] = 0;
+				break;
 			case TempSensor_BMP280:
 				sensors_event_t temp_event, pressure_event;
 				BMPSensor.getTemperatureSensor()->getEvent(&temp_event);
@@ -886,11 +915,6 @@ void updateMatrix(byte payload[], int length)
 				root["Temp"] = temp_event.temperature;
 				root["Hum"] = 0;
 				root["hPa"] = pressure_event.pressure;
-				break;
-			case TempSensor_HTU21D:
-				root["Temp"] = htu.readTemperature();
-				root["Hum"] = htu.readHumidity();
-				root["hPa"] = 0;
 				break;
 			case TempSensor_DHT11:
 				root["Temp"] = dht.readTemperature();
@@ -942,12 +966,12 @@ void updateMatrix(byte payload[], int length)
 			matrix->print("RESET!");
 			matrix->show();
 			delay(1000);
-			if (SPIFFS.begin())
+			if (LittleFS.begin())
 			{
 				delay(1000);
-				SPIFFS.remove("/awtrix.json");
+				LittleFS.remove("/awtrix.json");
 
-				SPIFFS.end();
+				LittleFS.end();
 				delay(1000);
 			}
 			wifiManager.resetSettings();
@@ -961,23 +985,24 @@ void updateMatrix(byte payload[], int length)
 		}
 		case 17:
 		{
-			//Command 17: Volume
-			myMP3.volume(payload[1]);
 
+			//Command 17: Volume
+			dfmp3.setVolume(payload[1]);
 			break;
 		}
 		case 18:
 		{
 			//Command 18: Play
-			myMP3.playMp3Folder(payload[1]);
+			
+			dfmp3.playMp3FolderTrack(payload[1]);
 			break;
 		}
 		case 19:
 		{
 			//Command 18: Stop
-			myMP3.stopAdvertise();
+			dfmp3.stopAdvertisement();
 			delay(50);
-			myMP3.stop();
+			dfmp3.stop();
 			break;
 		}
 		case 20:
@@ -1108,12 +1133,18 @@ void updateMatrix(byte payload[], int length)
 		}
 		case 24:
 		{
-			myMP3.loop(payload[1]);
+			
+			dfmp3.loopGlobalTrack(payload[1]);
 			break;
 		}
 		case 25:
 		{
-			myMP3.advertise(payload[1]);
+			dfmp3.playAdvertisement(payload[1]);
+			break;
+		}
+		case 26:
+		{
+			notify=payload[1];
 			break;
 		}
 		}
@@ -1137,6 +1168,8 @@ void reconnect()
 		//Serial.println("connected to server!");
 		client.subscribe("awtrixmatrix/#");
 		client.publish("matrixClient", "connected");
+		matrix->fillScreen(matrix->Color(0, 0, 0));
+		matrix->show();
 	}
 }
 
@@ -1248,24 +1281,24 @@ void setup()
 {
 	delay(2000);
 
-	for (int i = 0; i < tasterCount; i++) {
-			pinMode(tasterPin[i], INPUT_PULLUP);
-		}
-
+	for (int i = 0; i < tasterCount; i++)
+	{
+		pinMode(tasterPin[i], INPUT_PULLUP);
+	}
 
 	Serial.setRxBufferSize(1024);
 	Serial.begin(115200);
 	mySoftwareSerial.begin(9600);
 
-	if (SPIFFS.begin())
+	if (LittleFS.begin())
 	{
 		//if file not exists
-		if (!(SPIFFS.exists("/awtrix.json")))
+		if (!(LittleFS.exists("/awtrix.json")))
 		{
-			SPIFFS.open("/awtrix.json", "w+");
+			LittleFS.open("/awtrix.json", "w+");
 		}
 
-		File configFile = SPIFFS.open("/awtrix.json", "r");
+		File configFile = LittleFS.open("/awtrix.json", "r");
 		if (configFile)
 		{
 			size_t size = configFile.size();
@@ -1278,7 +1311,12 @@ void setup()
 			{
 
 				strcpy(awtrix_server, json["awtrix_server"]);
-				MatrixType2 = json["MatrixType"].as<bool>();
+
+				if (json.containsKey("matrixType"))
+				{
+					matrixType = json["matrixType"].as<int>();
+				}
+
 				matrixTempCorrection = json["matrixCorrection"].as<int>();
 
 				if (json.containsKey("Port"))
@@ -1293,16 +1331,22 @@ void setup()
 	{
 		//error
 	}
-
-	Serial.println("Matrix Type");
-
-	if (!MatrixType2)
+	Serial.println("matrixType");
+	Serial.println(matrixType);
+	switch (matrixType)
 	{
+	case 0:
 		matrix = new FastLED_NeoMatrix(leds, 32, 8, NEO_MATRIX_TOP + NEO_MATRIX_LEFT + NEO_MATRIX_COLUMNS + NEO_MATRIX_ZIGZAG);
-	}
-	else
-	{
+		break;
+	case 1:
+		matrix = new FastLED_NeoMatrix(leds, 8, 8, 4, 1, NEO_MATRIX_TOP + NEO_MATRIX_LEFT + NEO_MATRIX_ROWS + NEO_MATRIX_PROGRESSIVE);
+		break;
+	case 2:
 		matrix = new FastLED_NeoMatrix(leds, 32, 8, NEO_MATRIX_TOP + NEO_MATRIX_LEFT + NEO_MATRIX_ROWS + NEO_MATRIX_ZIGZAG);
+		break;
+	default:
+		matrix = new FastLED_NeoMatrix(leds, 32, 8, NEO_MATRIX_TOP + NEO_MATRIX_LEFT + NEO_MATRIX_COLUMNS + NEO_MATRIX_ZIGZAG);
+		break;
 	}
 
 	switch (matrixTempCorrection)
@@ -1379,7 +1423,6 @@ void setup()
 	matrix->setTextWrap(false);
 	matrix->setBrightness(30);
 	matrix->setFont(&TomThumb);
-
 	//Reset with Tasters...
 	int zeit = millis();
 	int zahl = 5;
@@ -1411,12 +1454,12 @@ void setup()
 			matrix->print("RESET!");
 			matrix->show();
 			delay(1000);
-			if (SPIFFS.begin())
+			if (LittleFS.begin())
 			{
 				delay(1000);
-				SPIFFS.remove("/awtrix.json");
+				LittleFS.remove("/awtrix.json");
 
-				SPIFFS.end();
+				LittleFS.end();
 				delay(1000);
 			}
 			wifiManager.resetSettings();
@@ -1433,12 +1476,12 @@ void setup()
 			matrix->print("RESET!");
 			matrix->show();
 			delay(1000);
-			if (SPIFFS.begin())
+			if (LittleFS.begin())
 			{
 				delay(1000);
-				SPIFFS.remove("/awtrix.json");
+				LittleFS.remove("/awtrix.json");
 
-				SPIFFS.end();
+				LittleFS.end();
 				delay(1000);
 			}
 			wifiManager.resetSettings();
@@ -1449,19 +1492,25 @@ void setup()
 	wifiManager.setAPStaticIPConfig(IPAddress(172, 217, 28, 1), IPAddress(172, 217, 28, 1), IPAddress(255, 255, 255, 0));
 	WiFiManagerParameter custom_awtrix_server("server", "AWTRIX Host", awtrix_server, 16);
 	WiFiManagerParameter custom_port("Port", "Matrix Port", Port, 6);
-	WiFiManagerParameter p_MatrixType2("MatrixType2", "MatrixType 2", "T", 2, "type=\"checkbox\" ", WFM_LABEL_BEFORE);
+	WiFiManagerParameter custom_matrix_type("matrixType", "MatrixType", "0", 1);
 	// Just a quick hint
-	WiFiManagerParameter p_hint("<small>Please configure your AWTRIX Host IP (without Port), and check MatrixType 2 if the arrangement of the pixels is different<br></small><br><br>");
+	WiFiManagerParameter host_hint("<small>AWTRIX Host IP (without Port)<br></small><br><br>");
+	WiFiManagerParameter port_hint("<small>Communication Port (default: 7001)<br></small><br><br>");
+	WiFiManagerParameter matrix_hint("<small>0: Columns; 1: Tiles; 2: Rows <br></small><br><br>");
 	WiFiManagerParameter p_lineBreak_notext("<p></p>");
 
 	wifiManager.setSaveConfigCallback(saveConfigCallback);
 	wifiManager.setAPCallback(configModeCallback);
 
+	wifiManager.addParameter(&p_lineBreak_notext);
+	wifiManager.addParameter(&host_hint);
 	wifiManager.addParameter(&custom_awtrix_server);
+	wifiManager.addParameter(&port_hint);
 	wifiManager.addParameter(&custom_port);
+	wifiManager.addParameter(&matrix_hint);
+	wifiManager.addParameter(&custom_matrix_type);
 	wifiManager.addParameter(&p_lineBreak_notext);
-	wifiManager.addParameter(&p_MatrixType2);
-	wifiManager.addParameter(&p_lineBreak_notext);
+
 	//wifiManager.setCustomHeadElement("<style>html{ background-color: #607D8B;}</style>");
 
 	hardwareAnimatedSearch(0, 24, 0);
@@ -1480,6 +1529,13 @@ void setup()
 		server.sendHeader("Connection", "close");
 		server.send(200, "text/html", serverIndex);
 	});
+
+	server.on("/reset", HTTP_GET, []() {
+		server.send(200, "text/html", serverIndex);
+		wifiManager.resetSettings();
+		ESP.reset();
+	});
+
 	server.on(
 		"/update", HTTP_POST, []() {
       server.sendHeader("Connection", "close");
@@ -1518,9 +1574,8 @@ void setup()
 	{
 
 		strcpy(awtrix_server, custom_awtrix_server.getValue());
-		MatrixType2 = (strncmp(p_MatrixType2.getValue(), "T", 1) == 0);
+		matrixType =  atoi(custom_matrix_type.getValue());
 		strcpy(Port, custom_port.getValue());
-		//USBConnection = (strncmp(p_USBConnection.getValue(), "T", 1) == 0);
 		saveConfig();
 		ESP.reset();
 	}
@@ -1528,9 +1583,6 @@ void setup()
 	hardwareAnimatedCheck(MsgType_Wifi, 27, 2);
 
 	delay(1000); //is needed for the dfplayer to startup
-
-
-		
 
 	//Checking periphery
 	Wire.begin(I2C_SDA, I2C_SCL);
@@ -1557,13 +1609,10 @@ void setup()
 		tempState = TempSensor_BMP280;
 		hardwareAnimatedCheck(MsgType_Temp, 29, 2);
 	}
-    dht.begin();
-	if (dht.read())
-	{
-		tempState = TempSensor_DHT11;
-		hardwareAnimatedCheck(MsgType_Temp, 29, 2);
-	}
-	if (myMP3.begin(mySoftwareSerial))
+
+	dfmp3.begin();
+
+	if (0)
 	{ //Use softwareSerial to communicate with mp3.
 		hardwareAnimatedCheck(MsgType_Audio, 29, 2);
 	}
