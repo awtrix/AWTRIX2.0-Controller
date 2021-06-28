@@ -9,7 +9,14 @@ class Matrix
     private:
         int type;
         int tempCorrection;
-        int PIN;
+
+        #define NUMBER_LED = 256;
+        #ifdef ESP8266
+            #define MATRIX_PIN = D2;
+        #else
+            #define MATRIX_PIN = 15;
+        #endif
+        
 
         enum MsgType {
             MsgType_Wifi,
@@ -28,8 +35,8 @@ class Matrix
         void hardwareAnimatedCheck(MsgType typ, int x, int y);
     
     public:
-        void init(int type, int tempCorrection, int PIN);
-        void setTempCorrection(int tempCorrection, int LED_PIN, int numberLEDsIn);
+        void init(int type, int tempCorrection);
+        void setTempCorrection(int tempCorrection);
         void setType(int type);
         void hardwareCheck();       
         void serverSearch(int rounds, int typ, int x, int y);

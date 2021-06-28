@@ -1,13 +1,15 @@
+#include <SPI.h>
 #include <Arduino.h>
+#include <HardwareSerial.h>
+
 class Mainboard
 {
     private:
 
     public:
-        void setup();
+        bool ledState = false;
+        void init();
         void controlLED(bool LEDstate);
-        void setupMatrix(int type, int tempCorrection);
-        void setTextToMatrix(bool *clear, byte *red, byte *green, byte *blue, int *xPos, int *yPos, String *text);
     
     #ifdef ESP8266
         int BUTTON_LEFT_PIN = D0;
