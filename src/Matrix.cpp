@@ -16,7 +16,11 @@ void Matrix::init(int type, int tempCorrection, int PIN){
     tempCorrection = tempCorrection;
 
     setType(type);
-	FastLED.addLeds<NEOPIXEL, 15>(leds, 256).setCorrection(TypicalLEDStrip);
+	  FastLED.addLeds<NEOPIXEL, 15>(leds, 256).setCorrection(TypicalLEDStrip);
+    matrix->begin();
+    matrix->setTextWrap(false);
+    matrix->setBrightness(30);
+    matrix->setFont(&TomThumb);
     //setTempCorrection(tempCorrection, PIN, 256);
 }
 
@@ -289,12 +293,12 @@ void Matrix::setType(int type){
     }
 }
 
-void Matrix::setTempCorrection(int tempCorrection, int PIN, int numberLEDs){
-	/*
+void Matrix::setTempCorrection(int tempCorrection, int LED_PIN, int numberLEDs){
+  /*
     switch (tempCorrection)
   {
   case 0:
-    FastLED.addLeds<NEOPIXEL, PIN>(leds, 256).setCorrection(TypicalLEDStrip);
+    FastLED.addLeds<NEOPIXEL, pin>(leds, numberLEDs).setCorrection(TypicalLEDStrip);
     break;
   case 1:
     FastLED.addLeds<NEOPIXEL, PIN>(leds, numberLEDs).setTemperature(Candle);

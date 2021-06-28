@@ -14,7 +14,7 @@ void setup(){
     mainboard.setup();
     mainboard.controlLED(true);
     matrix.init(0,0,15);
-    matrix.setTextToMatrix(true,(byte)5,(byte)5,(byte)5,0,2,"Hallo");
+    matrix.setTextToMatrix(true,(byte)100,(byte)100,(byte)100,9,6,"Hallo");
 }
 
 void loop(){

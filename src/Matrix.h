@@ -29,7 +29,7 @@ class Matrix
     
     public:
         void init(int type, int tempCorrection, int PIN);
-        void setTempCorrection(int tempCorrection, int PIN, int numberLEDsIn);
+        void setTempCorrection(int tempCorrection, int LED_PIN, int numberLEDsIn);
         void setType(int type);
         void hardwareCheck();       
         void serverSearch(int rounds, int typ, int x, int y);
