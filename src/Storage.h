@@ -26,4 +26,7 @@ class Storage
         byte getMatrixType();
         byte getMatrixCorrection();
         uint16_t getPort();
+        char* getPortChar();
+        char* getAwtrixServerChar();
+        bool dropStorage();
 };

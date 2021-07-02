@@ -1,39 +1,150 @@
 #include "Matrix.h"
 
-enum MsgType {
-	MsgType_Wifi,
-	MsgType_Host,
-	MsgType_Temp,
-	MsgType_Audio,
-	MsgType_Gest,
-	MsgType_LDR,
-	MsgType_Other
+enum MsgType
+{
+  MsgType_Wifi,
+  MsgType_Host,
+  MsgType_Temp,
+  MsgType_Audio,
+  MsgType_Gest,
+  MsgType_LDR,
+  MsgType_Other
 };
 
-void Matrix::init(int type, int tempCorrection){
-    type = type;
-    tempCorrection = tempCorrection;
+void Matrix::init(int type, int tempCorrection)
+{
+  type = type;
+  tempCorrection = tempCorrection;
 
-    setType(type);
-    matrix->begin();
-    matrix->setTextWrap(false);
-    matrix->setBrightness(30);
-    matrix->setFont(&TomThumb);
-    setTempCorrection(tempCorrection);
+  setType(type);
+  matrix->begin();
+  matrix->setTextWrap(false);
+  matrix->setBrightness(30);
+  matrix->setFont(&TomThumb);
+  setTempCorrection(tempCorrection);
 }
 
-void Matrix::hardwareCheck(){
-
+void Matrix::hardwareCheck()
+{
 }
 
-void Matrix::setTextToMatrix(bool clear, byte red, byte green, byte blue, int xPos, int yPos, String text){
-  if(clear){
+void Matrix::flashProgress(unsigned int progress, unsigned int total)
+{
+  matrix->setBrightness(80);
+  long num = 32 * 8 * progress / total;
+  for (unsigned char y = 0; y < 8; y++)
+  {
+    for (unsigned char x = 0; x < 32; x++)
+    {
+      if (num-- > 0)
+        matrix->drawPixel(x, 8 - y - 1, Wheel((num * 16) & 255, 0));
+    }
+  }
+  this->setTextToMatrix(true,(byte)200,(byte)200,(byte)200,1,6,"FLASHING");
+}
+
+uint32_t Matrix::Wheel(byte WheelPos, int pos)
+{
+	if (WheelPos < 85)
+	{
+		return matrix->Color((WheelPos * 3) - pos, (255 - WheelPos * 3) - pos, 0);
+	}
+	else if (WheelPos < 170)
+	{
+		WheelPos -= 85;
+		return matrix->Color((255 - WheelPos * 3) - pos, 0, (WheelPos * 3) - pos);
+	}
+	else
+	{
+		WheelPos -= 170;
+		return matrix->Color(0, (WheelPos * 3) - pos, (255 - WheelPos * 3) - pos);
+	}
+}
+
+void Matrix::setTextToMatrix(bool clear, byte red, byte green, byte blue, int xPos, int yPos, String text)
+{
+  if (clear)
+  {
     matrix->clear();
   }
   matrix->setTextColor(matrix->Color(red, green, blue));
   matrix->setCursor(xPos, yPos);
   matrix->print(text);
   matrix->show();
+}
+
+void Matrix::fillScreen(byte red, byte green, byte blue)
+{
+  matrix->fillScreen(matrix->Color(red, green, blue));
+  matrix->show();
+}
+
+void Matrix::drawPixel(uint16_t x_coordinate, uint16_t y_coordinate, uint16_t data)
+{
+  matrix->drawPixel(x_coordinate,y_coordinate,data);
+}
+
+void Matrix::drawPixel(uint16_t x_coordinate, uint16_t y_coordinate, byte red, byte green, byte blue)
+{
+  matrix->drawPixel(x_coordinate,y_coordinate,matrix->Color(red, green, blue));
+}
+
+void Matrix::clear()
+{
+  matrix->clear();
+}
+
+void Matrix::setBrightness(byte brightness)
+{
+  matrix->setBrightness(brightness);
+}
+
+void Matrix::setCursor(uint16_t x, uint16_t y)
+{
+  matrix->setCursor(x, y);
+}
+
+void Matrix::setTextColor(byte red, byte green, byte blue)
+{
+  matrix->setTextColor(matrix->Color(red, green, blue));
+}
+
+void Matrix::drawLine(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1, byte red, byte green, byte blue)
+{
+  matrix->drawLine(x0, y0, x1, y1, matrix->Color(red, green, blue));
+}
+
+void Matrix::drawRect(uint16_t x0, uint16_t y0, uint16_t width, uint16_t height, byte red, byte green, byte blue)
+{
+  matrix->drawLine(x0, y0, width, height, matrix->Color(red, green, blue));
+}
+
+void Matrix::fillRect(uint16_t x0, uint16_t y0, uint16_t width, uint16_t height, byte red, byte green, byte blue)
+{
+  matrix->fillRect(x0, y0, width, height, matrix->Color(red, green, blue));
+}
+
+void Matrix::fillCircle(uint16_t x0, uint16_t y0, uint16_t radius, byte red, byte green, byte blue){
+  matrix->fillCircle(x0, y0, radius, matrix->Color(red, green, blue));
+}
+
+void Matrix::drawCircle(uint16_t x0, uint16_t y0, uint16_t radius, byte red, byte green, byte blue){
+  matrix->drawCircle(x0, y0, radius, matrix->Color(red, green, blue));
+}
+
+uint16_t Matrix::getCursorX()
+{
+  matrix->getCursorX();
+}
+
+uint16_t Matrix::getCursorY()
+{
+  matrix->getCursorY();
+}
+
+void Matrix::print(String text)
+{
+  matrix->print(text);
 }
 
 void Matrix::hardwareAnimatedUncheck(int typ, int x, int y)
@@ -165,7 +276,7 @@ void Matrix::serverSearch(int rounds, int typ, int x, int y)
   matrix->setCursor(5, 6);
   matrix->print("Host");
 
-if (typ == 0)
+  if (typ == 0)
   {
     switch (rounds)
     {
@@ -279,26 +390,28 @@ void Matrix::hardwareAnimatedSearch(int typ, int x, int y)
 /// \param type1: NEO_MATRIX_TOP + NEO_MATRIX_LEFT + NEO_MATRIX_ROWS + NEO_MATRIX_PROGRESSIVE
 /// \param type2: NEO_MATRIX_TOP + NEO_MATRIX_LEFT + NEO_MATRIX_ROWS + NEO_MATRIX_ZIGZAG
 /// \param type3: NEO_MATRIX_TOP + NEO_MATRIX_LEFT + NEO_MATRIX_COLUMNS + NEO_MATRIX_ZIGZAG
-void Matrix::setType(int type){
-    switch (type)
-        {
-        case 0:
-            matrix = new FastLED_NeoMatrix(leds, 32, 8, NEO_MATRIX_TOP + NEO_MATRIX_LEFT + NEO_MATRIX_COLUMNS + NEO_MATRIX_ZIGZAG);
-            break;
-        case 1:
-            matrix = new FastLED_NeoMatrix(leds, 8, 8, 4, 1, NEO_MATRIX_TOP + NEO_MATRIX_LEFT + NEO_MATRIX_ROWS + NEO_MATRIX_PROGRESSIVE);
-            break;
-        case 2:
-            matrix = new FastLED_NeoMatrix(leds, 32, 8, NEO_MATRIX_TOP + NEO_MATRIX_LEFT + NEO_MATRIX_ROWS + NEO_MATRIX_ZIGZAG);
-            break;
-        default:
-            matrix = new FastLED_NeoMatrix(leds, 32, 8, NEO_MATRIX_TOP + NEO_MATRIX_LEFT + NEO_MATRIX_COLUMNS + NEO_MATRIX_ZIGZAG);
-            break;
-    }
+void Matrix::setType(int type)
+{
+  switch (type)
+  {
+  case 0:
+    matrix = new FastLED_NeoMatrix(leds, 32, 8, NEO_MATRIX_TOP + NEO_MATRIX_LEFT + NEO_MATRIX_COLUMNS + NEO_MATRIX_ZIGZAG);
+    break;
+  case 1:
+    matrix = new FastLED_NeoMatrix(leds, 8, 8, 4, 1, NEO_MATRIX_TOP + NEO_MATRIX_LEFT + NEO_MATRIX_ROWS + NEO_MATRIX_PROGRESSIVE);
+    break;
+  case 2:
+    matrix = new FastLED_NeoMatrix(leds, 32, 8, NEO_MATRIX_TOP + NEO_MATRIX_LEFT + NEO_MATRIX_ROWS + NEO_MATRIX_ZIGZAG);
+    break;
+  default:
+    matrix = new FastLED_NeoMatrix(leds, 32, 8, NEO_MATRIX_TOP + NEO_MATRIX_LEFT + NEO_MATRIX_COLUMNS + NEO_MATRIX_ZIGZAG);
+    break;
+  }
 }
 
-void Matrix::setTempCorrection(int tempCorrection){
-    switch (tempCorrection)
+void Matrix::setTempCorrection(int tempCorrection)
+{
+  switch (tempCorrection)
   {
   case 0:
     FastLED.addLeds<NEOPIXEL, 15>(leds, 256).setCorrection(TypicalLEDStrip);

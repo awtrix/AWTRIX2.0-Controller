@@ -35,6 +35,14 @@ bool Storage::saveConfig(){
     EEPROM.commit();
 }
 
+bool Storage::dropStorage(){
+    EEPROM.writeShort(EEPROM_PORT, 0);
+    EEPROM.writeShort(EEPROM_MATRIX_TYPE, 0);
+    EEPROM.writeShort(EEPROM_MATRIX_CORRECTION, 0);
+    EEPROM.writeString(EEPROM_AWTRIX_SERVER, "000.000.000.000");
+    EEPROM.commit();
+}
+
 void Storage::saveAwtrixServer(String newAwtrixServer, bool forceSave){
     awtrixServer = newAwtrixServer;
     if(forceSave){
@@ -83,5 +91,17 @@ byte Storage::getMatrixCorrection(){
 }
 
 uint16_t Storage::getPort(){
-    return 0;
+    return port;
+}
+
+char* Storage::getPortChar(){
+    char tempPort[6] = "";
+    String(port).toCharArray(tempPort,6);
+    return tempPort;
+}
+
+char* Storage::getAwtrixServerChar(){
+    char tempAwtrixServer[6] = "";
+    awtrixServer.toCharArray(tempAwtrixServer,6);
+    return tempAwtrixServer;
 }
