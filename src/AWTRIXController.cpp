@@ -2,7 +2,7 @@
 // Copyright (C) 2020
 // by Blueforcer & Mazze2000
 
-#include <FS.h>
+#include <LittleFS.h>
 #include <ArduinoOTA.h>
 #include <ESP8266WiFi.h>
 #include <ESP8266WebServer.h>
@@ -14,9 +14,7 @@
 #include <FastLED.h>
 #include <FastLED_NeoMatrix.h>
 #include <Fonts/TomThumb.h>
-#include <LightDependentResistor.h>
 #include <Wire.h>
-#include <SparkFun_APDS9960.h>
 #include "SoftwareSerial.h"
 
 #include <WiFiManager.h>
@@ -26,7 +24,7 @@
 #include "Adafruit_HTU21DF.h"
 #include <Adafruit_BMP280.h>
 
-#include "DFRobotDFPlayerMini.h"
+#include <DFMiniMp3.h>
 
 #include "MenueControl/MenueControl.h"
 
@@ -55,18 +53,18 @@ enum TempSensor
 
 TempSensor tempState = TempSensor_None;
 
-int ldrState = 1000;		// 0 = None
+int ldrState = 0;		// 0 = None
 bool USBConnection = false; // true = usb...
 bool WIFIConnection = false;
+bool notify = false;
 int connectionTimout;
-
-bool MatrixType2 = false;
 int matrixTempCorrection = 0;
 
-String version = "0.37";
+String version = "0.46";
 char awtrix_server[16] = "0.0.0.0";
-char awtrix_name[32] = "Matrix 1";
 char Port[6] = "7001"; // AWTRIX Host Port, default = 7001
+int matrixType = 0;
+
 IPAddress Server;
 WiFiClient espClient;
 PubSubClient client(espClient);
@@ -128,17 +126,16 @@ int cfgStart = 0;
 bool shouldSaveConfig = false;
 
 /// LDR Config
-#define LDR_RESISTOR 1000 //ohms
 #define LDR_PIN A0
-#define LDR_PHOTOCELL LightDependentResistor::GL5516
-LightDependentResistor photocell(LDR_PIN, ldrState, LDR_PHOTOCELL);
+int LDRvalue = 0;
+int minBrightness = 5;
+int maxBrightness = 100;
+int newBri;
+static unsigned long lastTimeLDRCheck = 0;
+bool autoBrightness;
 
-// Gesture Sensor
-#define APDS9960_INT D6
 #define I2C_SDA D3
 #define I2C_SCL D1
-SparkFun_APDS9960 apds = SparkFun_APDS9960();
-volatile bool isr_flag = 0;
 
 #ifndef ICACHE_RAM_ATTR
 #define ICACHE_RAM_ATTR IRAM_ATTR
@@ -147,18 +144,19 @@ volatile bool isr_flag = 0;
 bool updating = false;
 
 // Audio
-//DFPlayerMini_Fast myMP3;
-DFRobotDFPlayerMini myMP3;
 
+class Mp3Notify;
 SoftwareSerial mySoftwareSerial(D7, D5); // RX, TX
+typedef DFMiniMp3<SoftwareSerial, Mp3Notify> DfMp3;
+DfMp3 dfmp3(mySoftwareSerial);
+
+class Mp3Notify
+{
+};
 
 // Matrix Settings
-int matrixWidth = 32;
-#define ledCount 256
-CRGB leds[ledCount];
+CRGB leds[256];
 FastLED_NeoMatrix *matrix;
-
-
 
 static byte c1; // Last character buffer
 byte utf8ascii(byte ascii)
@@ -191,18 +189,16 @@ bool saveConfig()
 	DynamicJsonBuffer jsonBuffer;
 	JsonObject &json = jsonBuffer.createObject();
 	json["awtrix_server"] = awtrix_server;
-	json["awtrix_name"] = awtrix_name;
-	json["MatrixType"] = MatrixType2;
+	json["matrixType"] = matrixType;
 	json["matrixCorrection"] = matrixTempCorrection;
 	json["Port"] = Port;
 
-	//json["temp"] = tempState;
-	//json["usbWifi"] = USBConnection;
-	//json["ldr"] = ldrState;
-	//json["gesture"] = gestureState;
-	//json["audio"] = audioState;
+	json["minBri"] = minBrightness;
+	json["maxBri"] = maxBrightness;
+	json["ldr"] = autoBrightness;
 
-	File configFile = SPIFFS.open("/awtrix.json", "w");
+	File configFile = LittleFS.open("/awtrix.json", "w");
+
 	if (!configFile)
 	{
 		if (!USBConnection)
@@ -215,7 +211,6 @@ bool saveConfig()
 
 	json.printTo(configFile);
 	configFile.close();
-	//end save
 	return true;
 }
 
@@ -829,6 +824,10 @@ void updateMatrix(byte payload[], int length)
 		case 8:
 		{
 			//Command 8: Show
+			if (notify)
+			{
+				matrix->drawPixel(31, 0, matrix->Color(200, 0, 0));
+			}
 			matrix->show();
 			break;
 		}
@@ -842,9 +841,11 @@ void updateMatrix(byte payload[], int length)
 		{
 			//deprecated
 			//Command 10: Play
-			myMP3.volume(payload[2]);
+
+			dfmp3.setVolume(payload[2]);
 			delay(10);
-			myMP3.play(payload[1]);
+			dfmp3.playMp3FolderTrack(payload[1]);
+
 			break;
 		}
 		case 11:
@@ -863,17 +864,11 @@ void updateMatrix(byte payload[], int length)
 			root["wifirssi"] = String(WiFi.RSSI());
 			root["wifiquality"] = GetRSSIasQuality(WiFi.RSSI());
 			root["wifissid"] = WiFi.SSID();
-			root["name"] = awtrix_name;
-			root["ip"] = WiFi.localIP().toString();
-			if (ldrState != 0)
-			{
-				root["lux"] = photocell.getCurrentLux();
-			}
-			else
-			{
-				root["lux"] = NULL;
-			}
-
+			root["serial"] = USBConnection;
+			root["IP"] = WiFi.localIP().toString();
+			LDRvalue = analogRead(LDR_PIN);
+			root["LDR"] = LDRvalue;
+			root["LUX"] = 0;
 			switch (tempState)
 			{
 			case TempSensor_BME280:
@@ -910,26 +905,45 @@ void updateMatrix(byte payload[], int length)
 		}
 		case 13:
 		{
-			matrix->setBrightness(payload[1]);
+			if (autoBrightness)
+			{
+				int bri = payload[1];
+				int d = min(bri, newBri);
+				matrix->setBrightness(d);
+			}
+			else
+			{
+				matrix->setBrightness(payload[1]);
+			}
+
 			break;
 		}
 		case 14:
 		{
-			//tempState = (int)payload[1];
-			//audioState = (int)payload[2];
-			//gestureState = (int)payload[3];
-			ldrState = int(payload[1] << 8) + int(payload[2]);
-			matrixTempCorrection = (int)payload[3];
-			matrix->clear();
-			matrix->setCursor(6, 6);
-			matrix->setTextColor(matrix->Color(0, 255, 50));
-			matrix->print("SAVED!");
-			matrix->show();
-			delay(2000);
-			if (saveConfig())
+			bool reset = false;
+			autoBrightness = int(payload[1]);
+			minBrightness = int(payload[2]);
+			maxBrightness = int(payload[3]);
+
+			if (matrixTempCorrection != (int)payload[4])
 			{
+				reset = true;
+				matrixTempCorrection = (int)payload[4];
+				Serial.println(matrixTempCorrection);
+			}
+
+			if (reset)
+			{
+			saveConfig();
+				matrix->clear();
+				matrix->setCursor(6, 6);
+				matrix->setTextColor(matrix->Color(0, 255, 50));
+				matrix->print("SAVED!");
+				matrix->show();
+				delay(2000);
 				ESP.reset();
 			}
+			saveConfig();
 			break;
 		}
 		case 15:
@@ -941,12 +955,12 @@ void updateMatrix(byte payload[], int length)
 			matrix->print("RESET!");
 			matrix->show();
 			delay(1000);
-			if (SPIFFS.begin())
+			if (LittleFS.begin())
 			{
 				delay(1000);
-				SPIFFS.remove("/awtrix.json");
+				LittleFS.remove("/awtrix.json");
 
-				SPIFFS.end();
+				LittleFS.end();
 				delay(1000);
 			}
 			wifiManager.resetSettings();
@@ -960,23 +974,24 @@ void updateMatrix(byte payload[], int length)
 		}
 		case 17:
 		{
-			//Command 17: Volume
-			myMP3.volume(payload[1]);
 
+			//Command 17: Volume
+			dfmp3.setVolume(payload[1]);
 			break;
 		}
 		case 18:
 		{
 			//Command 18: Play
-			myMP3.playMp3Folder(payload[1]);
+
+			dfmp3.playMp3FolderTrack(payload[1]);
 			break;
 		}
 		case 19:
 		{
 			//Command 18: Stop
-			myMP3.stopAdvertise();
+			dfmp3.stopAdvertisement();
 			delay(50);
-			myMP3.stop();
+			dfmp3.stop();
 			break;
 		}
 		case 20:
@@ -1031,21 +1046,6 @@ void updateMatrix(byte payload[], int length)
 		}
 		case 22:
 		{
-			//Text
-			//scrollSpeed
-			//icon
-			//color
-			//multicolor (textData?)
-			//moveIcon
-			//repeatIcon
-			//duration
-			//repeat
-			//rainbow
-			//progress
-			//progresscolor
-			//progressBackgroundColor
-			//soundfile
-
 			String myJSON = "";
 			for (int i = 1; i < length; i++)
 			{
@@ -1062,16 +1062,13 @@ void updateMatrix(byte payload[], int length)
 			int g = color[1];
 			int b = color[2];
 			int scrollSpeed = (int)json["scrollSpeed"];
-
-			Serial.println("Scrollspeed: " + (String)(scrollSpeed));
-
 			int textlaenge;
 			while (true)
 			{
-				matrix->setCursor(matrixWidth, 6);
+				matrix->setCursor(32, 6);
 				matrix->print(utf8ascii(tempString));
-				textlaenge = (int)matrix->getCursorX() - matrixWidth;
-				for (int i = matrixWidth-1; i > (-textlaenge); i--)
+				textlaenge = (int)matrix->getCursorX() - 32;
+				for (int i = 31; i > (-textlaenge); i--)
 				{
 					int starzeit = millis();
 					matrix->clear();
@@ -1089,8 +1086,6 @@ void updateMatrix(byte payload[], int length)
 				connectionTimout = millis();
 				break;
 			}
-			Serial.println("Textlänge auf Matrix: " + (String)(textlaenge));
-			Serial.println("Test: " + tempString + " / Color: " + r + "/" + g + "/" + b);
 			break;
 		}
 		case 23:
@@ -1107,13 +1102,25 @@ void updateMatrix(byte payload[], int length)
 		}
 		case 24:
 		{
-			myMP3.loop(payload[1]);
+
+			dfmp3.loopGlobalTrack(payload[1]);
 			break;
 		}
 		case 25:
 		{
-			myMP3.advertise(payload[1]);
+			dfmp3.playAdvertisement(payload[1]);
 			break;
+		}
+		case 26:
+		{
+			notify = payload[1];
+			break;
+		}
+		case 27:
+		{
+			
+			newBri = map(LDRvalue, 0, 1023, minBrightness, maxBrightness);
+			matrix->setBrightness(newBri);
 		}
 		}
 	}
@@ -1128,57 +1135,18 @@ void callback(char *topic, byte *payload, unsigned int length)
 void reconnect()
 {
 	//Serial.println("reconnecting to " + String(awtrix_server));
-	String clientId = awtrix_name;
+	String clientId = "AWTRIXController-";
+	clientId += String(random(0xffff), HEX);
 	hardwareAnimatedSearch(1, 28, 0);
-	if (client.connect(clientId.c_str()))
+
+	if (client.connect(clientId.c_str(), "matrixDisconnect", 1, 0, WiFi.localIP().toString().c_str()))
 	{
 		//Serial.println("connected to server!");
-		client.subscribe((clientId + F("/#")).c_str());
 		client.subscribe("awtrixmatrix/#");
+
 		client.publish("matrixClient", "connected");
-	}
-}
-
-void ICACHE_RAM_ATTR interruptRoutine()
-{
-	isr_flag = 1;
-}
-
-void handleGesture()
-{
-	String control;
-	if (apds.isGestureAvailable())
-	{
-		switch (apds.readGesture())
-		{
-		case DIR_UP:
-			control = "UP";
-			break;
-		case DIR_DOWN:
-			control = "DOWN";
-			break;
-		case DIR_LEFT:
-			control = "LEFT";
-			break;
-		case DIR_RIGHT:
-			control = "RIGHT";
-			break;
-		case DIR_NEAR:
-			control = "NEAR";
-			break;
-		case DIR_FAR:
-			control = "FAR";
-			break;
-		default:
-			control = "NONE";
-		}
-		StaticJsonBuffer<200> jsonBuffer;
-		JsonObject &root = jsonBuffer.createObject();
-		root["type"] = "gesture";
-		root["gesture"] = control;
-		String JS;
-		root.printTo(JS);
-		sendToServer(JS);
+		matrix->fillScreen(matrix->Color(0, 0, 0));
+		matrix->show();
 	}
 }
 
@@ -1203,10 +1171,10 @@ uint32_t Wheel(byte WheelPos, int pos)
 void flashProgress(unsigned int progress, unsigned int total)
 {
 	matrix->setBrightness(80);
-	long num = matrixWidth * 8 * progress / total;
+	long num = 32 * 8 * progress / total;
 	for (unsigned char y = 0; y < 8; y++)
 	{
-		for (unsigned char x = 0; x < matrixWidth; x++)
+		for (unsigned char x = 0; x < 32; x++)
 		{
 			if (num-- > 0)
 				matrix->drawPixel(x, 8 - y - 1, Wheel((num * 16) & 255, 0));
@@ -1256,15 +1224,15 @@ void setup()
 	Serial.begin(115200);
 	mySoftwareSerial.begin(9600);
 
-	if (SPIFFS.begin())
+	if (LittleFS.begin())
 	{
 		//if file not exists
-		if (!(SPIFFS.exists("/awtrix.json")))
+		if (!(LittleFS.exists("/awtrix.json")))
 		{
-			SPIFFS.open("/awtrix.json", "w+");
+			LittleFS.open("/awtrix.json", "w+");
 		}
 
-		File configFile = SPIFFS.open("/awtrix.json", "r");
+		File configFile = LittleFS.open("/awtrix.json", "r");
 		if (configFile)
 		{
 			size_t size = configFile.size();
@@ -1277,13 +1245,32 @@ void setup()
 			{
 
 				strcpy(awtrix_server, json["awtrix_server"]);
-				strcpy(awtrix_name, json["awtrix_name"]);
-				MatrixType2 = json["MatrixType"].as<bool>();
+
 				matrixTempCorrection = json["matrixCorrection"].as<int>();
+
+				if (json.containsKey("matrixType"))
+				{
+					matrixType = json["matrixType"].as<int>();
+				}
 
 				if (json.containsKey("Port"))
 				{
 					strcpy(Port, json["Port"]);
+				}
+
+				if (json.containsKey("ldr"))
+				{
+					autoBrightness = json["ldr"].as<int>();
+				}
+
+				if (json.containsKey("minBri"))
+				{
+					minBrightness = json["minBri"].as<int>();
+				}
+
+				if (json.containsKey("maxBri"))
+				{
+					maxBrightness = json["maxBri"].as<int>();
 				}
 			}
 			configFile.close();
@@ -1293,94 +1280,98 @@ void setup()
 	{
 		//error
 	}
-
-	Serial.println("Matrix Type");
-
-	if (!MatrixType2)
+	Serial.println("matrixType");
+	Serial.println(matrixType);
+	switch (matrixType)
 	{
-		matrix = new FastLED_NeoMatrix(leds, matrixWidth, 8, NEO_MATRIX_TOP + NEO_MATRIX_LEFT + NEO_MATRIX_COLUMNS + NEO_MATRIX_ZIGZAG);
-	}
-	else
-	{
-		matrix = new FastLED_NeoMatrix(leds, matrixWidth, 8, NEO_MATRIX_TOP + NEO_MATRIX_LEFT + NEO_MATRIX_ROWS + NEO_MATRIX_ZIGZAG);
+	case 0:
+		matrix = new FastLED_NeoMatrix(leds, 32, 8, NEO_MATRIX_TOP + NEO_MATRIX_LEFT + NEO_MATRIX_COLUMNS + NEO_MATRIX_ZIGZAG);
+		break;
+	case 1:
+		matrix = new FastLED_NeoMatrix(leds, 8, 8, 4, 1, NEO_MATRIX_TOP + NEO_MATRIX_LEFT + NEO_MATRIX_ROWS + NEO_MATRIX_PROGRESSIVE);
+		break;
+	case 2:
+		matrix = new FastLED_NeoMatrix(leds, 32, 8, NEO_MATRIX_TOP + NEO_MATRIX_LEFT + NEO_MATRIX_ROWS + NEO_MATRIX_ZIGZAG);
+		break;
+	default:
+		matrix = new FastLED_NeoMatrix(leds, 32, 8, NEO_MATRIX_TOP + NEO_MATRIX_LEFT + NEO_MATRIX_COLUMNS + NEO_MATRIX_ZIGZAG);
+		break;
 	}
 
 	switch (matrixTempCorrection)
 	{
 	case 0:
-		FastLED.addLeds<NEOPIXEL, D2>(leds, ledCount).setCorrection(TypicalLEDStrip);
+		FastLED.addLeds<NEOPIXEL, D2>(leds, 256).setCorrection(TypicalLEDStrip);
 		break;
 	case 1:
-		FastLED.addLeds<NEOPIXEL, D2>(leds, ledCount).setTemperature(Candle);
+		FastLED.addLeds<NEOPIXEL, D2>(leds, 256).setTemperature(Candle);
 		break;
 	case 2:
-		FastLED.addLeds<NEOPIXEL, D2>(leds, ledCount).setTemperature(Tungsten40W);
+		FastLED.addLeds<NEOPIXEL, D2>(leds, 256).setTemperature(Tungsten40W);
 		break;
 	case 3:
-		FastLED.addLeds<NEOPIXEL, D2>(leds, ledCount).setTemperature(Tungsten100W);
+		FastLED.addLeds<NEOPIXEL, D2>(leds, 256).setTemperature(Tungsten100W);
 		break;
 	case 4:
-		FastLED.addLeds<NEOPIXEL, D2>(leds, ledCount).setTemperature(Halogen);
+		FastLED.addLeds<NEOPIXEL, D2>(leds, 256).setTemperature(Halogen);
 		break;
 	case 5:
-		FastLED.addLeds<NEOPIXEL, D2>(leds, ledCount).setTemperature(CarbonArc);
+		FastLED.addLeds<NEOPIXEL, D2>(leds, 256).setTemperature(CarbonArc);
 		break;
 	case 6:
-		FastLED.addLeds<NEOPIXEL, D2>(leds, ledCount).setTemperature(HighNoonSun);
+		FastLED.addLeds<NEOPIXEL, D2>(leds, 256).setTemperature(HighNoonSun);
 		break;
 	case 7:
-		FastLED.addLeds<NEOPIXEL, D2>(leds, ledCount).setTemperature(DirectSunlight);
+		FastLED.addLeds<NEOPIXEL, D2>(leds, 256).setTemperature(DirectSunlight);
 		break;
 	case 8:
-		FastLED.addLeds<NEOPIXEL, D2>(leds, ledCount).setTemperature(OvercastSky);
+		FastLED.addLeds<NEOPIXEL, D2>(leds, 256).setTemperature(OvercastSky);
 		break;
 	case 9:
-		FastLED.addLeds<NEOPIXEL, D2>(leds, ledCount).setTemperature(ClearBlueSky);
+		FastLED.addLeds<NEOPIXEL, D2>(leds, 256).setTemperature(ClearBlueSky);
 		break;
 	case 10:
-		FastLED.addLeds<NEOPIXEL, D2>(leds, ledCount).setTemperature(WarmFluorescent);
+		FastLED.addLeds<NEOPIXEL, D2>(leds, 256).setTemperature(WarmFluorescent);
 		break;
 	case 11:
-		FastLED.addLeds<NEOPIXEL, D2>(leds, ledCount).setTemperature(StandardFluorescent);
+		FastLED.addLeds<NEOPIXEL, D2>(leds, 256).setTemperature(StandardFluorescent);
 		break;
 	case 12:
-		FastLED.addLeds<NEOPIXEL, D2>(leds, ledCount).setTemperature(CoolWhiteFluorescent);
+		FastLED.addLeds<NEOPIXEL, D2>(leds, 256).setTemperature(CoolWhiteFluorescent);
 		break;
 	case 13:
-		FastLED.addLeds<NEOPIXEL, D2>(leds, ledCount).setTemperature(FullSpectrumFluorescent);
+		FastLED.addLeds<NEOPIXEL, D2>(leds, 256).setTemperature(FullSpectrumFluorescent);
 		break;
 	case 14:
-		FastLED.addLeds<NEOPIXEL, D2>(leds, ledCount).setTemperature(GrowLightFluorescent);
+		FastLED.addLeds<NEOPIXEL, D2>(leds, 256).setTemperature(GrowLightFluorescent);
 		break;
 	case 15:
-		FastLED.addLeds<NEOPIXEL, D2>(leds, ledCount).setTemperature(BlackLightFluorescent);
+		FastLED.addLeds<NEOPIXEL, D2>(leds, 256).setTemperature(BlackLightFluorescent);
 		break;
 	case 16:
-		FastLED.addLeds<NEOPIXEL, D2>(leds, ledCount).setTemperature(MercuryVapor);
+		FastLED.addLeds<NEOPIXEL, D2>(leds, 256).setTemperature(MercuryVapor);
 		break;
 	case 17:
-		FastLED.addLeds<NEOPIXEL, D2>(leds, ledCount).setTemperature(SodiumVapor);
+		FastLED.addLeds<NEOPIXEL, D2>(leds, 256).setTemperature(SodiumVapor);
 		break;
 	case 18:
-		FastLED.addLeds<NEOPIXEL, D2>(leds, ledCount).setTemperature(MetalHalide);
+		FastLED.addLeds<NEOPIXEL, D2>(leds, 256).setTemperature(MetalHalide);
 		break;
 	case 19:
-		FastLED.addLeds<NEOPIXEL, D2>(leds, ledCount).setTemperature(HighPressureSodium);
+		FastLED.addLeds<NEOPIXEL, D2>(leds, 256).setTemperature(HighPressureSodium);
 		break;
 	case 20:
-		FastLED.addLeds<NEOPIXEL, D2>(leds, ledCount).setTemperature(UncorrectedTemperature);
+		FastLED.addLeds<NEOPIXEL, D2>(leds, 256).setTemperature(UncorrectedTemperature);
 		break;
 	default:
-		FastLED.addLeds<NEOPIXEL, D2>(leds, ledCount).setCorrection(TypicalLEDStrip);
+		FastLED.addLeds<NEOPIXEL, D2>(leds, 256).setCorrection(TypicalLEDStrip);
 		break;
 	}
 
 	matrix->begin();
-	matrix->clear();
 	matrix->setTextWrap(false);
 	matrix->setBrightness(30);
 	matrix->setFont(&TomThumb);
-
 	//Reset with Tasters...
 	int zeit = millis();
 	int zahl = 5;
@@ -1390,8 +1381,6 @@ void setup()
 	matrix->setCursor(9, 6);
 	matrix->print("BOOT");
 	matrix->show();
-
-
 	delay(2000);
 	while (!digitalRead(D4))
 	{
@@ -1414,12 +1403,12 @@ void setup()
 			matrix->print("RESET!");
 			matrix->show();
 			delay(1000);
-			if (SPIFFS.begin())
+			if (LittleFS.begin())
 			{
 				delay(1000);
-				SPIFFS.remove("/awtrix.json");
+				LittleFS.remove("/awtrix.json");
 
-				SPIFFS.end();
+				LittleFS.end();
 				delay(1000);
 			}
 			wifiManager.resetSettings();
@@ -1436,12 +1425,12 @@ void setup()
 			matrix->print("RESET!");
 			matrix->show();
 			delay(1000);
-			if (SPIFFS.begin())
+			if (LittleFS.begin())
 			{
 				delay(1000);
-				SPIFFS.remove("/awtrix.json");
+				LittleFS.remove("/awtrix.json");
 
-				SPIFFS.end();
+				LittleFS.end();
 				delay(1000);
 			}
 			wifiManager.resetSettings();
@@ -1450,25 +1439,27 @@ void setup()
 		*/
 
 	wifiManager.setAPStaticIPConfig(IPAddress(172, 217, 28, 1), IPAddress(172, 217, 28, 1), IPAddress(255, 255, 255, 0));
-	WiFiManagerParameter custom_awtrix_name("name", "Individial name", awtrix_name, 16);
-	WiFiManagerParameter custom_awtrix_server("server", "Host IP", awtrix_server, 16);
+	WiFiManagerParameter custom_awtrix_server("server", "AWTRIX Host", awtrix_server, 16);
 	WiFiManagerParameter custom_port("Port", "Matrix Port", Port, 6);
-	WiFiManagerParameter p_MatrixType2("MatrixType2", "MatrixType 2", "T", 2, "type=\"checkbox\" ", WFM_LABEL_BEFORE);
+	WiFiManagerParameter custom_matrix_type("matrixType", "MatrixType", "0", 1);
 	// Just a quick hint
-	WiFiManagerParameter host_hint("<small>Please configure your AWTRIX Host IP (without Port)</small><br><br>");
-	WiFiManagerParameter port_hint("<small>MatrixType 2 if the arrangement of the pixels is different</small><br><br>");
+	WiFiManagerParameter host_hint("<small>AWTRIX Host IP (without Port)<br></small><br><br>");
+	WiFiManagerParameter port_hint("<small>Communication Port (default: 7001)<br></small><br><br>");
+	WiFiManagerParameter matrix_hint("<small>0: Columns; 1: Tiles; 2: Rows <br></small><br><br>");
 	WiFiManagerParameter p_lineBreak_notext("<p></p>");
 
 	wifiManager.setSaveConfigCallback(saveConfigCallback);
 	wifiManager.setAPCallback(configModeCallback);
-	wifiManager.addParameter(&custom_awtrix_name);
-	wifiManager.addParameter(&custom_awtrix_server);
+
+	wifiManager.addParameter(&p_lineBreak_notext);
 	wifiManager.addParameter(&host_hint);
-	wifiManager.addParameter(&custom_port);
+	wifiManager.addParameter(&custom_awtrix_server);
 	wifiManager.addParameter(&port_hint);
+	wifiManager.addParameter(&custom_port);
+	wifiManager.addParameter(&matrix_hint);
+	wifiManager.addParameter(&custom_matrix_type);
 	wifiManager.addParameter(&p_lineBreak_notext);
-	wifiManager.addParameter(&p_MatrixType2);
-	wifiManager.addParameter(&p_lineBreak_notext);
+
 	//wifiManager.setCustomHeadElement("<style>html{ background-color: #607D8B;}</style>");
 
 	hardwareAnimatedSearch(0, 24, 0);
@@ -1483,41 +1474,62 @@ void setup()
 	//is needed for only one hotpsot!
 	WiFi.mode(WIFI_STA);
 
-	server.on("/", HTTP_GET, []() {
-		server.sendHeader("Connection", "close");
-		server.send(200, "text/html", serverIndex);
-	});
+	server.on("/", HTTP_GET, []()
+			  {
+				  server.sendHeader("Connection", "close");
+				  server.send(200, "text/html", serverIndex);
+			  });
+
+	server.on("/reset", HTTP_GET, []()
+			  {
+				  wifiManager.resetSettings();
+				  ESP.reset();
+				  server.send(200, "text/html", serverIndex);
+			  });
 	server.on(
-		"/update", HTTP_POST, []() {
-      server.sendHeader("Connection", "close");
-      server.send(200, "text/plain", (Update.hasError()) ? "FAIL" : "OK");
-      ESP.restart(); }, []() {
-      HTTPUpload& upload = server.upload();
+		"/update", HTTP_POST, []()
+		{
+			server.sendHeader("Connection", "close");
+			server.send(200, "text/plain", (Update.hasError()) ? "FAIL" : "OK");
+			ESP.restart();
+		},
+		[]()
+		{
+			HTTPUpload &upload = server.upload();
 
-      if (upload.status == UPLOAD_FILE_START) {
-        Serial.setDebugOutput(true);
+			if (upload.status == UPLOAD_FILE_START)
+			{
+				Serial.setDebugOutput(true);
 
-        uint32_t maxSketchSpace = (ESP.getFreeSketchSpace() - 0x1000) & 0xFFFFF000;
-        if (!Update.begin(maxSketchSpace)) { //start with max available size
-          Update.printError(Serial);
-        }
-      } else if (upload.status == UPLOAD_FILE_WRITE) {
-		  matrix->clear();
-		  flashProgress((int)upload.currentSize,(int)upload.buf);
-        if (Update.write(upload.buf, upload.currentSize) != upload.currentSize) {
-          Update.printError(Serial);
-        }
-      } else if (upload.status == UPLOAD_FILE_END) {
-        if (Update.end(true)) { //true to set the size to the current progress
-		  server.send(200, "text/plain", (Update.hasError()) ? "FAIL" : "OK");
-
-
-        } else {
-          Update.printError(Serial);
-        }
-        Serial.setDebugOutput(false);
-      }
-      yield(); });
+				uint32_t maxSketchSpace = (ESP.getFreeSketchSpace() - 0x1000) & 0xFFFFF000;
+				if (!Update.begin(maxSketchSpace))
+				{ //start with max available size
+					Update.printError(Serial);
+				}
+			}
+			else if (upload.status == UPLOAD_FILE_WRITE)
+			{
+				matrix->clear();
+				flashProgress((int)upload.currentSize, (int)upload.buf);
+				if (Update.write(upload.buf, upload.currentSize) != upload.currentSize)
+				{
+					Update.printError(Serial);
+				}
+			}
+			else if (upload.status == UPLOAD_FILE_END)
+			{
+				if (Update.end(true))
+				{ //true to set the size to the current progress
+					server.send(200, "text/plain", (Update.hasError()) ? "FAIL" : "OK");
+				}
+				else
+				{
+					Update.printError(Serial);
+				}
+				Serial.setDebugOutput(false);
+			}
+			yield();
+		});
 
 	server.begin();
 
@@ -1525,10 +1537,8 @@ void setup()
 	{
 
 		strcpy(awtrix_server, custom_awtrix_server.getValue());
-		strcpy(awtrix_name, custom_awtrix_name.getValue());
-		MatrixType2 = (strncmp(p_MatrixType2.getValue(), "T", 1) == 0);
+		matrixType = atoi(custom_matrix_type.getValue());
 		strcpy(Port, custom_port.getValue());
-		//USBConnection = (strncmp(p_USBConnection.getValue(), "T", 1) == 0);
 		saveConfig();
 		ESP.reset();
 	}
@@ -1563,33 +1573,26 @@ void setup()
 		hardwareAnimatedCheck(MsgType_Temp, 29, 2);
 	}
 
-	if (myMP3.begin(mySoftwareSerial))
-	{ //Use softwareSerial to communicate with mp3.
+	dfmp3.begin();
+
+	if (dfmp3.isOnline())
+	{
 		hardwareAnimatedCheck(MsgType_Audio, 29, 2);
 	}
 
-	attachInterrupt(APDS9960_INT, interruptRoutine, FALLING);
-	apds.enableGestureSensor(true);
-	if (apds.init())
-	{
-		hardwareAnimatedCheck(MsgType_Gest, 29, 2);
-		pinMode(APDS9960_INT, INPUT);
-	}
-
-	photocell.setPhotocellPositionOnGround(false);
-	if (photocell.getCurrentLux() > 1)
+	if (analogRead(LDR_PIN) > 1)
 	{
 		hardwareAnimatedCheck(MsgType_LDR, 29, 2);
 	}
 
-	ArduinoOTA.onStart([&]() {
-		updating = true;
-		matrix->clear();
-	});
+	ArduinoOTA.onStart([&]()
+					   {
+						   updating = true;
+						   matrix->clear();
+					   });
 
-	ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
-		flashProgress(progress, total);
-	});
+	ArduinoOTA.onProgress([](unsigned int progress, unsigned int total)
+						  { flashProgress(progress, total); });
 
 	ArduinoOTA.begin();
 
@@ -1604,14 +1607,14 @@ void setup()
 	myCounter = 0;
 	myCounter2 = 0;
 
-	for (int x = matrixWidth; x >= -90; x--)
+	for (int x = 32; x >= -90; x--)
 	{
 		matrix->clear();
 		matrix->setCursor(x, 6);
 		matrix->print("Host-IP: " + String(awtrix_server) + ":" + String(Port));
 		matrix->setTextColor(matrix->Color(0, 255, 50));
 		matrix->show();
-		delay(40);
+		delay(20);
 	}
 
 	client.setServer(awtrix_server, atoi(Port));
@@ -1731,14 +1734,6 @@ void loop()
 			{
 				client.loop();
 			}
-		}
-		//check gesture sensor
-		if (isr_flag == 1)
-		{
-			detachInterrupt(APDS9960_INT);
-			handleGesture();
-			isr_flag = 0;
-			attachInterrupt(APDS9960_INT, interruptRoutine, FALLING);
 		}
 
 		if (millis() - connectionTimout > 20000)
