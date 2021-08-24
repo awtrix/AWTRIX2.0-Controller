@@ -1,0 +1,32 @@
+
+name: Compile Firmware
+on: push
+
+jobs:
+  compile:
+    name: Compile .bin firmware
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@master
+      - name: Cache Platform IO
+        uses: actions/cache@v1
+        id: cache-platformio
+        with:
+          path: .pio
+          key: ${{ runner.os }}-pio
+      - name: Setup Python
+        uses: actions/setup-python@master
+        with:
+          python-version: '3.x'
+      - name: Install Platform IO
+        run: |
+          python -m pip install --upgrade pip
+          pip install -U platformio
+      - name: Compile firmware
+        run: platformio run
+      - name: Upload .bin firmware
+        uses: actions/upload-artifact@v1
+        with:
+          name: firmware.bin
+          path: ./.pio/build/esp_wroom_02/firmware.bin
