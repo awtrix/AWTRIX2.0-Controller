@@ -25,7 +25,7 @@
 #include <Adafruit_BMP280.h>
 
 #include <DFMiniMp3.h>
-
+#define FASTLED_ALLOW_INTERRUPTS 1    
 #include "MenueControl/MenueControl.h"
 
 // instantiate temp sensor
@@ -156,7 +156,7 @@ class Mp3Notify
 
 // Matrix Settings
 CRGB leds[256];
-FastLED_NeoMatrix *matrix;
+FastLED_NeoMatrix *ledmatrix;
 
 static byte c1; // Last character buffer
 byte utf8ascii(byte ascii)
@@ -216,10 +216,10 @@ bool saveConfig()
 
 void debuggingWithMatrix(String text)
 {
-	matrix->setCursor(7, 6);
-	matrix->clear();
-	matrix->print(text);
-	matrix->show();
+	ledmatrix->setCursor(7, 6);
+	ledmatrix->clear();
+	ledmatrix->print(text);
+	ledmatrix->show();
 }
 
 void sendToServer(String s)
@@ -415,53 +415,53 @@ void hardwareAnimatedUncheck(int typ, int x, int y)
 	{
 		while (wifiCheckPoints < 10)
 		{
-			matrix->clear();
+			ledmatrix->clear();
 			switch (typ)
 			{
 			case 0:
-				matrix->setCursor(7, 6);
-				matrix->print("WiFi");
+				ledmatrix->setCursor(7, 6);
+				ledmatrix->print("WiFi");
 				break;
 			case 1:
-				matrix->setCursor(1, 6);
-				matrix->print("Server");
+				ledmatrix->setCursor(1, 6);
+				ledmatrix->print("Server");
 				break;
 			case 2:
-				matrix->setCursor(7, 6);
-				matrix->print("Temp");
+				ledmatrix->setCursor(7, 6);
+				ledmatrix->print("Temp");
 				break;
 			case 4:
-				matrix->setCursor(3, 6);
-				matrix->print("Gest.");
+				ledmatrix->setCursor(3, 6);
+				ledmatrix->print("Gest.");
 				break;
 			}
 
 			switch (wifiCheckPoints)
 			{
 			case 9:
-				matrix->drawPixel(x, y + 4, 0xF800);
+				ledmatrix->drawPixel(x, y + 4, 0xF800);
 			case 8:
-				matrix->drawPixel(x - 1, y + 3, 0xF800);
+				ledmatrix->drawPixel(x - 1, y + 3, 0xF800);
 			case 7:
-				matrix->drawPixel(x - 2, y + 2, 0xF800);
+				ledmatrix->drawPixel(x - 2, y + 2, 0xF800);
 			case 6:
-				matrix->drawPixel(x - 3, y + 1, 0xF800);
+				ledmatrix->drawPixel(x - 3, y + 1, 0xF800);
 			case 5:
-				matrix->drawPixel(x - 4, y, 0xF800);
+				ledmatrix->drawPixel(x - 4, y, 0xF800);
 			case 4:
-				matrix->drawPixel(x - 4, y + 4, 0xF800);
+				ledmatrix->drawPixel(x - 4, y + 4, 0xF800);
 			case 3:
-				matrix->drawPixel(x - 3, y + 3, 0xF800);
+				ledmatrix->drawPixel(x - 3, y + 3, 0xF800);
 			case 2:
-				matrix->drawPixel(x - 2, y + 2, 0xF800);
+				ledmatrix->drawPixel(x - 2, y + 2, 0xF800);
 			case 1:
-				matrix->drawPixel(x - 1, y + 1, 0xF800);
+				ledmatrix->drawPixel(x - 1, y + 1, 0xF800);
 			case 0:
-				matrix->drawPixel(x, y, 0xF800);
+				ledmatrix->drawPixel(x, y, 0xF800);
 				break;
 			}
 			wifiCheckPoints++;
-			matrix->show();
+			ledmatrix->show();
 			delay(100);
 		}
 	}
@@ -475,55 +475,55 @@ void hardwareAnimatedCheck(MsgType typ, int x, int y)
 	{
 		while (wifiCheckPoints < 7)
 		{
-			matrix->clear();
+			ledmatrix->clear();
 			switch (typ)
 			{
 			case MsgType_Wifi:
-				matrix->setCursor(7, 6);
-				matrix->print("WiFi");
+				ledmatrix->setCursor(7, 6);
+				ledmatrix->print("WiFi");
 				break;
 			case MsgType_Host:
-				matrix->setCursor(5, 6);
-				matrix->print("Host");
+				ledmatrix->setCursor(5, 6);
+				ledmatrix->print("Host");
 				break;
 			case MsgType_Temp:
-				matrix->setCursor(7, 6);
-				matrix->print("Temp");
+				ledmatrix->setCursor(7, 6);
+				ledmatrix->print("Temp");
 				break;
 			case MsgType_Audio:
-				matrix->setCursor(3, 6);
-				matrix->print("Audio");
+				ledmatrix->setCursor(3, 6);
+				ledmatrix->print("Audio");
 				break;
 			case MsgType_Gest:
-				matrix->setCursor(3, 6);
-				matrix->print("Gest.");
+				ledmatrix->setCursor(3, 6);
+				ledmatrix->print("Gest.");
 				break;
 			case MsgType_LDR:
-				matrix->setCursor(7, 6);
-				matrix->print("LDR");
+				ledmatrix->setCursor(7, 6);
+				ledmatrix->print("LDR");
 				break;
 			}
 
 			switch (wifiCheckPoints)
 			{
 			case 6:
-				matrix->drawPixel(x, y, 0x07E0);
+				ledmatrix->drawPixel(x, y, 0x07E0);
 			case 5:
-				matrix->drawPixel(x - 1, y + 1, 0x07E0);
+				ledmatrix->drawPixel(x - 1, y + 1, 0x07E0);
 			case 4:
-				matrix->drawPixel(x - 2, y + 2, 0x07E0);
+				ledmatrix->drawPixel(x - 2, y + 2, 0x07E0);
 			case 3:
-				matrix->drawPixel(x - 3, y + 3, 0x07E0);
+				ledmatrix->drawPixel(x - 3, y + 3, 0x07E0);
 			case 2:
-				matrix->drawPixel(x - 4, y + 4, 0x07E0);
+				ledmatrix->drawPixel(x - 4, y + 4, 0x07E0);
 			case 1:
-				matrix->drawPixel(x - 5, y + 3, 0x07E0);
+				ledmatrix->drawPixel(x - 5, y + 3, 0x07E0);
 			case 0:
-				matrix->drawPixel(x - 6, y + 2, 0x07E0);
+				ledmatrix->drawPixel(x - 6, y + 2, 0x07E0);
 				break;
 			}
 			wifiCheckPoints++;
-			matrix->show();
+			ledmatrix->show();
 			delay(100);
 		}
 	}
@@ -531,29 +531,29 @@ void hardwareAnimatedCheck(MsgType typ, int x, int y)
 
 void serverSearch(int rounds, int typ, int x, int y)
 {
-	matrix->clear();
-	matrix->setTextColor(0xFFFF);
-	matrix->setCursor(5, 6);
-	matrix->print("Host");
+	ledmatrix->clear();
+	ledmatrix->setTextColor(0xFFFF);
+	ledmatrix->setCursor(5, 6);
+	ledmatrix->print("Host");
 
 	if (typ == 0)
 	{
 		switch (rounds)
 		{
 		case 3:
-			matrix->drawPixel(x, y, 0x22ff);
-			matrix->drawPixel(x + 1, y + 1, 0x22ff);
-			matrix->drawPixel(x + 2, y + 2, 0x22ff);
-			matrix->drawPixel(x + 3, y + 3, 0x22ff);
-			matrix->drawPixel(x + 2, y + 4, 0x22ff);
-			matrix->drawPixel(x + 1, y + 5, 0x22ff);
-			matrix->drawPixel(x, y + 6, 0x22ff);
+			ledmatrix->drawPixel(x, y, 0x22ff);
+			ledmatrix->drawPixel(x + 1, y + 1, 0x22ff);
+			ledmatrix->drawPixel(x + 2, y + 2, 0x22ff);
+			ledmatrix->drawPixel(x + 3, y + 3, 0x22ff);
+			ledmatrix->drawPixel(x + 2, y + 4, 0x22ff);
+			ledmatrix->drawPixel(x + 1, y + 5, 0x22ff);
+			ledmatrix->drawPixel(x, y + 6, 0x22ff);
 		case 2:
-			matrix->drawPixel(x - 1, y + 2, 0x22ff);
-			matrix->drawPixel(x, y + 3, 0x22ff);
-			matrix->drawPixel(x - 1, y + 4, 0x22ff);
+			ledmatrix->drawPixel(x - 1, y + 2, 0x22ff);
+			ledmatrix->drawPixel(x, y + 3, 0x22ff);
+			ledmatrix->drawPixel(x - 1, y + 4, 0x22ff);
 		case 1:
-			matrix->drawPixel(x - 3, y + 3, 0x22ff);
+			ledmatrix->drawPixel(x - 3, y + 3, 0x22ff);
 		case 0:
 			break;
 		}
@@ -564,82 +564,82 @@ void serverSearch(int rounds, int typ, int x, int y)
 		switch (rounds)
 		{
 		case 12:
-			//matrix->drawPixel(x+3, y+2, 0x22ff);
-			matrix->drawPixel(x + 3, y + 3, 0x22ff);
-			//matrix->drawPixel(x+3, y+4, 0x22ff);
-			matrix->drawPixel(x + 3, y + 5, 0x22ff);
-			//matrix->drawPixel(x+3, y+6, 0x22ff);
+			//ledmatrix->drawPixel(x+3, y+2, 0x22ff);
+			ledmatrix->drawPixel(x + 3, y + 3, 0x22ff);
+			//ledmatrix->drawPixel(x+3, y+4, 0x22ff);
+			ledmatrix->drawPixel(x + 3, y + 5, 0x22ff);
+			//ledmatrix->drawPixel(x+3, y+6, 0x22ff);
 		case 11:
-			matrix->drawPixel(x + 2, y + 2, 0x22ff);
-			matrix->drawPixel(x + 2, y + 3, 0x22ff);
-			matrix->drawPixel(x + 2, y + 4, 0x22ff);
-			matrix->drawPixel(x + 2, y + 5, 0x22ff);
-			matrix->drawPixel(x + 2, y + 6, 0x22ff);
+			ledmatrix->drawPixel(x + 2, y + 2, 0x22ff);
+			ledmatrix->drawPixel(x + 2, y + 3, 0x22ff);
+			ledmatrix->drawPixel(x + 2, y + 4, 0x22ff);
+			ledmatrix->drawPixel(x + 2, y + 5, 0x22ff);
+			ledmatrix->drawPixel(x + 2, y + 6, 0x22ff);
 		case 10:
-			matrix->drawPixel(x + 1, y + 3, 0x22ff);
-			matrix->drawPixel(x + 1, y + 4, 0x22ff);
-			matrix->drawPixel(x + 1, y + 5, 0x22ff);
+			ledmatrix->drawPixel(x + 1, y + 3, 0x22ff);
+			ledmatrix->drawPixel(x + 1, y + 4, 0x22ff);
+			ledmatrix->drawPixel(x + 1, y + 5, 0x22ff);
 		case 9:
-			matrix->drawPixel(x, y + 4, 0x22ff);
+			ledmatrix->drawPixel(x, y + 4, 0x22ff);
 		case 8:
-			matrix->drawPixel(x - 1, y + 4, 0x22ff);
+			ledmatrix->drawPixel(x - 1, y + 4, 0x22ff);
 		case 7:
-			matrix->drawPixel(x - 2, y + 4, 0x22ff);
+			ledmatrix->drawPixel(x - 2, y + 4, 0x22ff);
 		case 6:
-			matrix->drawPixel(x - 3, y + 4, 0x22ff);
+			ledmatrix->drawPixel(x - 3, y + 4, 0x22ff);
 		case 5:
-			matrix->drawPixel(x - 3, y + 5, 0x22ff);
+			ledmatrix->drawPixel(x - 3, y + 5, 0x22ff);
 		case 4:
-			matrix->drawPixel(x - 3, y + 6, 0x22ff);
+			ledmatrix->drawPixel(x - 3, y + 6, 0x22ff);
 		case 3:
-			matrix->drawPixel(x - 3, y + 7, 0x22ff);
+			ledmatrix->drawPixel(x - 3, y + 7, 0x22ff);
 		case 2:
-			matrix->drawPixel(x - 4, y + 7, 0x22ff);
+			ledmatrix->drawPixel(x - 4, y + 7, 0x22ff);
 		case 1:
-			matrix->drawPixel(x - 5, y + 7, 0x22ff);
+			ledmatrix->drawPixel(x - 5, y + 7, 0x22ff);
 		case 0:
 			break;
 		}
 	}
-	matrix->show();
+	ledmatrix->show();
 }
 
 void hardwareAnimatedSearch(int typ, int x, int y)
 {
 	for (int i = 0; i < 4; i++)
 	{
-		matrix->clear();
-		matrix->setTextColor(0xFFFF);
+		ledmatrix->clear();
+		ledmatrix->setTextColor(0xFFFF);
 		if (typ == 0)
 		{
-			matrix->setCursor(7, 6);
-			matrix->print("WiFi");
+			ledmatrix->setCursor(7, 6);
+			ledmatrix->print("WiFi");
 		}
 		else if (typ == 1)
 		{
-			matrix->setCursor(5, 6);
-			matrix->print("Host");
+			ledmatrix->setCursor(5, 6);
+			ledmatrix->print("Host");
 		}
 		switch (i)
 		{
 		case 3:
-			matrix->drawPixel(x, y, 0x22ff);
-			matrix->drawPixel(x + 1, y + 1, 0x22ff);
-			matrix->drawPixel(x + 2, y + 2, 0x22ff);
-			matrix->drawPixel(x + 3, y + 3, 0x22ff);
-			matrix->drawPixel(x + 2, y + 4, 0x22ff);
-			matrix->drawPixel(x + 1, y + 5, 0x22ff);
-			matrix->drawPixel(x, y + 6, 0x22ff);
+			ledmatrix->drawPixel(x, y, 0x22ff);
+			ledmatrix->drawPixel(x + 1, y + 1, 0x22ff);
+			ledmatrix->drawPixel(x + 2, y + 2, 0x22ff);
+			ledmatrix->drawPixel(x + 3, y + 3, 0x22ff);
+			ledmatrix->drawPixel(x + 2, y + 4, 0x22ff);
+			ledmatrix->drawPixel(x + 1, y + 5, 0x22ff);
+			ledmatrix->drawPixel(x, y + 6, 0x22ff);
 		case 2:
-			matrix->drawPixel(x - 1, y + 2, 0x22ff);
-			matrix->drawPixel(x, y + 3, 0x22ff);
-			matrix->drawPixel(x - 1, y + 4, 0x22ff);
+			ledmatrix->drawPixel(x - 1, y + 2, 0x22ff);
+			ledmatrix->drawPixel(x, y + 3, 0x22ff);
+			ledmatrix->drawPixel(x - 1, y + 4, 0x22ff);
 		case 1:
-			matrix->drawPixel(x - 3, y + 3, 0x22ff);
+			ledmatrix->drawPixel(x - 3, y + 3, 0x22ff);
 		case 0:
 			break;
 		}
-		matrix->show();
+		ledmatrix->show();
 		delay(100);
 	}
 }
@@ -715,8 +715,8 @@ void updateMatrix(byte payload[], int length)
 			uint16_t x_coordinate = int(payload[1] << 8) + int(payload[2]);
 			uint16_t y_coordinate = int(payload[3] << 8) + int(payload[4]);
 
-			matrix->setCursor(x_coordinate + 1, y_coordinate + y_offset);
-			matrix->setTextColor(matrix->Color(payload[5], payload[6], payload[7]));
+			ledmatrix->setCursor(x_coordinate + 1, y_coordinate + y_offset);
+			ledmatrix->setTextColor(ledmatrix->Color(payload[5], payload[6], payload[7]));
 			String myText = "";
 			for (int i = 8; i < length; i++)
 			{
@@ -724,7 +724,7 @@ void updateMatrix(byte payload[], int length)
 				myText += c;
 			}
 
-			matrix->print(utf8ascii(myText));
+			ledmatrix->print(utf8ascii(myText));
 			break;
 		}
 		case 1:
@@ -750,7 +750,7 @@ void updateMatrix(byte payload[], int length)
 			{
 				for (int16_t i = 0; i < width; i++)
 				{
-					matrix->drawPixel(x_coordinate + i, y_coordinate, (uint16_t)colorData[j * width + i]);
+					ledmatrix->drawPixel(x_coordinate + i, y_coordinate, (uint16_t)colorData[j * width + i]);
 				}
 			}
 			break;
@@ -764,7 +764,7 @@ void updateMatrix(byte payload[], int length)
 			uint16_t x0_coordinate = int(payload[1] << 8) + int(payload[2]);
 			uint16_t y0_coordinate = int(payload[3] << 8) + int(payload[4]);
 			uint16_t radius = payload[5];
-			matrix->drawCircle(x0_coordinate, y0_coordinate, radius, matrix->Color(payload[6], payload[7], payload[8]));
+			ledmatrix->drawCircle(x0_coordinate, y0_coordinate, radius, ledmatrix->Color(payload[6], payload[7], payload[8]));
 			break;
 		}
 		case 3:
@@ -775,7 +775,7 @@ void updateMatrix(byte payload[], int length)
 			uint16_t x0_coordinate = int(payload[1] << 8) + int(payload[2]);
 			uint16_t y0_coordinate = int(payload[3] << 8) + int(payload[4]);
 			uint16_t radius = payload[5];
-			matrix->fillCircle(x0_coordinate, y0_coordinate, radius, matrix->Color(payload[6], payload[7], payload[8]));
+			ledmatrix->fillCircle(x0_coordinate, y0_coordinate, radius, ledmatrix->Color(payload[6], payload[7], payload[8]));
 			break;
 		}
 		case 4:
@@ -785,7 +785,7 @@ void updateMatrix(byte payload[], int length)
 			//Prepare the coordinates
 			uint16_t x0_coordinate = int(payload[1] << 8) + int(payload[2]);
 			uint16_t y0_coordinate = int(payload[3] << 8) + int(payload[4]);
-			matrix->drawPixel(x0_coordinate, y0_coordinate, matrix->Color(payload[5], payload[6], payload[7]));
+			ledmatrix->drawPixel(x0_coordinate, y0_coordinate, ledmatrix->Color(payload[5], payload[6], payload[7]));
 			break;
 		}
 		case 5:
@@ -797,7 +797,7 @@ void updateMatrix(byte payload[], int length)
 			uint16_t y0_coordinate = int(payload[3] << 8) + int(payload[4]);
 			int16_t width = payload[5];
 			int16_t height = payload[6];
-			matrix->drawRect(x0_coordinate, y0_coordinate, width, height, matrix->Color(payload[7], payload[8], payload[9]));
+			ledmatrix->drawRect(x0_coordinate, y0_coordinate, width, height, ledmatrix->Color(payload[7], payload[8], payload[9]));
 			break;
 		}
 		case 6:
@@ -809,7 +809,7 @@ void updateMatrix(byte payload[], int length)
 			uint16_t y0_coordinate = int(payload[3] << 8) + int(payload[4]);
 			uint16_t x1_coordinate = int(payload[5] << 8) + int(payload[6]);
 			uint16_t y1_coordinate = int(payload[7] << 8) + int(payload[8]);
-			matrix->drawLine(x0_coordinate, y0_coordinate, x1_coordinate, y1_coordinate, matrix->Color(payload[9], payload[10], payload[11]));
+			ledmatrix->drawLine(x0_coordinate, y0_coordinate, x1_coordinate, y1_coordinate, ledmatrix->Color(payload[9], payload[10], payload[11]));
 			break;
 		}
 
@@ -817,7 +817,7 @@ void updateMatrix(byte payload[], int length)
 		{
 			//Command 7: FillMatrix
 
-			matrix->fillScreen(matrix->Color(payload[1], payload[2], payload[3]));
+			ledmatrix->fillScreen(ledmatrix->Color(payload[1], payload[2], payload[3]));
 			break;
 		}
 
@@ -826,15 +826,15 @@ void updateMatrix(byte payload[], int length)
 			//Command 8: Show
 			if (notify)
 			{
-				matrix->drawPixel(31, 0, matrix->Color(200, 0, 0));
+				ledmatrix->drawPixel(31, 0, ledmatrix->Color(200, 0, 0));
 			}
-			matrix->show();
+			ledmatrix->show();
 			break;
 		}
 		case 9:
 		{
 			//Command 9: Clear
-			matrix->clear();
+			ledmatrix->clear();
 			break;
 		}
 		case 10:
@@ -909,11 +909,11 @@ void updateMatrix(byte payload[], int length)
 			{
 				int bri = payload[1];
 				int d = min(bri, newBri);
-				matrix->setBrightness(d);
+				ledmatrix->setBrightness(d);
 			}
 			else
 			{
-				matrix->setBrightness(payload[1]);
+				ledmatrix->setBrightness(payload[1]);
 			}
 
 			break;
@@ -935,11 +935,11 @@ void updateMatrix(byte payload[], int length)
 			if (reset)
 			{
 			saveConfig();
-				matrix->clear();
-				matrix->setCursor(6, 6);
-				matrix->setTextColor(matrix->Color(0, 255, 50));
-				matrix->print("SAVED!");
-				matrix->show();
+				ledmatrix->clear();
+				ledmatrix->setCursor(6, 6);
+				ledmatrix->setTextColor(ledmatrix->Color(0, 255, 50));
+				ledmatrix->print("SAVED!");
+				ledmatrix->show();
 				delay(2000);
 				ESP.reset();
 			}
@@ -949,11 +949,11 @@ void updateMatrix(byte payload[], int length)
 		case 15:
 		{
 
-			matrix->clear();
-			matrix->setTextColor(matrix->Color(255, 0, 0));
-			matrix->setCursor(6, 6);
-			matrix->print("RESET!");
-			matrix->show();
+			ledmatrix->clear();
+			ledmatrix->setTextColor(ledmatrix->Color(255, 0, 0));
+			ledmatrix->setCursor(6, 6);
+			ledmatrix->print("RESET!");
+			ledmatrix->show();
 			delay(1000);
 			if (LittleFS.begin())
 			{
@@ -1007,7 +1007,7 @@ void updateMatrix(byte payload[], int length)
 			//multicolor...
 			uint16_t x_coordinate = int(payload[1] << 8) + int(payload[2]);
 			uint16_t y_coordinate = int(payload[3] << 8) + int(payload[4]);
-			matrix->setCursor(x_coordinate + 1, y_coordinate + y_offset);
+			ledmatrix->setCursor(x_coordinate + 1, y_coordinate + y_offset);
 
 			String myJSON = "";
 			for (int i = 5; i < length; i++)
@@ -1033,12 +1033,12 @@ void updateMatrix(byte payload[], int length)
 						int g = color[1];
 						int b = color[2];
 						//Serial.println("Test: " + tempString + " / Color: " + r + "/" + g + "/" + b);
-						matrix->setTextColor(matrix->Color(r, g, b));
+						ledmatrix->setTextColor(ledmatrix->Color(r, g, b));
 						for (int y = 0; y < (int)tempString.length(); y++)
 						{
 							myText += (char)tempString[y];
 						}
-						matrix->print(utf8ascii(myText));
+						ledmatrix->print(utf8ascii(myText));
 					}
 				}
 			}
@@ -1065,17 +1065,17 @@ void updateMatrix(byte payload[], int length)
 			int textlaenge;
 			while (true)
 			{
-				matrix->setCursor(32, 6);
-				matrix->print(utf8ascii(tempString));
-				textlaenge = (int)matrix->getCursorX() - 32;
+				ledmatrix->setCursor(32, 6);
+				ledmatrix->print(utf8ascii(tempString));
+				textlaenge = (int)ledmatrix->getCursorX() - 32;
 				for (int i = 31; i > (-textlaenge); i--)
 				{
 					int starzeit = millis();
-					matrix->clear();
-					matrix->setCursor(i, 6);
-					matrix->setTextColor(matrix->Color(r, g, b));
-					matrix->print(utf8ascii(tempString));
-					matrix->show();
+					ledmatrix->clear();
+					ledmatrix->setCursor(i, 6);
+					ledmatrix->setTextColor(ledmatrix->Color(r, g, b));
+					ledmatrix->print(utf8ascii(tempString));
+					ledmatrix->show();
 					client.loop();
 					int endzeit = millis();
 					if ((scrollSpeed + starzeit - endzeit) > 0)
@@ -1097,7 +1097,7 @@ void updateMatrix(byte payload[], int length)
 			uint16_t y0_coordinate = int(payload[3] << 8) + int(payload[4]);
 			int16_t width = payload[5];
 			int16_t height = payload[6];
-			matrix->fillRect(x0_coordinate, y0_coordinate, width, height, matrix->Color(payload[7], payload[8], payload[9]));
+			ledmatrix->fillRect(x0_coordinate, y0_coordinate, width, height, ledmatrix->Color(payload[7], payload[8], payload[9]));
 			break;
 		}
 		case 24:
@@ -1120,7 +1120,7 @@ void updateMatrix(byte payload[], int length)
 		{
 			
 			newBri = map(LDRvalue, 0, 1023, minBrightness, maxBrightness);
-			matrix->setBrightness(newBri);
+			ledmatrix->setBrightness(newBri);
 		}
 		}
 	}
@@ -1145,8 +1145,8 @@ void reconnect()
 		client.subscribe("awtrixmatrix/#");
 
 		client.publish("matrixClient", "connected");
-		matrix->fillScreen(matrix->Color(0, 0, 0));
-		matrix->show();
+		ledmatrix->fillScreen(ledmatrix->Color(0, 0, 0));
+		ledmatrix->show();
 	}
 }
 
@@ -1154,36 +1154,36 @@ uint32_t Wheel(byte WheelPos, int pos)
 {
 	if (WheelPos < 85)
 	{
-		return matrix->Color((WheelPos * 3) - pos, (255 - WheelPos * 3) - pos, 0);
+		return ledmatrix->Color((WheelPos * 3) - pos, (255 - WheelPos * 3) - pos, 0);
 	}
 	else if (WheelPos < 170)
 	{
 		WheelPos -= 85;
-		return matrix->Color((255 - WheelPos * 3) - pos, 0, (WheelPos * 3) - pos);
+		return ledmatrix->Color((255 - WheelPos * 3) - pos, 0, (WheelPos * 3) - pos);
 	}
 	else
 	{
 		WheelPos -= 170;
-		return matrix->Color(0, (WheelPos * 3) - pos, (255 - WheelPos * 3) - pos);
+		return ledmatrix->Color(0, (WheelPos * 3) - pos, (255 - WheelPos * 3) - pos);
 	}
 }
 
 void flashProgress(unsigned int progress, unsigned int total)
 {
-	matrix->setBrightness(80);
+	ledmatrix->setBrightness(80);
 	long num = 32 * 8 * progress / total;
 	for (unsigned char y = 0; y < 8; y++)
 	{
 		for (unsigned char x = 0; x < 32; x++)
 		{
 			if (num-- > 0)
-				matrix->drawPixel(x, 8 - y - 1, Wheel((num * 16) & 255, 0));
+				ledmatrix->drawPixel(x, 8 - y - 1, Wheel((num * 16) & 255, 0));
 		}
 	}
-	matrix->setCursor(1, 6);
-	matrix->setTextColor(matrix->Color(200, 200, 200));
-	matrix->print("FLASHING");
-	matrix->show();
+	ledmatrix->setCursor(1, 6);
+	ledmatrix->setTextColor(ledmatrix->Color(200, 200, 200));
+	ledmatrix->print("FLASHING");
+	ledmatrix->show();
 }
 
 void saveConfigCallback()
@@ -1204,25 +1204,20 @@ void configModeCallback(WiFiManager *myWiFiManager)
 		Serial.println(WiFi.softAPIP());
 		Serial.println(myWiFiManager->getConfigPortalSSID());
 	}
-	matrix->clear();
-	matrix->setCursor(3, 6);
-	matrix->setTextColor(matrix->Color(0, 255, 50));
-	matrix->print("Hotspot");
-	matrix->show();
+	ledmatrix->clear();
+	ledmatrix->setCursor(3, 6);
+	ledmatrix->setTextColor(ledmatrix->Color(0, 255, 50));
+	ledmatrix->print("Hotspot");
+	ledmatrix->show();
 }
 
 void setup()
 {
 	delay(2000);
 
-	for (int i = 0; i < tasterCount; i++)
-	{
-		pinMode(tasterPin[i], INPUT_PULLUP);
-	}
 
-	Serial.setRxBufferSize(1024);
 	Serial.begin(115200);
-	mySoftwareSerial.begin(9600);
+	Serial.println("Open json");
 
 	if (LittleFS.begin())
 	{
@@ -1231,16 +1226,23 @@ void setup()
 		{
 			LittleFS.open("/awtrix.json", "w+");
 		}
-
+	
 		File configFile = LittleFS.open("/awtrix.json", "r");
+
+		
 		if (configFile)
 		{
 			size_t size = configFile.size();
 			// Allocate a buffer to store contents of the file.
+			Serial.println("test1");
 			std::unique_ptr<char[]> buf(new char[size]);
+			Serial.println("test2");
 			configFile.readBytes(buf.get(), size);
+			Serial.println("test3");
 			DynamicJsonBuffer jsonBuffer;
+			Serial.println("test4");
 			JsonObject &json = jsonBuffer.parseObject(buf.get());
+			Serial.println("test5");
 			if (json.success())
 			{
 
@@ -1282,126 +1284,59 @@ void setup()
 	}
 	Serial.println("matrixType");
 	Serial.println(matrixType);
+	matrixType=2;
 	switch (matrixType)
 	{
 	case 0:
-		matrix = new FastLED_NeoMatrix(leds, 32, 8, NEO_MATRIX_TOP + NEO_MATRIX_LEFT + NEO_MATRIX_COLUMNS + NEO_MATRIX_ZIGZAG);
+		ledmatrix = new FastLED_NeoMatrix(leds, 32, 8, NEO_MATRIX_TOP + NEO_MATRIX_LEFT + NEO_MATRIX_COLUMNS + NEO_MATRIX_ZIGZAG);
 		break;
 	case 1:
-		matrix = new FastLED_NeoMatrix(leds, 8, 8, 4, 1, NEO_MATRIX_TOP + NEO_MATRIX_LEFT + NEO_MATRIX_ROWS + NEO_MATRIX_PROGRESSIVE);
+		ledmatrix = new FastLED_NeoMatrix(leds, 8, 8, 4, 1, NEO_MATRIX_TOP + NEO_MATRIX_LEFT + NEO_MATRIX_ROWS + NEO_MATRIX_PROGRESSIVE);
 		break;
 	case 2:
-		matrix = new FastLED_NeoMatrix(leds, 32, 8, NEO_MATRIX_TOP + NEO_MATRIX_LEFT + NEO_MATRIX_ROWS + NEO_MATRIX_ZIGZAG);
+		ledmatrix = new FastLED_NeoMatrix(leds, 32, 8, NEO_MATRIX_TOP + NEO_MATRIX_LEFT + NEO_MATRIX_ROWS + NEO_MATRIX_ZIGZAG);
 		break;
 	default:
-		matrix = new FastLED_NeoMatrix(leds, 32, 8, NEO_MATRIX_TOP + NEO_MATRIX_LEFT + NEO_MATRIX_COLUMNS + NEO_MATRIX_ZIGZAG);
+		ledmatrix = new FastLED_NeoMatrix(leds, 32, 8, NEO_MATRIX_TOP + NEO_MATRIX_LEFT + NEO_MATRIX_COLUMNS + NEO_MATRIX_ZIGZAG);
 		break;
 	}
 
-	switch (matrixTempCorrection)
-	{
-	case 0:
-		FastLED.addLeds<NEOPIXEL, D2>(leds, 256).setCorrection(TypicalLEDStrip);
-		break;
-	case 1:
-		FastLED.addLeds<NEOPIXEL, D2>(leds, 256).setTemperature(Candle);
-		break;
-	case 2:
-		FastLED.addLeds<NEOPIXEL, D2>(leds, 256).setTemperature(Tungsten40W);
-		break;
-	case 3:
-		FastLED.addLeds<NEOPIXEL, D2>(leds, 256).setTemperature(Tungsten100W);
-		break;
-	case 4:
-		FastLED.addLeds<NEOPIXEL, D2>(leds, 256).setTemperature(Halogen);
-		break;
-	case 5:
-		FastLED.addLeds<NEOPIXEL, D2>(leds, 256).setTemperature(CarbonArc);
-		break;
-	case 6:
-		FastLED.addLeds<NEOPIXEL, D2>(leds, 256).setTemperature(HighNoonSun);
-		break;
-	case 7:
-		FastLED.addLeds<NEOPIXEL, D2>(leds, 256).setTemperature(DirectSunlight);
-		break;
-	case 8:
-		FastLED.addLeds<NEOPIXEL, D2>(leds, 256).setTemperature(OvercastSky);
-		break;
-	case 9:
-		FastLED.addLeds<NEOPIXEL, D2>(leds, 256).setTemperature(ClearBlueSky);
-		break;
-	case 10:
-		FastLED.addLeds<NEOPIXEL, D2>(leds, 256).setTemperature(WarmFluorescent);
-		break;
-	case 11:
-		FastLED.addLeds<NEOPIXEL, D2>(leds, 256).setTemperature(StandardFluorescent);
-		break;
-	case 12:
-		FastLED.addLeds<NEOPIXEL, D2>(leds, 256).setTemperature(CoolWhiteFluorescent);
-		break;
-	case 13:
-		FastLED.addLeds<NEOPIXEL, D2>(leds, 256).setTemperature(FullSpectrumFluorescent);
-		break;
-	case 14:
-		FastLED.addLeds<NEOPIXEL, D2>(leds, 256).setTemperature(GrowLightFluorescent);
-		break;
-	case 15:
-		FastLED.addLeds<NEOPIXEL, D2>(leds, 256).setTemperature(BlackLightFluorescent);
-		break;
-	case 16:
-		FastLED.addLeds<NEOPIXEL, D2>(leds, 256).setTemperature(MercuryVapor);
-		break;
-	case 17:
-		FastLED.addLeds<NEOPIXEL, D2>(leds, 256).setTemperature(SodiumVapor);
-		break;
-	case 18:
-		FastLED.addLeds<NEOPIXEL, D2>(leds, 256).setTemperature(MetalHalide);
-		break;
-	case 19:
-		FastLED.addLeds<NEOPIXEL, D2>(leds, 256).setTemperature(HighPressureSodium);
-		break;
-	case 20:
-		FastLED.addLeds<NEOPIXEL, D2>(leds, 256).setTemperature(UncorrectedTemperature);
-		break;
-	default:
-		FastLED.addLeds<NEOPIXEL, D2>(leds, 256).setCorrection(TypicalLEDStrip);
-		break;
-	}
+	  FastLED.addLeds<WS2812, D2,RGB>(leds, 256);
 
-	matrix->begin();
-	matrix->setTextWrap(false);
-	matrix->setBrightness(30);
-	matrix->setFont(&TomThumb);
+	ledmatrix->begin();
+	ledmatrix->setTextWrap(false);
+	ledmatrix->setBrightness(30);
+	ledmatrix->setFont(&TomThumb);
 	//Reset with Tasters...
 	int zeit = millis();
 	int zahl = 5;
 	int zahlAlt = 6;
-	matrix->clear();
-	matrix->setTextColor(matrix->Color(255, 0, 255));
-	matrix->setCursor(9, 6);
-	matrix->print("BOOT");
-	matrix->show();
+	ledmatrix->clear();
+	ledmatrix->setTextColor(ledmatrix->Color(255, 0, 255));
+	ledmatrix->setCursor(9, 6);
+	ledmatrix->print("BOOT");
+	ledmatrix->show();
 	delay(2000);
 	while (!digitalRead(D4))
 	{
 		if (zahl != zahlAlt)
 		{
-			matrix->clear();
-			matrix->setTextColor(matrix->Color(255, 0, 0));
-			matrix->setCursor(6, 6);
-			matrix->print("RESET ");
-			matrix->print(zahl);
-			matrix->show();
+			ledmatrix->clear();
+			ledmatrix->setTextColor(ledmatrix->Color(255, 0, 0));
+			ledmatrix->setCursor(6, 6);
+			ledmatrix->print("RESET ");
+			ledmatrix->print(zahl);
+			ledmatrix->show();
 			zahlAlt = zahl;
 		}
 		zahl = 5 - ((millis() - zeit) / 1000);
 		if (zahl == 0)
 		{
-			matrix->clear();
-			matrix->setTextColor(matrix->Color(255, 0, 0));
-			matrix->setCursor(6, 6);
-			matrix->print("RESET!");
-			matrix->show();
+			ledmatrix->clear();
+			ledmatrix->setTextColor(ledmatrix->Color(255, 0, 0));
+			ledmatrix->setCursor(6, 6);
+			ledmatrix->print("RESET!");
+			ledmatrix->show();
 			delay(1000);
 			if (LittleFS.begin())
 			{
@@ -1419,11 +1354,11 @@ void setup()
 		if (drd.detect())
 		{
 			//Serial.println("** Double reset boot **");
-			matrix->clear();
-			matrix->setTextColor(matrix->Color(255, 0, 0));
-			matrix->setCursor(6, 6);
-			matrix->print("RESET!");
-			matrix->show();
+			ledmatrix->clear();
+			ledmatrix->setTextColor(ledmatrix->Color(255, 0, 0));
+			ledmatrix->setCursor(6, 6);
+			ledmatrix->print("RESET!");
+			ledmatrix->show();
 			delay(1000);
 			if (LittleFS.begin())
 			{
@@ -1509,7 +1444,7 @@ void setup()
 			}
 			else if (upload.status == UPLOAD_FILE_WRITE)
 			{
-				matrix->clear();
+				ledmatrix->clear();
 				flashProgress((int)upload.currentSize, (int)upload.buf);
 				if (Update.write(upload.buf, upload.currentSize) != upload.currentSize)
 				{
@@ -1588,7 +1523,7 @@ void setup()
 	ArduinoOTA.onStart([&]()
 					   {
 						   updating = true;
-						   matrix->clear();
+						   ledmatrix->clear();
 					   });
 
 	ArduinoOTA.onProgress([](unsigned int progress, unsigned int total)
@@ -1596,8 +1531,8 @@ void setup()
 
 	ArduinoOTA.begin();
 
-	matrix->clear();
-	matrix->setCursor(7, 6);
+	ledmatrix->clear();
+	ledmatrix->setCursor(7, 6);
 
 	bufferpointer = 0;
 
@@ -1609,15 +1544,18 @@ void setup()
 
 	for (int x = 32; x >= -90; x--)
 	{
-		matrix->clear();
-		matrix->setCursor(x, 6);
-		matrix->print("Host-IP: " + String(awtrix_server) + ":" + String(Port));
-		matrix->setTextColor(matrix->Color(0, 255, 50));
-		matrix->show();
+		ledmatrix->clear();
+		ledmatrix->setCursor(x, 6);
+		ledmatrix->print("Host-IP: " + String(awtrix_server) + ":" + String(Port));
+		ledmatrix->setTextColor(ledmatrix->Color(0, 255, 50));
+		ledmatrix->show();
 		delay(20);
 	}
 
-	client.setServer(awtrix_server, atoi(Port));
+	client.setServer(awtrix_server, 7001);
+
+
+
 	client.setCallback(callback);
 
 	ignoreServer = false;
@@ -1628,22 +1566,9 @@ void setup()
 void loop()
 {
 	server.handleClient();
-	ArduinoOTA.handle();
-
+	//ArduinoOTA.handle();
 	//is needed for the server search animation
-	if (firstStart && !ignoreServer)
-	{
-		if (millis() - myTime > 500)
-		{
-			serverSearch(myCounter, 0, 28, 0);
-			myCounter++;
-			if (myCounter == 4)
-			{
-				myCounter = 0;
-			}
-			myTime = millis();
-		}
-	}
+
 
 	//not during the falsh process
 	if (!updating)
@@ -1754,11 +1679,11 @@ void loop()
 	{
 		if (pressedTaster > 0)
 		{
-			matrix->clear();
-			matrix->setCursor(0, 6);
-			matrix->setTextColor(matrix->Color(0, 255, 50));
-			//matrix->print(myMenue.getMenueString(&menuePointer, &pressedTaster, &minBrightness, &maxBrightness));
-			matrix->show();
+			ledmatrix->clear();
+			ledmatrix->setCursor(0, 6);
+			ledmatrix->setTextColor(ledmatrix->Color(0, 255, 50));
+			//ledmatrix->print(myMenue.getMenueString(&menuePointer, &pressedTaster, &minBrightness, &maxBrightness));
+			ledmatrix->show();
 		}
 
 		//get data and ignore
