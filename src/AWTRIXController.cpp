@@ -60,8 +60,8 @@ bool notify = false;
 int connectionTimout;
 int matrixTempCorrection = 0;
 
-String version = "0.46";
-char awtrix_server[16] = "0.0.0.0";
+String version = "0.47";
+char awtrix_server[32] = "0.0.0.0";
 char Port[6] = "7001"; // AWTRIX Host Port, default = 7001
 int matrixType = 0;
 
@@ -1439,7 +1439,7 @@ void setup()
 		*/
 
 	wifiManager.setAPStaticIPConfig(IPAddress(172, 217, 28, 1), IPAddress(172, 217, 28, 1), IPAddress(255, 255, 255, 0));
-	WiFiManagerParameter custom_awtrix_server("server", "AWTRIX Host", awtrix_server, 16);
+	WiFiManagerParameter custom_awtrix_server("server", "AWTRIX Host", awtrix_server, 32);
 	WiFiManagerParameter custom_port("Port", "Matrix Port", Port, 6);
 	WiFiManagerParameter custom_matrix_type("matrixType", "MatrixType", "0", 1);
 	// Just a quick hint
