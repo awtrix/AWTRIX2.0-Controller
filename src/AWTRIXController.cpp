@@ -18,6 +18,7 @@
 #include <Wire.h>
 #include <SparkFun_APDS9960.h>
 #include "SoftwareSerial.h"
+#include "DHT.h"
 
 #include <WiFiManager.h>
 #include <DoubleResetDetect.h>
@@ -34,6 +35,7 @@
 BME280<> BMESensor;
 Adafruit_BMP280 BMPSensor; // use I2C interface
 Adafruit_HTU21DF htu = Adafruit_HTU21DF();
+DHT dht(10, DHT11);
 
 enum MsgType
 {
@@ -50,7 +52,8 @@ enum TempSensor
 	TempSensor_None,
 	TempSensor_BME280,
 	TempSensor_HTU21D,
-	TempSensor_BMP280
+	TempSensor_BMP280,
+	TempSensor_DHT11
 }; // None = 0
 
 TempSensor tempState = TempSensor_None;
@@ -913,6 +916,11 @@ void updateMatrix(byte payload[], int length)
 				root["Hum"] = 0;
 				root["hPa"] = pressure_event.pressure;
 				break;
+			case TempSensor_DHT11:
+				root["Temp"] = dht.readTemperature();
+				root["Hum"] = dht.readHumidity();
+				root["hPa"] = 0;
+				break;			
 			default:
 				root["Temp"] = 0;
 				root["Hum"] = 0;
@@ -977,7 +985,7 @@ void updateMatrix(byte payload[], int length)
 		}
 		case 17:
 		{
-			
+
 			//Command 17: Volume
 			dfmp3.setVolume(payload[1]);
 			break;
